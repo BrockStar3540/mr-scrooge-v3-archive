@@ -82,6 +82,12 @@ class DirectEntryStrategy:
             sl = pdh + pip * 3
             tp = pdl
 
+        # Validate SL is on correct side of price
+        if direction == TradeDirection.LONG and sl >= price:
+            return None  # SL above entry for long = invalid
+        if direction == TradeDirection.SHORT and sl <= price:
+            return None  # SL below entry for short = invalid
+
         risk = abs(price - sl)
         reward = abs(tp - price)
         if risk <= 0:
