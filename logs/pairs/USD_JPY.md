@@ -22,3 +22,8 @@
 **Source:** SCROOGE.md
 **Type:** rule
 **Detail:** OANDA margin rate for JPY pairs is 5% (20:1). Higher than EUR/GBP (2%, 50:1). Sizing calculator must use per-instrument margin rate from broker, not fixed assumption.
+
+### [2026-03-02] [V1] — CRITICAL: Runaway re-entry bug — 20 identical losses in 3 hours
+**Source:** Dropbox: "2026-03-02_Scrooge bot USDJPY runaway re-entry bug.md"
+**Type:** bug
+**Detail:** Bot entered 20 consecutive identical SELL trades at 110.51, each stopped at 111.49 (98 pips loss), every 10 minutes for 3 hours. Zero trade outcome awareness — no loss memory, no daily loss limit, no cooldown after stop, no signal invalidation. Price was already above the stop at entry time (1-second fills = instant stop). This incident was the foundational reason for ALL circuit breakers: zone entry cap (3/day), cooldown after stop (60 min), daily loss limit (3%), consecutive loss halt, and pre-entry price validation. V3 MUST have all of these from day one.
