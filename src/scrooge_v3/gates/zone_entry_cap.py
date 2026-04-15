@@ -31,7 +31,7 @@ class ZoneEntryCapGate(BaseGate):
     def evaluate(
         self, candidate: TradeCandidate, ctx: SymbolContext
     ) -> GateResult:
-        zone_price = ctx.metadata.get("zone_price")
+        zone_price = candidate.stop_price  # Zone boundary this trade targets
         direction = candidate.direction.value
         symbol = candidate.symbol
 

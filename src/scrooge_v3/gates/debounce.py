@@ -1,4 +1,8 @@
-"""Debounce gate -- time-based debounce between entries at same zone."""
+"""Debounce gate — prevents re-entry at the same zone within cooldown.
+
+Reads zone price from candidate.stop_price (zone boundary).
+V3 pattern: reads from ctx.state, not ctx.metadata.
+"""
 
 from __future__ import annotations
 
@@ -32,7 +36,8 @@ class DebounceGate(BaseGate):
     def evaluate(
         self, candidate: TradeCandidate, ctx: SymbolContext
     ) -> GateResult:
-        zone_price = ctx.metadata.get("zone_price")
+        # Zone identified by stop price (the zone boundary this trade targets)
+        zone_price = candidate.stop_price
         direction = candidate.direction.value
         symbol = candidate.symbol
 
