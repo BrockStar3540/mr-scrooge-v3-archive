@@ -31,26 +31,36 @@ log = logging.getLogger("scrooge_v3.strategies.v3_scorer")
 @dataclass
 class ScorerResult:
     score: int = 0
+    base_score: int = 0
     blocks: list[str] = field(default_factory=list)
     breakdown: dict[str, int] = field(default_factory=dict)
     tier: str = "REJECT"  # "A", "B", "REJECT", "BLOCKED"
     pairs_total: int = 0
 
 
+# Session-aware thresholds — pair bonuses must not compensate for bad hours
+_SESSION_RULES = {
+    # hour_range: (base_min, final_min, pair_cap)
+    "late":    (50, 75, 8),   # 20-23 UTC: require strong base, cap pairs
+    "afternoon": (45, 65, 12),  # 12-19 UTC: moderate requirements
+    "prime":   (40, 60, 999),  # 0-11 UTC: normal scoring, no pair cap
+}
+
+
 class V3HybridScorer:
     """Scores trade candidates using the V3 WR-Lift Hybrid formula with Pair Layer.
 
-    Usage:
-        scorer = V3HybridScorer()
-        result = scorer.score(ctx, candidate)
-        if result.tier in ("A", "B"):
-            # take trade
+    Session-aware decision rule (from 2026-04-15 live data analysis):
+      - Pair bonuses are CONFIRMATION, not RESCUE
+      - Base score must clear a floor before pairs can push it over threshold
+      - Late sessions require higher thresholds because 20-23 UTC = 38% WR
     """
 
     name = "v3_scorer"
 
     def __init__(self, config: dict | None = None):
         config = config or {}
+        # These are now session-dependent, kept for backward compat
         self.threshold_a = config.get("threshold_a", 65)
         self.threshold_b = config.get("threshold_b", 50)
 
@@ -388,21 +398,45 @@ class V3HybridScorer:
         if az < 0.5 and bbs == "NORM":
             pairs -= 9; bd["n_z_norm"] = -9
 
-        s += pairs
-        bd["pairs_total"] = pairs
+        # === SESSION-AWARE PAIR CAPPING ===
+        h = r["hour"]
+        if h >= 20 or h < 0:
+            session = "late"
+        elif h >= 12:
+            session = "afternoon"
+        else:
+            session = "prime"
 
-        # === DECISION ===
-        if s >= self.threshold_a:
-            tier = "A"
-        elif s >= self.threshold_b:
-            tier = "B"
+        base_min, final_min, pair_cap = _SESSION_RULES[session]
+
+        # Cap positive pair bonuses (negative pairs always apply in full)
+        positive_pairs = max(0, pairs)
+        negative_pairs = min(0, pairs)
+        if positive_pairs > pair_cap:
+            bd["pair_cap_applied"] = pair_cap - positive_pairs
+            positive_pairs = pair_cap
+        capped_pairs = positive_pairs + negative_pairs
+
+        base_score = s  # Layer 1 only
+        final_score = s + capped_pairs
+        bd["pairs_total"] = capped_pairs
+        bd["base_score"] = base_score
+
+        # === SESSION-AWARE DECISION ===
+        # Pair bonuses are CONFIRMATION, not RESCUE.
+        # Base score must clear a floor before pairs can push over threshold.
+        if base_score < base_min:
+            tier = "REJECT"
+        elif final_score >= final_min:
+            tier = "A" if final_score >= 75 else "B"
         else:
             tier = "REJECT"
 
         log.info(
-            "[V3_SCORER] score=%d tier=%s pairs=%+d | %s",
-            s, tier, pairs,
-            " ".join(f"{k}={v:+d}" for k, v in bd.items() if k != "pairs_total"),
+            "[V3_SCORER] base=%d final=%d tier=%s session=%s (base_min=%d final_min=%d pair_cap=%d) pairs_raw=%+d capped=%+d | %s",
+            base_score, final_score, tier, session, base_min, final_min, pair_cap,
+            pairs, capped_pairs,
+            " ".join(f"{k}={v:+d}" for k, v in bd.items() if k not in ("pairs_total", "base_score", "pair_cap_applied")),
         )
 
-        return ScorerResult(score=s, blocks=[], breakdown=bd, tier=tier, pairs_total=pairs)
+        return ScorerResult(score=final_score, base_score=base_score, blocks=[], breakdown=bd, tier=tier, pairs_total=capped_pairs)
