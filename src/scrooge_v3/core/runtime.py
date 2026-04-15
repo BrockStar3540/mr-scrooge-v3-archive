@@ -173,9 +173,10 @@ class Runtime:
         log.info("[RUNTIME] Position pipeline initialized (trail, ratchet, BE, harvest, emergency)")
 
         # --- Position tracker (per-trade state across cycles) ---
+        from pathlib import Path as _Path
         from scrooge_v3.execution.position_tracker import PositionTracker
         self.tracker = PositionTracker(
-            persist_path=Path("data/positions.json"),
+            persist_path=_Path("data/positions.json"),
         )
         self.tracker.restore()
 
