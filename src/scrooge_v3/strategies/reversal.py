@@ -51,7 +51,8 @@ class ReversalStrategy:
     def __init__(self, config: dict | None = None):
         config = config or {}
         self.zone_proximity_pct = config.get("zone_proximity_pct", 0.0025)
-        self.min_risk_reward = config.get("min_risk_reward", 1.60)
+        # Lowered from 1.60 -- R:R doesn't differentiate winners from losers (raw data 2026-04-15)
+        self.min_risk_reward = config.get("min_risk_reward", 1.0)
 
     def eligible(self, ctx: SymbolContext) -> bool:
         """Reversal is eligible when BB state indicates exhaustion or rejection."""

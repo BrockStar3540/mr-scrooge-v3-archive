@@ -1,5 +1,9 @@
 # Scoring System Review — Recipe vs Current Points
 
+> **SUPERSEDED** by `docs/SCORING_V3_LIVE.md` and `docs/MASTER_FINDINGS.md`.
+> This was an intermediate analysis step. The final formula uses WR-Lift Hybrid
+> with Pair Layer. See SCORING_V3_LIVE.md for the deployed formula.
+
 > Current scoring analyzed against 50-trade raw OANDA recipe data.
 > Each component rated: KEEP, ADJUST, REMOVE, or NEW based on evidence.
 

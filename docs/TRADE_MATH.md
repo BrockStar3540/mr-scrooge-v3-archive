@@ -1,5 +1,11 @@
 # Trade Math — First Principles Parameter Analysis
 
+> **NOTE:** This is the first-principles analysis that identified the coupling
+> problems. Specific thresholds proposed here were refined by the Factor Bible
+> analysis and the proportional gap analysis. The deployed formula is in
+> `SCORING_V3_LIVE.md`. The unified viability check proposed here was replaced
+> by the V3 Hybrid Scorer with its pair layer.
+
 > "If changing one parameter breaks another, they're coupled wrong."
 
 ---

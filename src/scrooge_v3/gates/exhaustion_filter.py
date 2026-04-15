@@ -10,8 +10,9 @@ from .base import BaseGate
 
 
 class ExhaustionFilterGate(BaseGate):
+    # BB STRETCH states = 0% WR on V1 live data. Hard block.
     """For reversal strategies: requires Bollinger Band state to indicate
-    exhaustion (EXTREME or REJECTION).
+    exhaustion (EXTREME or REJECTION). STRETCH states are explicitly blocked.
 
     Trend strategies bypass this gate automatically.
     """
@@ -55,6 +56,25 @@ class ExhaustionFilterGate(BaseGate):
         # Get BB classification
         bb_cls = ctx.classifications.get("bollinger_band")
         bb_state = bb_cls.label if bb_cls else "UNKNOWN"
+
+        # Hard block STRETCH states -- 0% WR on V1 live data
+        if bb_state.upper() in ("STRETCH_UP", "STRETCH_DOWN"):
+            reason = (
+                f"BB state {bb_state} is STRETCH -- hard block (0% WR)"
+            )
+            self._log.debug(
+                "[GATE:%s] FAILED symbol=%s reason=%s",
+                self.name, candidate.symbol, reason,
+            )
+            return GateResult(
+                gate_name=self.name,
+                passed=False,
+                reason=reason,
+                metrics={
+                    "bb_state": bb_state,
+                    "required_states": self.required_bb_states,
+                },
+            )
 
         if bb_state.upper() in [s.upper() for s in self.required_bb_states]:
             self._log.debug(

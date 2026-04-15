@@ -65,3 +65,8 @@
 **Source:** Dropbox: 2026-04-13_31367b51.md
 **Type:** bug
 **Detail:** When using_alternative=True, regime still evaluates against original box's PDH/PDL instead of alternative walls. Example: USD/JPY at 159.7, original PDH 159.275 (43p above), alt PDH 159.858 (16p above). Regime says "broke above PDH" (true for original, false for alternative). V3 fix: when alternative range active, regime must assess against alternative geometry.
+
+### [2026-04-15] [V1+V2 LIVE] — Regime floor REMOVED, V3 scorer handles quality
+**Source:** V1/V2 live deployment, docs/SCORING_V3_LIVE.md
+**Type:** correction
+**Detail:** Regime floor (score >= -1) was blocking winners in CAUTION/RESTRICTED states. Removed from both V1 and V2. Regime now only blocks on BLOCKED state (score < -4). CAUTION and RESTRICTED pass through to V3 Hybrid Scorer which evaluates each trade on 43 factors + pair layer. Regime is the BROAD filter (macro meltdowns). V3 points are the PRECISION filter (individual trade quality).

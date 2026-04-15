@@ -10,11 +10,11 @@ from .base import BaseGate
 
 
 class RiskRewardGate(BaseGate):
+    # R:R doesn't separate W from L (same ratio for both). Threshold 1.0 = reward must exceed risk.
     """Checks that the candidate meets minimum risk-reward ratio.
 
-    Reversal strategies require higher RR (1.35 default) than trend
-    strategies (1.10 default) because reversals have lower base-rate
-    win probability.
+    Both reversal and trend strategies use 1.0 minimum -- raw data shows
+    R:R does not differentiate winners from losers.
     """
 
     name = "risk_reward"
@@ -29,9 +29,9 @@ class RiskRewardGate(BaseGate):
     ) -> None:
         super().__init__(config, mode)
         self.reversal_min_rr: float = self.config.get(
-            "reversal_min_rr", 1.35
+            "reversal_min_rr", 1.0
         )
-        self.trend_min_rr: float = self.config.get("trend_min_rr", 1.10)
+        self.trend_min_rr: float = self.config.get("trend_min_rr", 1.0)
 
     def evaluate(
         self, candidate: TradeCandidate, ctx: SymbolContext

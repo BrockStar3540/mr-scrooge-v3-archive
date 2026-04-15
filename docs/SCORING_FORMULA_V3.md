@@ -1,5 +1,11 @@
 # Scoring Formula V3 — Complete Specification
 
+> **SUPERSEDED** by `docs/SCORING_V3_LIVE.md` which contains the WR-Lift Hybrid
+> formula with Pair Layer — the formula actually deployed on V1 and V2.
+> This document was an intermediate step. Weights below are from the
+> proportional gap analysis. The final formula uses WR-lift + paired aspects.
+> See SCORING_V3_LIVE.md for the live formula.
+
 > Built from Factor Bible analysis of 99 raw OANDA trades (50 V1 live + 49 V2 practice).
 > Every weight derived from data. No theory-only weights.
 

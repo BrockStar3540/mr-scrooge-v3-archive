@@ -70,3 +70,8 @@
 **Source:** scoring-validation-plan.md
 **Type:** rule
 **Detail:** Layer 4 weights (-20 ranging, -15 CT+PoT, etc.) calibrated from Feb-Apr 2026. Market conditions change. Re-audit quarterly against fresh broker trade data. The -10 CAUTION penalty may double-count. Check after 50-100 trades.
+
+### [2026-04-15] [V1+V2] — V3 Hybrid Scorer replaces old 3-layer scoring system
+**Source:** Raw OANDA candle analysis, docs/SCORING_V3_LIVE.md
+**Type:** correction
+**Detail:** Old scoring had +0.5 pt separation between W and L (useless). V3 Hybrid Scorer achieves +80.3 pt separation. Out-of-sample validated at 100% WR on 20-trade test set. Key changes: OTR scoring REMOVED (17% WR at low OTR), RR reduced from 0-15 to 0-3 pts, ATR consumed reduced from 0-20 to 0-4 pts. New factors added: box age (±13), entry hour (±13), volume ratio (±9), SMA20 distance (±8), EMA50 proximity (-10), EMA20 proximity (-7). Pair layer adds ±9 to ±14 for combined factor clusters.

@@ -23,6 +23,10 @@ class StateController:
     """Centralized runtime state for the trading system.
 
     Replaces the ~35 scattered attributes on V2's coordinator.
+
+    NOTE: No regime floor logic (score >= -1 check) here. Regime floor
+    is handled by the gate pipeline (gates.regime_floor in config).
+    V3 scorer supersedes any inline regime floor checks.
     """
 
     def __init__(self, config: dict | None = None, persist_path: Path | None = None):

@@ -35,3 +35,8 @@
 **Source:** AUDIT_FINDINGS_20260409.md
 **Type:** bug
 **Detail:** When range boundaries hadn't been refreshed, TP2 calculations produced unreachable targets (300+ pips on 10-pip SL). Fixed by validating TP2 distance against ATR and capping at configurable multiple.
+
+### [2026-04-15] [V1 LIVE] — Box age is the strongest new factor (83% WR at <12h)
+**Source:** Raw OANDA candle analysis, docs/FACTOR_BIBLE.md
+**Type:** discovery
+**Detail:** Box age <12h = 83% WR (+$159 net). 52% of all winners enter on fresh boxes. Box age 12-24h = 41% WR (-$388 net). 76% of all losers enter on stale boxes. The proportional gap is +37%/-38% — the strongest separation of any factor. Fresh boxes have structure that hasn't been tested and consumed. Stale boxes have levels that are weakening. V3 scoring: <8h = +13 pts, 12-24h = -12 pts.

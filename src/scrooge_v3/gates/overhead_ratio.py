@@ -10,6 +10,7 @@ from .base import BaseGate
 
 
 class OverheadRatioGate(BaseGate):
+    # WARNING: OTR <8% = 17% WR (worst bracket). Low OTR = wide unfocused box = DANGER.
     """Gate 6 -- Overhead-to-range ratio (OTR).
 
     Blocks trades where spread costs consume too much of the potential profit.
@@ -49,13 +50,15 @@ class OverheadRatioGate(BaseGate):
 
         otr = total_overhead / range_half
 
-        if otr < self.otr_excellent:
-            category = "excellent"
+        if otr < 0.08:
+            # OTR <8% = wide unfocused box, 17% WR in V1 live data
+            category = "too_low"
+            score = 0.0
+            passed = False
+        elif otr <= 0.18:
+            # Sweet spot: 63-68% WR in V1 live data
+            category = "sweet_spot"
             score = 1.0
-            passed = True
-        elif otr < self.otr_acceptable:
-            category = "acceptable"
-            score = 0.7
             passed = True
         elif otr < self.otr_marginal:
             category = "marginal"
@@ -73,7 +76,9 @@ class OverheadRatioGate(BaseGate):
             passed = False
 
         reason = f"OTR {otr:.1%} ({category})"
-        if not passed and category == "marginal":
+        if not passed and category == "too_low":
+            reason = f"OTR {otr:.1%} -- OTR too low -- wide box trap (17% WR)"
+        elif not passed and category == "marginal":
             reason += (
                 f" -- marginal requires Tier<=2 + strong signal"
                 f" (tier={zone_tier}"

@@ -1,5 +1,11 @@
 # Trade Recipe — What Makes a Good Trade
 
+> **NOTE:** This analysis used V2 PRACTICE data only (49 trades). A subsequent
+> analysis of 50 V1 LIVE trades (see `MASTER_FINDINGS.md` and `FACTOR_BIBLE.md`)
+> confirmed some findings, overturned others, and added new discoveries.
+> When V2 and V1 findings conflict, V1 LIVE data takes precedence.
+> The deployed formula is in `SCORING_V3_LIVE.md`.
+
 > Reverse-engineered from 50 raw OANDA trades (V2 practice, Mar 24 - Apr 14 2026).
 > All data pulled from OANDA candle API at entry time — NO bot logs used.
 > 26 winners ($+18,310) vs 24 losers ($-23,852) = net -$5,543.

@@ -30,3 +30,13 @@
 **Source:** AUDIT_FINDINGS_20260409.md
 **Type:** discovery
 **Detail:** wick_rejection (john_wick): +$1,267 V2, near breakeven V1. engulfing_reversal (power_of_towers): -$4,086 V2, -$288 V1. Score wick_rejection +15 pts, engulfing_reversal +5 pts. CT + engulfing_reversal = -15 pts penalty.
+
+### [2026-04-15] [BOTH] — Wick ratio INCONSISTENT between V1 and V2
+**Source:** Raw OANDA candle analysis, docs/MASTER_FINDINGS.md
+**Type:** warning
+**Detail:** V2 practice: wick ratio W=2.19, L=2.16 (0% delta, no signal). V1 live: W=1.07, L=0.55 (+94% delta, strong signal). The finding FLIPS between datasets. Cannot rely on wick ratio as a scoring factor. Keep existing detection logic for pattern classification but DO NOT weight wick_ratio in scoring.
+
+### [2026-04-15] [BOTH] — Signal type (JW vs PoT) REVERSES between V1 and V2
+**Source:** Raw OANDA candle analysis, docs/MASTER_FINDINGS.md
+**Type:** warning
+**Detail:** V2: wick_rejection profitable (+$1,267), engulfing bleeds (-$4,086). V1 live: wick_rejection = 44% WR (bad), engulfing = 75% WR (good). Completely reversed. Use April 9 audit weights (511 V1 + 58 V2 trades) as the larger sample, not either 50-trade sample alone.

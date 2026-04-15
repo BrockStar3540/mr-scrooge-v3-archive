@@ -35,7 +35,19 @@ class GatePipeline:
     # -- Registration -------------------------------------------------------
 
     def register(self, gate: BaseGate) -> None:
-        """Append a gate to the pipeline."""
+        """Append a gate to the pipeline.
+
+        Recommended gate order:
+          1. spread
+          2. otr (overhead_ratio)
+          3. rr (risk_reward)
+          4. nat_stop_validity  -- TODO: add gate (blocks if natural stop is invalid/missing)
+          5. spread_vs_stop     -- TODO: add gate (blocks if spread >= natural stop distance)
+          6. exhaustion_filter
+          7. debounce
+          8. cap
+          9. regime_floor
+        """
         self._gates.append(gate)
 
     def register_many(self, gates: list[BaseGate]) -> None:
