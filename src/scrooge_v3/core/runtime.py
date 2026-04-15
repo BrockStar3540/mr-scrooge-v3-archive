@@ -122,22 +122,20 @@ class Runtime:
         self.registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
 
         # --- Register gates ---
-        from scrooge_v3.gates import SpreadGate, RiskRewardGate, DebounceGate, ZoneEntryCapGate, RegimeFloorGate
+        from scrooge_v3.gates import DebounceGate, ZoneEntryCapGate
         from scrooge_v3.gates.pipeline import GatePipeline
 
         gate_cfg = self.config.section("gates")
         gate_pipeline = GatePipeline()
-        # V3 pipeline: 5 mechanical gates only.
-        # Quality assessment handled entirely by V3 43-factor scorer.
-        # V2 gates (OTR, directional_pressure, entry_confirmation, exhaustion,
-        # zone_proximity, atr_budget, trend_filter) are REMOVED — their logic
-        # is covered by scorer Layer 0 hard blocks and Layer 1 factor points.
+        # V3 pipeline: the scorer IS the filter (43 factors + pair layer).
+        # Only 2 mechanical gates remain — these prevent re-entry problems
+        # that the scorer has no visibility into (it scores each trade
+        # independently without knowing what happened 20 minutes ago).
+        # Everything else (spread, OTR, RR, regime, BB state, directional
+        # pressure, etc.) is scored by the V3 Hybrid Scorer.
         gate_pipeline.register_many([
-            SpreadGate(gate_cfg.get("spread", {})),
             DebounceGate(gate_cfg.get("debounce", {})),
             ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
-            RegimeFloorGate({"min_score": -4}),  # Only BLOCKED state suppresses
-            RiskRewardGate(gate_cfg.get("rr", {})),
         ])
 
         # --- Wire scorer and gate pipeline into scan pipeline ---
