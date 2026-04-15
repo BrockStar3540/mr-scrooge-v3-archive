@@ -129,22 +129,14 @@ def main() -> None:
         log.info("Dry-run mode — no real orders")
 
     # Start dashboard in background thread
+    from scrooge_v3.dashboard import LiveState, run_dashboard
+    live_state = LiveState(dry_run=not args.live)
+
     if not args.no_dashboard and config.get("dashboard.enabled", True):
         import threading
-        from scrooge_v3.dashboard import WidgetRegistry, run_dashboard
-        from scrooge_v3.dashboard.widgets import (
-            HealthWidget, SystemWidget, ScoringWidget, GateWidget, ExecutionWidget,
-        )
-        widget_reg = WidgetRegistry()
-        widget_reg.register(HealthWidget())
-        widget_reg.register(SystemWidget())
-        widget_reg.register(ScoringWidget())
-        widget_reg.register(GateWidget())
-        widget_reg.register(ExecutionWidget())
-
         dash_thread = threading.Thread(
             target=run_dashboard,
-            args=(widget_reg,),
+            args=(live_state,),
             kwargs={"config": config.section("dashboard")},
             daemon=True,
             name="dashboard",
@@ -159,7 +151,7 @@ def main() -> None:
     # Boot and run
     from scrooge_v3.core.runtime import Runtime
 
-    runtime = Runtime(config)
+    runtime = Runtime(config, live_state=live_state)
 
     # Wire replay recorder to event bus
     if config.get("telemetry.replay_logs", True):

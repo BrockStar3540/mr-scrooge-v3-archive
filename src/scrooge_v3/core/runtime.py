@@ -36,7 +36,7 @@ class Runtime:
       - Handle shutdown gracefully
     """
 
-    def __init__(self, config: ConfigStore):
+    def __init__(self, config: ConfigStore, live_state: Any = None):
         self.config = config
         self.event_bus = EventBus()
         self.registry = ModuleRegistry()
@@ -46,6 +46,7 @@ class Runtime:
         self.router = StrategyRouter()
         self.broker: Any = None
         self.screener: Any = None
+        self.live_state = live_state  # Dashboard LiveState (thread-safe)
         self.scan_pipeline = ScanPipeline(
             registry=self.registry,
             router=self.router,
@@ -281,6 +282,43 @@ class Runtime:
                         self.state.position_count += 1
                         log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
                                  result.trade_id, best.symbol, units, result.fill_price)
+
+        # Update dashboard live state
+        if self.live_state:
+            from scrooge_v3.dashboard.live_state import PairSignal
+            from scrooge_v3.market.screener import get_active_sessions
+
+            acct = self.broker.get_account()
+            sessions = get_active_sessions(now.hour)
+            session_names = [s["name"] for s in sessions]
+
+            # Build per-pair signals from scan context
+            pair_signals = []
+            for symbol in pairs:
+                snap = snapshots.get(symbol)
+                if not snap:
+                    continue
+                sig = PairSignal(symbol=symbol, spread=snap.spread)
+                # Try to pull feature data from the scan
+                # (features are computed inside scan_pipeline, not directly accessible here)
+                pair_signals.append(sig)
+
+            self.live_state.update(
+                cycle_count=self.state.cycle_count,
+                equity=acct.equity if acct else 0,
+                balance=acct.balance if acct else 0,
+                realized_pl=acct.unrealized_pl if acct else 0,
+                daily_pnl=self.broker.get_realized_pl_today() if acct else 0,
+                position_count=self.state.position_count,
+                pairs_scanned=len(pairs),
+                pairs_viable=len(candidates),
+                signals_evaluated=len(candidates),
+                active_sessions=session_names,
+                pair_signals=pair_signals,
+                valid_count=len(candidates),
+                rejected_count=len(pairs) - len(candidates),
+                daily_loss_exceeded=self.state.is_daily_loss_exceeded(),
+            )
 
         log.debug("[RUNTIME] Cycle %d complete — positions=%d, candidates=%d",
                   self.state.cycle_count, self.state.position_count, len(candidates))

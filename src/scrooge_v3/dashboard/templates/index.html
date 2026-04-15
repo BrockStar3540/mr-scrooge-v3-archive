@@ -1,108 +1,200 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Mr. Scrooge V3</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mr. Scrooge V3</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <header>
-        <h1>Mr. Scrooge V3</h1>
-        <nav id="tabs">
-            <button class="tab active" data-tab="all">All</button>
-            {% for cat in categories %}
-            <button class="tab" data-tab="{{ cat }}">{{ cat|title }}</button>
-            {% endfor %}
-        </nav>
-        <span id="clock"></span>
-    </header>
+<!-- HEADER -->
+<header>
+  <div class="hdr-left">
+    <h1>SCROOGE V3</h1>
+    <span id="mode-badge" class="badge badge-dry">DRY</span>
+    <span class="refresh-label">4s</span>
+  </div>
+  <div id="sessions" class="hdr-right"></div>
+</header>
 
-    <main id="widget-container">
-        <div class="loading">Loading widgets...</div>
-    </main>
+<!-- METRICS BAR -->
+<section class="metrics-bar" id="metrics-bar"></section>
 
-    <script>
-        const REFRESH_MS = 10000;
+<!-- MARKET / BLOCKERS / REGIME ROW -->
+<section class="info-row" id="info-row"></section>
 
-        // Build clean base URL (strip embedded credentials from origin)
-        const BASE = window.location.protocol + '//' + window.location.host;
+<!-- DECISION SUMMARY -->
+<section class="decision-row" id="decision-row"></section>
 
-        async function fetchWidgets(category) {
-            const path = category === 'all' ? '/api/widgets' : `/api/widgets/${category}`;
-            try {
-                const resp = await fetch(BASE + path);
-                if (!resp.ok) return null;
-                return await resp.json();
-            } catch (e) {
-                console.error('Fetch failed:', e);
-                return null;
-            }
-        }
+<!-- TABS -->
+<nav class="tab-bar">
+  <button class="tab active" data-tab="signals">Signals</button>
+  <button class="tab" data-tab="positions">Positions</button>
+  <button class="tab" data-tab="execution">Execution</button>
+</nav>
 
-        function renderWidgets(data) {
-            const container = document.getElementById('widget-container');
-            if (!data) {
-                container.innerHTML = '<div class="error">Failed to load widgets</div>';
-                return;
-            }
+<!-- SIGNAL CARDS -->
+<section class="signals-grid" id="signals-grid"></section>
 
-            let html = '';
-            if (Array.isArray(data)) {
-                // Single category response
-                for (const widget of data) {
-                    html += renderWidget(widget);
-                }
-            } else {
-                // All categories response
-                for (const [category, widgets] of Object.entries(data)) {
-                    html += `<section class="category"><h2>${category}</h2>`;
-                    for (const widget of widgets) {
-                        html += renderWidget(widget);
-                    }
-                    html += '</section>';
-                }
-            }
-            container.innerHTML = html || '<div class="empty">No widgets registered</div>';
-        }
+<!-- FOOTER -->
+<footer>Mr. Scrooge V3 &mdash; Plug-in Trading Platform</footer>
 
-        function renderWidget(widget) {
-            const data = widget.data;
-            let content = '';
-            if (data.error) {
-                content = `<div class="widget-error">${data.error}</div>`;
-            } else {
-                content = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
-            }
-            return `<div class="widget"><h3>${widget.name}</h3>${content}</div>`;
-        }
+<script>
+const BASE = window.location.protocol + '//' + window.location.host;
+const REFRESH = 4000;
 
-        // Tab switching
-        let activeTab = 'all';
-        document.getElementById('tabs').addEventListener('click', (e) => {
-            if (e.target.classList.contains('tab')) {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                e.target.classList.add('active');
-                activeTab = e.target.dataset.tab;
-                refresh();
-            }
-        });
+async function load() {
+  try {
+    const r = await fetch(BASE + '/api/data');
+    if (!r.ok) return;
+    render(await r.json());
+  } catch(e) { console.error(e); }
+}
 
-        // Clock
-        function updateClock() {
-            document.getElementById('clock').textContent = new Date().toUTCString().slice(17, 25) + ' UTC';
-        }
+function render(d) {
+  renderMode(d.system);
+  renderSessions(d.sessions);
+  renderMetrics(d);
+  renderInfoRow(d);
+  renderDecision(d.decision);
+  renderSignals(d.signals);
+}
 
-        // Auto-refresh
-        async function refresh() {
-            const data = await fetchWidgets(activeTab);
-            renderWidgets(data);
-            updateClock();
-        }
+function renderMode(sys) {
+  const b = document.getElementById('mode-badge');
+  if (sys.dry_run) { b.textContent = 'DRY'; b.className = 'badge badge-dry'; }
+  else { b.textContent = 'LIVE'; b.className = 'badge badge-live'; }
+}
 
-        refresh();
-        setInterval(refresh, REFRESH_MS);
-        setInterval(updateClock, 1000);
-    </script>
+function renderSessions(sessions) {
+  const el = document.getElementById('sessions');
+  const all = ['London','New York','Tokyo','Sydney'];
+  el.innerHTML = all.map(s => {
+    const on = sessions.includes(s);
+    return `<span class="session-dot ${on?'on':'off'}">${s}</span>`;
+  }).join('') + `<span class="clock">${new Date().toUTCString().slice(17,25)} UTC</span>`;
+}
+
+function renderMetrics(d) {
+  const a = d.account, s = d.scan, sys = d.system;
+  const pnlClass = a.daily_pnl >= 0 ? 'pos' : 'neg';
+  const rlClass = a.realized_pl >= 0 ? 'pos' : 'neg';
+  document.getElementById('metrics-bar').innerHTML = `
+    <div class="metric"><label>EQUITY</label><span class="val">$${a.equity.toLocaleString('en',{minimumFractionDigits:2})}</span></div>
+    <div class="metric"><label>DAILY PNL</label><span class="val ${pnlClass}">${a.daily_pnl>=0?'+':''}$${a.daily_pnl.toFixed(2)}</span></div>
+    <div class="metric"><label>REALIZED P/L</label><span class="val ${rlClass}">$${a.realized_pl.toFixed(2)}</span></div>
+    <div class="metric"><label>POSITIONS</label><span class="val">${a.position_count}</span></div>
+    <div class="metric"><label>SCANNED</label><span class="val">${s.pairs_scanned}</span></div>
+    <div class="metric"><label>VIABLE</label><span class="val">${s.pairs_viable}</span></div>
+    <div class="metric"><label>CYCLE</label><span class="val">${sys.cycle_count}</span></div>
+    <div class="metric"><label>LAST UPDATE</label><span class="val">${sys.last_update}</span></div>
+  `;
+}
+
+function renderInfoRow(d) {
+  const m = d.market, b = d.blockers, r = m.regime || {};
+  const blockerHtml = Object.entries(b).map(([k,v]) =>
+    `<div class="info-line"><span>${k}</span><span class="cnt">${v}</span></div>`
+  ).join('') || '<div class="info-line dim">None</div>';
+
+  const regimeHtml = Object.entries(r).map(([k,v]) => {
+    const cls = k === 'blocked' ? 'neg' : k === 'restricted' ? 'warn' : 'pos';
+    return `<div class="info-line"><span>${k}</span><span class="cnt ${cls}">${v}</span></div>`;
+  }).join('');
+
+  document.getElementById('info-row').innerHTML = `
+    <div class="info-card">
+      <h3>MARKET STATE</h3>
+      <div class="market-state">${m.state || 'SCANNING'}</div>
+    </div>
+    <div class="info-card">
+      <h3>BLOCKERS</h3>
+      ${blockerHtml}
+    </div>
+    <div class="info-card">
+      <h3>REGIME</h3>
+      ${regimeHtml}
+      <div class="info-line dim"><span>Avg score: ${m.regime_avg_score}</span></div>
+      <div class="info-line dim"><span>Dominant: ${m.regime_dominant || '—'}</span></div>
+    </div>
+  `;
+}
+
+function renderDecision(dec) {
+  const rejHtml = Object.entries(dec.top_rejections || {}).map(([k,v]) =>
+    `<span class="rej-tag">${k}: ${v}</span>`
+  ).join(' ') || '<span class="dim">No rejections</span>';
+  const typeHtml = Object.entries(dec.setup_types || {}).map(([k,v]) =>
+    `<span class="setup-tag">${k}: ${v}</span>`
+  ).join(' ') || '';
+
+  document.getElementById('decision-row').innerHTML = `
+    <div class="dec-card">
+      <h3>DECISION SUMMARY</h3>
+      <div class="dec-grid">
+        <div><span class="pos">VALID</span> <span class="cnt">${dec.valid}</span></div>
+        <div><span class="neg">REJECTED</span> <span class="cnt">${dec.rejected}</span></div>
+        <div class="dec-reasons">${rejHtml}</div>
+        <div>${typeHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSignals(signals) {
+  if (!signals || !signals.length) {
+    document.getElementById('signals-grid').innerHTML = '<div class="no-signals">No signals this cycle</div>';
+    return;
+  }
+  document.getElementById('signals-grid').innerHTML = signals.map(s => {
+    const gateRows = Object.entries(s.gates || {}).map(([name, g]) => {
+      const cls = g.passed ? 'gate-pass' : 'gate-fail';
+      const label = g.passed ? 'PASS' : 'FAIL';
+      return `<div class="gate-row"><span class="gate-name">${name}</span>
+        ${g.reason ? `<span class="gate-reason">${g.reason}</span>` : ''}
+        <span class="gate-badge ${cls}">${label}</span></div>`;
+    }).join('');
+
+    const scoreBadges = [];
+    if (s.z_score) scoreBadges.push(`<span class="sbadge">Z</span>`);
+    if (s.atr_consumed) scoreBadges.push(`<span class="sbadge ${s.atr_consumed>80?'sbad':''}">ATR</span>`);
+    if (s.otr_ratio) scoreBadges.push(`<span class="sbadge ${s.otr_ratio<8?'sbad':''}">OTR</span>`);
+
+    const v3Line = s.v3_blocks && s.v3_blocks.length
+      ? `<div class="v3-block">V3 BLOCKED: ${s.v3_blocks.join(', ')}</div>`
+      : s.v3_score
+        ? `<div class="v3-score">V3 Score: ${s.v3_score} (${s.v3_tier})</div>`
+        : '';
+
+    const verdictCls = s.tradeable ? 'verdict-trade' : 'verdict-no';
+    return `
+    <div class="signal-card">
+      <div class="sig-header">
+        <span class="sig-pair">${s.symbol.replace('_','/')}</span>
+        ${s.signal_type ? `<span class="sig-type">${s.signal_type}</span>` : ''}
+        ${scoreBadges.join('')}
+        <span class="${verdictCls}">${s.verdict}</span>
+      </div>
+      <div class="sig-meta">
+        Z ${s.z_score} &nbsp; ADR ${s.atr_consumed}% &nbsp; BB ${s.bb_state || '—'} &nbsp;
+        RSI ${s.rsi} &nbsp; Box ${s.box_age}h
+      </div>
+      <div class="sig-gates">${gateRows || '<span class="dim">No gates evaluated</span>'}</div>
+      ${v3Line}
+      ${s.rejection_reason ? `<div class="sig-reject">${s.rejection_reason}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Tab switching
+document.querySelector('.tab-bar').addEventListener('click', e => {
+  if (!e.target.classList.contains('tab')) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+});
+
+load();
+setInterval(load, REFRESH);
+</script>
 </body>
 </html>
