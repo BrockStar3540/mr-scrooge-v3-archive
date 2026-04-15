@@ -301,7 +301,7 @@ class ScanPipeline:
         # 5. Gates
         best_candidate = candidates[0]
         if self.gate_pipeline:
-            gate_result = self.gate_pipeline.evaluate(best_candidate, ctx)
+            gate_result = self.gate_pipeline.run(best_candidate, ctx)
             if hasattr(gate_result, "results"):
                 for gr in gate_result.results:
                     report["gates"][gr.gate_name] = {"passed": gr.passed, "reason": gr.reason, "metrics": gr.metrics}
