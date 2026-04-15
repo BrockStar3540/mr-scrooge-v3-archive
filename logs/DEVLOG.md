@@ -37,6 +37,29 @@
 - `[2026-04-15] [telemetry/quality]` — 4 lessons: MFE/MAE ratio, follow-through score, entry context fields, quiet trades discovery -> [logs/modules/telemetry-quality.md](modules/telemetry-quality.md)
 - `[2026-04-15] [dashboard]` — 9 lessons from V1/V2: market summary 0/0, box states all 26, session frozen, false CRITICALs, no zone re-entry visibility, P/L wrong, silent bug invisible, security posture, status.json contract -> [logs/modules/dashboard.md](modules/dashboard.md)
 
+## 2026-04-15 — Trade Math, Recipe Analysis, and V3 Scoring Formula
+
+- `[2026-04-15] [docs/TRADE_MATH]` — First-principles parameter coupling analysis: SL floor tied to wrong reference frame, RR gate using fantasy target, unified viability check proposed
+- `[2026-04-15] [docs/TRADE_RECIPE]` — Reverse-engineered winning trade recipe from 50 raw OANDA trades: 10 ingredients scored, 5 new discoveries, 5 confirmed findings
+- `[2026-04-15] [docs/SCORING_REVIEW]` — Old vs new scoring: 50 pts of dead weight identified (OTR, RR, ATR consumed), redistribution to conviction, wall proximity, BB middle
+- `[2026-04-15] [docs/FACTOR_BIBLE]` — 31 factors with full distribution buckets, win rates, and scoring recommendations from raw OANDA data
+- `[2026-04-15] [docs/MASTER_FINDINGS]` — 43 factors in 4 tiers: 10 new discoveries, 6 confirmed, 7 overturned, 4 insufficient data
+- `[2026-04-15] [docs/SCORING_FORMULA_V3]` — Complete 5-layer formula specification: hard blocks, base scoring, market state, entry quality, context, regime
+- `[2026-04-15] [docs/SCORING_V3_LIVE]` — Live implementation guide: WR-Lift Hybrid with Pair Layer, deployed to V1 and V2
+- `[2026-04-15] [data/raw_candles]` — 50 raw OANDA candle JSON files + feature table, fully auditable
+- `[2026-04-15] [scripts/*]` — 8 analysis scripts: formula_test, raw_backtest, trade_recipe, scoring_simulator, factor_hunt, full_factor_matrix, ten_formulas, proportional_analysis, export_features, pull_raw_data, hybrid_formula_test, v3_final_formula
+- `[2026-04-15] [v3_scorer.py]` — Deployed independently to V1 and V2 (separate copies, no sharing)
+- `[2026-04-15] [dashboard]` — Updated to V3 layered breakdown: Market State, Entry Quality, BB/Z/RSI, Cost/Context, Pair Layer
+
+## 2026-04-15 — V1/V2 Live Changes
+
+- `[2026-04-15] [V1+V2]` — SL floor 0.25% to 0.10%, min RR 1.35 to 1.0, spread threshold 30% to 10%
+- `[2026-04-15] [V1+V2]` — Regime floor REMOVED (was blocking at score < -1), only BLOCKED suppresses
+- `[2026-04-15] [V1+V2]` — BB exhaustion gate REMOVED, V3 scorer handles BB state scoring
+- `[2026-04-15] [V1+V2]` — V3 Hybrid Scorer deployed as scoring override
+- `[2026-04-15] [V1+V2]` — Dashboard updated with V3 layered breakdown
+- `[2026-04-15] [V1+V2]` — Git pushed to GitHub + Alien Device
+
 ## 2026-04-15 — Architecture Updates
 
 - `[2026-04-15] [docs/BLUEPRINT]` — Dashboard redesigned as modular widget system: DashboardWidget Protocol, widget registry, auto-discovery, module-registered panels, pair view, replay view, REST API contract
