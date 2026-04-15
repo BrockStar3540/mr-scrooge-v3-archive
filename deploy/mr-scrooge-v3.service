@@ -1,0 +1,23 @@
+[Unit]
+Description=Mr. Scrooge V3 Trading Platform
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/mr-scrooge-v3
+ExecStart=/home/ubuntu/mr_burns_env/bin/python3 -m scrooge_v3 --live --env /home/ubuntu/mr-scrooge-v3/.env
+Restart=always
+RestartSec=15
+Environment=PYTHONUNBUFFERED=1
+
+# Graceful shutdown: send SIGTERM, wait 30s for position management
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+# Logging goes to journald + rotating file handler in bot
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

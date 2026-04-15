@@ -85,6 +85,13 @@ class BollingerCalculator:
         c1 = float(closes.iloc[-2]) if len(closes) >= 2 else c
         c2 = float(closes.iloc[-3]) if len(closes) >= 3 else c1
 
+        # Z-score: how many std devs from Band A mean
+        z_score = (c - sma_a) / std_a if std_a > 0 else 0.0
+
+        # BB position: where price sits in 0-1 range (0=lower, 1=upper)
+        band_width = upper_a - lower_a
+        bb_position = (c - lower_a) / band_width if band_width > 0 else 0.5
+
         return FeatureResult(
             name=self.name,
             values={
@@ -97,6 +104,8 @@ class BollingerCalculator:
                 "current_close": c,
                 "prior_close_1": c1,
                 "prior_close_2": c2,
+                "z_score": round(z_score, 4),
+                "bb_position": round(bb_position, 4),
             },
             computed_at=datetime.now(),
         )

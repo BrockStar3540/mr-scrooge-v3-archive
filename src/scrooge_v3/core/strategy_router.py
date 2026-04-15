@@ -23,7 +23,9 @@ _DEFAULT_ROUTES: dict[str, list[str]] = {
     # Trend states → trend
     "TREND_UP": ["trend"],
     "TREND_DOWN": ["trend"],
-    "STRETCH_UP": ["trend"],
+    # STRETCH_UP = 0% WR on V1 live data — hard block, no strategies allowed
+    "STRETCH_UP": [],
+    # STRETCH_DOWN = -3 pts in V3 scorer, allow trend but scorer penalizes
     "STRETCH_DOWN": ["trend"],
     # Breakout → trend (cautious)
     "BREAKOUT_UP": ["trend"],

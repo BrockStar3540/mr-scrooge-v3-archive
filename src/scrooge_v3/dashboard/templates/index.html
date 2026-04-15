@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mr. Scrooge V3</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Mr. Scrooge V3</h1>
+        <nav id="tabs">
+            <button class="tab active" data-tab="all">All</button>
+            {% for cat in categories %}
+            <button class="tab" data-tab="{{ cat }}">{{ cat|title }}</button>
+            {% endfor %}
+        </nav>
+        <span id="clock"></span>
+    </header>
+
+    <main id="widget-container">
+        <div class="loading">Loading widgets...</div>
+    </main>
+
+    <script>
+        const REFRESH_MS = 10000;
+
+        // Build clean base URL (strip embedded credentials from origin)
+        const BASE = window.location.protocol + '//' + window.location.host;
+
+        async function fetchWidgets(category) {
+            const path = category === 'all' ? '/api/widgets' : `/api/widgets/${category}`;
+            try {
+                const resp = await fetch(BASE + path);
+                if (!resp.ok) return null;
+                return await resp.json();
+            } catch (e) {
+                console.error('Fetch failed:', e);
+                return null;
+            }
+        }
+
+        function renderWidgets(data) {
+            const container = document.getElementById('widget-container');
+            if (!data) {
+                container.innerHTML = '<div class="error">Failed to load widgets</div>';
+                return;
+            }
+
+            let html = '';
+            if (Array.isArray(data)) {
+                // Single category response
+                for (const widget of data) {
+                    html += renderWidget(widget);
+                }
+            } else {
+                // All categories response
+                for (const [category, widgets] of Object.entries(data)) {
+                    html += `<section class="category"><h2>${category}</h2>`;
+                    for (const widget of widgets) {
+                        html += renderWidget(widget);
+                    }
+                    html += '</section>';
+                }
+            }
+            container.innerHTML = html || '<div class="empty">No widgets registered</div>';
+        }
+
+        function renderWidget(widget) {
+            const data = widget.data;
+            let content = '';
+            if (data.error) {
+                content = `<div class="widget-error">${data.error}</div>`;
+            } else {
+                content = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            }
+            return `<div class="widget"><h3>${widget.name}</h3>${content}</div>`;
+        }
+
+        // Tab switching
+        let activeTab = 'all';
+        document.getElementById('tabs').addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab')) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                activeTab = e.target.dataset.tab;
+                refresh();
+            }
+        });
+
+        // Clock
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toUTCString().slice(17, 25) + ' UTC';
+        }
+
+        // Auto-refresh
+        async function refresh() {
+            const data = await fetchWidgets(activeTab);
+            renderWidgets(data);
+            updateClock();
+        }
+
+        refresh();
+        setInterval(refresh, REFRESH_MS);
+        setInterval(updateClock, 1000);
+    </script>
+</body>
+</html>

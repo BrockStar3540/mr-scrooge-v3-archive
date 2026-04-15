@@ -7,13 +7,22 @@ name = "scrooge-v3"
 version = "0.1.0"
 description = "Mr. Scrooge V3 — Plug-in Trading Platform"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "requests>=2.28",
+    "pandas>=1.5",
+    "numpy>=1.23",
+    "flask>=3.0",
+    "python-dotenv>=1.0",
+]
 
 [project.optional-dependencies]
 broker = ["oandapyV20>=0.7"]
 ml = ["scikit-learn", "numpy", "pandas"]
 dashboard = ["flask>=3.0"]
 dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+
+[project.scripts]
+scrooge-v3 = "scrooge_v3.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

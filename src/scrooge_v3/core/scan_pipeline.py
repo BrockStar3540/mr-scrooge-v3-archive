@@ -6,7 +6,7 @@ the ranking logic (lines 1456-1535).
 Flow:
   Market Data → Feature Engine → Context Builder → Classifiers
   → Strategy Router → Strategy Modules → Gate Pipeline
-  → Candidate Ranker → approved candidate or None
+  → V3 Scorer → approved candidate or None
 """
 
 from __future__ import annotations
@@ -48,11 +48,13 @@ class ScanPipeline:
         router: StrategyRouter,
         event_bus: EventBus | None = None,
         gate_pipeline: Any = None,
+        scorer: Any = None,
     ):
         self.registry = registry
         self.router = router
         self.event_bus = event_bus
         self.gate_pipeline = gate_pipeline
+        self.scorer = scorer
 
     def scan_symbol(
         self,
@@ -152,11 +154,44 @@ class ScanPipeline:
         if not approved:
             return None
 
-        # 7. Select best candidate by score
+        # 7. V3 Scorer — re-score gate-approved candidates
+        if self.scorer is not None:
+            scored: list[TradeCandidate] = []
+            for candidate in approved:
+                result = self.scorer.score(ctx, candidate)
+                if result.tier == "BLOCKED":
+                    self._emit(
+                        CANDIDATE_REJECTED,
+                        symbol=symbol,
+                        strategy=candidate.strategy,
+                        reason=f"V3_BLOCKED:{','.join(result.blocks)}",
+                    )
+                    continue
+                if result.tier == "REJECT":
+                    self._emit(
+                        CANDIDATE_REJECTED,
+                        symbol=symbol,
+                        strategy=candidate.strategy,
+                        reason=f"V3_REJECT:score={result.score}",
+                    )
+                    continue
+                # Replace strategy's fixed score with V3 score
+                candidate.score = float(result.score)
+                candidate.metadata["v3_tier"] = result.tier
+                candidate.metadata["v3_breakdown"] = result.breakdown
+                candidate.metadata["v3_pairs"] = result.pairs_total
+                scored.append(candidate)
+            approved = scored
+
+        if not approved:
+            return None
+
+        # 8. Select best candidate by score
         best = max(approved, key=lambda c: c.score)
         log.info(
-            "[SCAN] APPROVED symbol=%s strategy=%s score=%.1f rr=%.2f",
-            symbol, best.strategy, best.score, best.risk_reward,
+            "[SCAN] APPROVED symbol=%s strategy=%s v3_score=%.0f tier=%s rr=%.2f",
+            symbol, best.strategy, best.score,
+            best.metadata.get("v3_tier", "?"), best.risk_reward,
         )
         return best
 

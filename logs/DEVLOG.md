@@ -64,3 +64,51 @@
 
 - `[2026-04-15] [docs/BLUEPRINT]` — Dashboard redesigned as modular widget system: DashboardWidget Protocol, widget registry, auto-discovery, module-registered panels, pair view, replay view, REST API contract
 - `[2026-04-15] [README]` — Phase C updated to modular dashboard with detailed checklist
+
+## 2026-04-15 — V3 Scorer Integration + Module Build-out + Dashboard
+
+### Module Audit & Reconciliation
+- `[2026-04-15] [core/strategy_router]` — STRETCH_UP route changed from ["trend"] to [] (0% WR on V1 live data, hard block). All other modules verified aligned with V3 scoring.
+- `[2026-04-15] [all dev logs]` — Verified all 7 module logs already had Apr 15 corrections (OTR inversion, regime floor removal, ATR dead weight, wall proximity inconsistency, spread vs natural stop, box age discovery).
+
+### Phase 3: V3 Scorer Module + New Features
+- `[2026-04-15] [strategies/v3_scorer]` — V3HybridScorer module: 43-factor scoring engine ported from scripts/hybrid_formula_test.py. Layer 0 hard blocks (5), Layer 1 single-factor scoring (17 factors), Layer 2 paired aspects (18 bonuses/penalties). ScorerResult dataclass with score, blocks, breakdown, tier. -> [logs/modules/strategies-scoring.md](modules/strategies-scoring.md)
+- `[2026-04-15] [features/ema]` — EMACalculator: EMA20/EMA50 from hourly bars with range-relative distance percentages.
+- `[2026-04-15] [features/volume]` — VolumeCalculator: current/average volume ratio from hourly bars.
+- `[2026-04-15] [features/rsi]` — RSICalculator: RSI(14) from hourly close prices.
+- `[2026-04-15] [features/bollinger]` — Enriched with z_score and bb_position outputs.
+- `[2026-04-15] [features/atr]` — Enriched with adr_consumed output (today's range / ATR).
+- `[2026-04-15] [features/zone_detector]` — Enriched with box_age_hours and wall_proximity outputs.
+- `[2026-04-15] [core/scan_pipeline]` — V3 scorer integrated as step 7: re-scores gate-approved candidates, rejects < 50 or hard-blocked, replaces strategy fixed scores.
+
+### Phase 4: Broker Adapter
+- `[2026-04-15] [market/broker]` — BrokerAdapter Protocol: 15-method interface (account, instruments, pricing, candles, positions, orders, transactions, health). Supporting dataclasses: AccountInfo, InstrumentInfo, PriceQuote, OrderResult, TradeInfo.
+- `[2026-04-15] [market/oanda_adapter]` — OANDAAdapter: full OANDA v20 REST implementation with circuit breaker (5 failures → 120s recovery), candle cache fallback for 502s, 404 transaction stream fallback for closed trades, instrument cache on boot.
+- `[2026-04-15] [market/fee_calculator]` — FeeCalculator with V3 OTR categories (inverted: <8% = too_low, 8-18% = sweet_spot), spike detection, session spread estimation.
+- `[2026-04-15] [market/dry_run_adapter]` — DryRunAdapter: shadow-trading with real OANDA prices, simulated order execution, virtual positions.
+
+### Phase 5: Wire Runtime.boot()
+- `[2026-04-15] [core/runtime]` — boot() fully wired: initializes OANDA or dry-run broker, registers 7 features, 4 classifiers, 2 strategies, 12 gates (ordered pipeline), V3 scorer. _run_cycle() fully wired: session-aware screener, market snapshot fetching, scan_pipeline.scan_universe(), entry planning + sizing + order execution.
+
+### Phase 6: Modular Dashboard
+- `[2026-04-15] [dashboard/widget_registry]` — WidgetRegistry with DashboardWidget Protocol, category grouping, render_all() for API.
+- `[2026-04-15] [dashboard/app]` — Flask app (port 8084, 127.0.0.1): HTTP Basic Auth + session cookie for JS fetch, REST API (/api/status, /api/widgets, /api/widgets/<category>), auto-refresh HTML template.
+- `[2026-04-15] [dashboard/widgets]` — 5 widgets: HealthWidget (module registry status), SystemWidget (equity, P&L, uptime, cycles), ScoringWidget (V3 scorer breakdowns), GateWidget (pass/fail counts, rejection reasons), ExecutionWidget (entries, SL moves, closes).
+- `[2026-04-15] [dashboard/templates]` — Dark theme HTML with tab navigation, 10s auto-refresh, UTC clock, category filtering.
+- `[2026-04-15] [dashboard/static]` — CSS: dark GitHub-style theme with sticky header, widget cards, category sections.
+
+### Phase D: Tests (2026-04-15)
+- `[2026-04-15] [tests/unit/test_v3_scorer]` — 42 tests: all 5 hard blocks, all 17 single-factor weights, 5 paired aspects, 4 tier classifications, custom thresholds.
+- `[2026-04-15] [tests/unit/test_features]` — 14 tests: EMA (3), Volume (2), RSI (2), Bollinger enrichment (2), ATR enrichment (1), Strategy Router (3).
+- `[2026-04-15] [tests/unit/test_gates]` — 16 tests: Spread (5), OTR inverted (3), R:R (3), Exhaustion (2), Regime floor (2), Stop planner trigger-side (4).
+- `[2026-04-15] [tests/integration/test_scan_pipeline]` — 3 tests: features compute, universe scan, event emission.
+- `[2026-04-15] [tests/smoke/test_boot]` — 5 tests: all imports, config loads, scorer deterministic, OTR inversion, widget registry.
+
+### Phase E: Config Validation + Hot Reload (2026-04-15)
+- `[2026-04-15] [core/config]` — Schema validation (types, ranges, required fields), env var overrides (SCROOGE_SECTION_KEY=value), file watcher with hot reload, change history tracking, rollback on invalid reload, ConfigChanged events for module mode switching.
+- `[2026-04-15] [core/runtime]` — Config validation on boot, env overrides applied before validation, config watcher started on boot, _handle_config_change for module/gate mode switching and scan interval updates.
+- `[2026-04-15] [tests/unit/test_config]` — 13 tests: schema validation (7), dot-path + history (3), env overrides (2), callbacks (1), file watcher with change detection + rollback on invalid (2), diff detection (2).
+
+### Phase F: Replay Harness (2026-04-15)
+- `[2026-04-15] [telemetry/replay]` — EventRecorder (subscribe_all → JSONL), EventReplayer (load, filter, extract candidates/rejections/approvals), replay_through_scorer for decision comparison, build_trade_timeline per symbol, session summary stats.
+- `[2026-04-15] [tests/replay/test_replay]` — 7 tests: recording to JSONL, stop prevents further recording, load events, filter by type, summary stats, trade timeline, full round-trip record-then-replay.

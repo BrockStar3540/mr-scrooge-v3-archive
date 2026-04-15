@@ -73,9 +73,32 @@ class ZoneDetector:
         if zone_map is None:
             return FeatureResult(name=self.name, values={}, computed_at=datetime.now())
 
+        # Box age: hours since the session range was established (prior day close)
+        box_age_hours = 0.0
+        sr = zone_map.session_range
+        if sr is not None:
+            try:
+                last_daily_ts = pd.Timestamp(daily_bars.index[-1]) if hasattr(daily_bars.index[-1], 'hour') else pd.Timestamp(daily_bars.iloc[-1].get("time", datetime.now()))
+                box_age_hours = (datetime.now() - last_daily_ts.to_pydatetime().replace(tzinfo=None)).total_seconds() / 3600
+            except Exception:
+                box_age_hours = 0.0
+
+        # Wall proximity: distance from current price to nearest range boundary as fraction of range
+        wall_proximity = 0.5
+        if sr is not None:
+            box_range = sr.PDH - sr.PDL
+            if box_range > 0:
+                dist_to_high = abs(current_price - sr.PDH)
+                dist_to_low = abs(current_price - sr.PDL)
+                wall_proximity = min(dist_to_high, dist_to_low) / box_range
+
         return FeatureResult(
             name=self.name,
-            values={"zone_map": zone_map},
+            values={
+                "zone_map": zone_map,
+                "box_age_hours": round(box_age_hours, 2),
+                "wall_proximity": round(wall_proximity, 4),
+            },
             computed_at=datetime.now(),
         )
 

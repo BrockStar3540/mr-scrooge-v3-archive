@@ -47,6 +47,11 @@ class ATRCalculator:
 
         atr = self._calculate_atr(daily_bars, self.period)
 
+        # ADR consumed: today's range / ATR (how much of daily range is used)
+        today = daily_bars.iloc[-1]
+        today_range = float(today["high"]) - float(today["low"])
+        adr_consumed = today_range / atr if atr > 0 else 0.0
+
         return FeatureResult(
             name=self.name,
             values={
@@ -54,6 +59,7 @@ class ATRCalculator:
                 "atr_60pct": atr * 0.60,
                 "atr_80pct": atr * 0.80,
                 "atr_20pct": atr * 0.20,
+                "adr_consumed": round(adr_consumed, 4),
             },
             computed_at=datetime.now(),
         )

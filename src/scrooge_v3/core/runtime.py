@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import signal
-import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -22,7 +21,7 @@ from .registry import ModuleRegistry
 from .scan_pipeline import ScanPipeline
 from .state_controller import StateController
 from .strategy_router import StrategyRouter
-from .types import MarketSnapshot
+from .types import MarketSnapshot, ModuleMode
 
 log = logging.getLogger("scrooge_v3.core.runtime")
 
@@ -45,6 +44,8 @@ class Runtime:
             config=config.section("risk") | config.section("runtime"),
         )
         self.router = StrategyRouter()
+        self.broker: Any = None
+        self.screener: Any = None
         self.scan_pipeline = ScanPipeline(
             registry=self.registry,
             router=self.router,
@@ -61,19 +62,133 @@ class Runtime:
         """
         log.info("[RUNTIME] Booting V3...")
 
-        # Register signal handlers
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
 
-        # TODO: Initialize broker adapter
-        # TODO: Register feature modules
-        # TODO: Register classifier modules
-        # TODO: Register strategy modules
-        # TODO: Register gate modules
-        # TODO: Run smoke test (broker ping, dry scan cycle)
+        # --- Validate config ---
+        from .config import ConfigValidationError
+        self.config.apply_env_overrides()
+        errors = self.config.validate()
+        if errors:
+            for e in errors:
+                log.error("[RUNTIME] Config error: %s", e)
+            return False
+        log.info("[RUNTIME] Config validated OK")
 
-        log.info("[RUNTIME] Boot complete — dry_run=%s", self._dry_run)
+        # --- Wire config hot reload ---
+        self.config.on_change(self._handle_config_change)
+        self.config.start_watcher()
+
+        # --- Broker adapter ---
+        self.broker = self._init_broker()
+        if self.broker is None:
+            log.error("[RUNTIME] Broker init failed")
+            return False
+
+        # --- Register features ---
+        from scrooge_v3.features import (
+            ATRCalculator, BollingerCalculator, EMACalculator,
+            OverheadRatioCalculator, RSICalculator, VolumeCalculator, ZoneDetector,
+        )
+        feat_cfg = self.config.section("features")
+        self.registry.register("features", "atr", ATRCalculator(feat_cfg.get("atr", {})))
+        self.registry.register("features", "bollinger", BollingerCalculator(feat_cfg.get("bollinger", {})))
+        self.registry.register("features", "zone_detector", ZoneDetector(feat_cfg.get("zone_detector", {})))
+        self.registry.register("features", "otr", OverheadRatioCalculator())
+        self.registry.register("features", "ema", EMACalculator(feat_cfg.get("ema", {})))
+        self.registry.register("features", "rsi", RSICalculator(feat_cfg.get("rsi", {})))
+        self.registry.register("features", "volume", VolumeCalculator(feat_cfg.get("volume", {})))
+
+        # --- Register classifiers ---
+        from scrooge_v3.classifiers.bb_state import BollingerStateClassifier
+        from scrooge_v3.classifiers.regime import RegimeClassifier
+        from scrooge_v3.classifiers.opening import OpeningStateClassifier
+        from scrooge_v3.classifiers.structure import StructureClassifier
+
+        cls_cfg = self.config.section("classifiers")
+        self.registry.register("classifiers", "bb_state", BollingerStateClassifier())
+        self.registry.register("classifiers", "regime", RegimeClassifier())
+        self.registry.register("classifiers", "opening_state", OpeningStateClassifier())
+        self.registry.register("classifiers", "structure", StructureClassifier())
+
+        # --- Register strategies ---
+        from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, V3HybridScorer
+
+        strat_cfg = self.config.section("strategies")
+        self.registry.register("strategies", "reversal", ReversalStrategy(strat_cfg.get("reversal", {})))
+        self.registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
+
+        # --- Register gates ---
+        from scrooge_v3.gates import (
+            SpreadGate, OverheadRatioGate, RiskRewardGate,
+            EntryConfirmationGate, ExhaustionFilterGate, DebounceGate,
+            ZoneEntryCapGate, RegimeFloorGate, DirectionalPressureGate,
+            ZoneProximityGate, ATRBudgetGate, TrendFilterGate,
+        )
+        from scrooge_v3.gates.pipeline import GatePipeline
+
+        gate_cfg = self.config.section("gates")
+        gate_pipeline = GatePipeline()
+        gate_pipeline.register_many([
+            SpreadGate(gate_cfg.get("spread", {})),
+            OverheadRatioGate(gate_cfg.get("overhead_ratio", {})),
+            RiskRewardGate(gate_cfg.get("rr", {})),
+            DirectionalPressureGate(gate_cfg.get("directional_pressure", {})),
+            EntryConfirmationGate(gate_cfg.get("entry_confirmation", {})),
+            ExhaustionFilterGate(gate_cfg.get("exhaustion_filter", {})),
+            DebounceGate(gate_cfg.get("debounce", {})),
+            ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
+            ZoneProximityGate(gate_cfg.get("zone_proximity", {})),
+            ATRBudgetGate(gate_cfg.get("atr_budget", {})),
+            TrendFilterGate(gate_cfg.get("trend_filter", {})),
+            RegimeFloorGate(gate_cfg.get("regime_floor", {})),
+        ])
+
+        # --- Wire scorer and gate pipeline into scan pipeline ---
+        scorer = V3HybridScorer(self.config.section("scoring"))
+        self.scan_pipeline.gate_pipeline = gate_pipeline
+        self.scan_pipeline.scorer = scorer
+
+        # --- Universe screener ---
+        from scrooge_v3.market.screener import get_active_sessions, get_session_pairs
+        self.screener = get_session_pairs
+
+        # --- Load instruments ---
+        instruments = self.broker.get_instruments()
+        log.info("[RUNTIME] Loaded %d instruments from broker", len(instruments))
+
+        # --- Reconcile open positions ---
+        open_trades = self.broker.get_open_trades()
+        self.state.position_count = len(open_trades)
+        log.info("[RUNTIME] Found %d open positions", len(open_trades))
+
+        # --- Smoke test ---
+        if not self.broker.ping():
+            log.error("[RUNTIME] Broker ping failed")
+            return False
+
+        log.info("[RUNTIME] Boot complete — dry_run=%s, %d features, %d gates",
+                 self._dry_run, len(list(self.registry.get_active("features"))),
+                 len(gate_pipeline.gates) if hasattr(gate_pipeline, 'gates') else 0)
         return True
+
+    def _init_broker(self) -> Any:
+        """Initialize the appropriate broker adapter."""
+        from scrooge_v3.market.oanda_adapter import OANDAAdapter
+        from scrooge_v3.market.dry_run_adapter import DryRunAdapter
+
+        broker_cfg = self.config.section("broker")
+        import os
+        oanda = OANDAAdapter({
+            "api_url": os.environ.get("OANDA_API_URL", broker_cfg.get("api_url", "https://api-fxpractice.oanda.com")),
+            "account_id": os.environ.get("OANDA_ACCOUNT_ID", broker_cfg.get("account_id", "")),
+            "api_token": os.environ.get("OANDA_API_TOKEN", broker_cfg.get("api_token", "")),
+        })
+
+        if self._dry_run:
+            log.info("[RUNTIME] Using dry-run adapter (shadow trading)")
+            return DryRunAdapter(oanda)
+        return oanda
 
     def run(self) -> None:
         """Main 5-minute trading loop."""
@@ -92,10 +207,8 @@ class Runtime:
             except Exception:
                 log.exception("[RUNTIME] Cycle %d failed", self.state.cycle_count)
 
-            # Persist state after each cycle
             self.state.persist()
 
-            # Sleep for remainder of interval
             elapsed = time.monotonic() - cycle_start
             sleep_time = max(0, self._scan_interval - elapsed)
             if sleep_time > 0 and not self._shutdown_requested:
@@ -107,38 +220,110 @@ class Runtime:
         """Execute one scan cycle."""
         now = datetime.now(timezone.utc)
 
-        # Check for daily reset
         if self.state.session_start.date() != now.date():
             self.state.daily_reset()
             self.state.session_start = now
 
-        # Check daily loss limit
         if self.state.is_daily_loss_exceeded():
             log.warning("[RUNTIME] Daily loss limit reached — skipping cycle")
             return
 
-        # TODO: Get active pairs from screener
-        # TODO: Fetch market snapshots from broker
-        # TODO: Run scan_pipeline.scan_universe()
-        # TODO: Fire best candidate if not at max positions
-        # TODO: Run position_pipeline.manage_all()
+        # Get active pairs for current session
+        from scrooge_v3.market.screener import get_active_sessions, get_session_pairs
+        active_sessions = get_active_sessions(now.hour)
+        pairs = get_session_pairs(active_sessions)
 
-        log.debug(
-            "[RUNTIME] Cycle %d complete — positions=%d",
-            self.state.cycle_count,
-            self.state.position_count,
-        )
+        if not pairs:
+            log.debug("[RUNTIME] No active pairs this session")
+            return
+
+        # Fetch market snapshots from broker
+        prices = self.broker.get_prices(pairs)
+        snapshots: dict[str, MarketSnapshot] = {}
+        for symbol, quote in prices.items():
+            candles = {}
+            for tf in ("D", "1H", "5M"):
+                df = self.broker.get_candles(symbol, tf)
+                if df is not None:
+                    key = "5M" if tf == "M5" else tf
+                    candles[tf] = df
+            snapshots[symbol] = MarketSnapshot(
+                symbol=symbol, bid=quote.bid, ask=quote.ask,
+                mid=quote.mid, spread=quote.spread,
+                timestamp=quote.timestamp or now, candles=candles,
+            )
+
+        # Run scan pipeline
+        candidates = self.scan_pipeline.scan_universe(pairs, snapshots)
+
+        # Fire best candidate if not at max positions
+        if candidates and self.state.position_count < self.state.max_positions:
+            best = candidates[0]
+            log.info("[RUNTIME] Best candidate: %s %s score=%.0f",
+                     best.symbol, best.strategy, best.score)
+
+            if not self._dry_run or True:  # Always execute (dry-run adapter handles it)
+                from scrooge_v3.execution.entry_planner import EntryPlanner
+                from scrooge_v3.execution.sizing import SizingCalculator
+
+                planner = EntryPlanner(self.config.section("execution"))
+                sizer = SizingCalculator()
+
+                acct = self.broker.get_account()
+                equity = acct.equity if acct else 10000.0
+
+                units = sizer.calculate(equity, best, self.broker.get_pip_size(best.symbol))
+                if units > 0:
+                    result = self.broker.place_market_order(
+                        symbol=best.symbol, units=units,
+                        stop_loss=best.stop_price, take_profit=best.take_profit,
+                    )
+                    if result.success:
+                        self.state.position_count += 1
+                        log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
+                                 result.trade_id, best.symbol, units, result.fill_price)
+
+        log.debug("[RUNTIME] Cycle %d complete — positions=%d, candidates=%d",
+                  self.state.cycle_count, self.state.position_count, len(candidates))
 
     def shutdown(self) -> None:
         """Graceful shutdown."""
         log.info("[RUNTIME] Shutdown requested")
         self._shutdown_requested = True
-        # TODO: Close all positions if configured
-        # TODO: Persist final state
+        self.config.stop_watcher()
+        self.state.persist()
 
     def _handle_signal(self, signum: int, frame: Any) -> None:
         log.info("[RUNTIME] Received signal %d", signum)
         self.shutdown()
+
+    def _handle_config_change(self, change: dict) -> None:
+        """Handle config hot-reload changes — update module modes, gate modes."""
+        from .events import CONFIG_CHANGED, Event
+        path = change.get("path", "")
+        new_val = change.get("new")
+
+        # Module mode switching: e.g. features.atr.mode = "disabled"
+        parts = path.split(".")
+        if len(parts) >= 3 and parts[2] == "mode":
+            category = parts[0]  # features, classifiers, strategies, gates
+            module_name = parts[1]
+            new_mode = str(new_val)
+            log.info("[RUNTIME] Config change: %s.%s mode → %s", category, module_name, new_mode)
+            self.registry.set_mode(category, module_name, new_mode)
+
+        # Gate mode switching: e.g. gates.spread.mode = "observe"
+        if len(parts) >= 3 and parts[0] == "gates" and parts[2] == "mode":
+            gate_name = parts[1]
+            log.info("[RUNTIME] Gate mode change: %s → %s", gate_name, new_val)
+
+        # Scan interval change
+        if path == "runtime.scan_interval_seconds" and isinstance(new_val, (int, float)):
+            self._scan_interval = int(new_val)
+            log.info("[RUNTIME] Scan interval changed to %ds", self._scan_interval)
+
+        # Emit event for other listeners
+        self.event_bus.emit(Event(type=CONFIG_CHANGED, payload=change))
 
     def _interruptible_sleep(self, seconds: float) -> None:
         """Sleep that can be interrupted by shutdown."""
