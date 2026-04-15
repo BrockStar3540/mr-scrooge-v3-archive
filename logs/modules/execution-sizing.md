@@ -20,3 +20,13 @@
 **Source:** NOTES.md
 **Type:** lesson
 **Detail:** Dynamic regime scoring replaces static pair-based probation sizing. All pairs treated equally by sizing. Regime filters the losers.
+
+### [2026-03-19] [V1] — Equity source must be balance, not NAV
+**Source:** AUDIT.md
+**Type:** rule
+**Detail:** NAV fluctuates with unrealized P&L. Sizing on NAV while a losing position is open produces smaller (inconsistent) sizing. Cash balance is stable and produces predictable results.
+
+### [2026-03-19] [V1] — Decompressors removed; simplicity wins
+**Source:** AUDIT.md
+**Type:** lesson
+**Detail:** Box-age, off-peak, and open-wait multipliers ("decompressors") were removed. They made sizing unpredictable. Full 80% margin at all times. Do not re-introduce multipliers without data evidence.

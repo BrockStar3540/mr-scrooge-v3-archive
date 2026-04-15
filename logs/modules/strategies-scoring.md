@@ -55,3 +55,18 @@
 **Source:** known-defects.md, Defect 3
 **Type:** bug
 **Detail:** Zone debounce is 20 min, TP cooldown 15 min. Normal fresh signal entries did NOT increment any cap. Bot could short same zone unlimited times per day. Add daily cap on fresh entries per pair+direction+zone.
+
+### [2026-04-09] [BOTH] — R:R < 1.5 (TP1) has 78.6% WR — counter-intuitive
+**Source:** v2-scoring-system.md
+**Type:** discovery
+**Detail:** V2 OANDA data: R:R < 1.5 (against TP1) had 78.6% WR. These are tight, high-probability setups. R:R 1.5-2.0 (TP1) had 0% WR. A TP1 hard gate at 1.60 would reject the best performers. Hard gate uses TP2 (not TP1), scoring uses TP1 (not TP2). Do not conflate.
+
+### [2026-04-09] [BOTH] — Score floor of 1 exists deliberately (not a bug)
+**Source:** v2-scoring-system.md
+**Type:** rule
+**Detail:** After regime penalty, if gate-passed signal drops below 1, clamped to 1 (not 0). Score 0 means validity-rejected (Layer 1) and would be silently filtered. Removing the floor causes regime penalties to kill valid signals without log trace.
+
+### [2026-04-09] [BOTH] — Scoring validation requires quarterly re-audit
+**Source:** scoring-validation-plan.md
+**Type:** rule
+**Detail:** Layer 4 weights (-20 ranging, -15 CT+PoT, etc.) calibrated from Feb-Apr 2026. Market conditions change. Re-audit quarterly against fresh broker trade data. The -10 CAUTION penalty may double-count. Check after 50-100 trades.

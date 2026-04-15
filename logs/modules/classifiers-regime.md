@@ -35,3 +35,28 @@
 **Source:** regime/NOTES.md
 **Type:** rule
 **Detail:** BLOCKED -> suppress entry. Score < +1 -> suppress entry. RESTRICTED -> allows entry but halves position size (50%).
+
+### [2026-04-12] [BOTH] — Breadth feedback loop was circular — use direct_score
+**Source:** system/bots/mr-scrooge.md, mr-scrooge-v2.md
+**Type:** bug
+**Detail:** Breadth signal used aggregate regime scores that already included breadth contributions from correlated peers, creating a feedback loop. Fix: breadth now uses `direct_score` (raw score before breadth contribution) to evaluate peers. V3 must carry this forward.
+
+### [2026-04-14] [BOTH] — Direction-aware rejection decay
+**Source:** system/bots/mr-scrooge.md, mr-scrooge-v2.md
+**Type:** discovery
+**Detail:** Rejection decay was -2 regardless of direction alignment. Fix: aligned rejection failures score -1, non-aligned keep -2. Box_acceptance stays -2 for all directions (structural, not directional).
+
+### [2026-04-12] [BOTH] — Category caps prevent signal pile-on
+**Source:** system/bots/mr-scrooge.md, mr-scrooge-v2.md
+**Type:** rule
+**Detail:** Regime scoring uses category caps: market structure max -3, performance max -3, breadth max -1. Total minimum -7 (was unbounded). Prevents extreme BLOCKED states from requiring days of recovery.
+
+### [2026-04-14] [BOTH] — box_contained lookback extended to 24 candles (2 hours)
+**Source:** known-defects.md
+**Type:** bug
+**Detail:** Original _ACCEPTANCE_LOOKBACK=6 (30 min). Price dipping briefly inside range reset box_contained to +1.0 even after pressing PDH for 9 hours. Fix: 24 candle lookback (2 hours).
+
+### [2026-04-14] [BOTH] — Regime scoring rebalanced: CAUTION penalty halved
+**Source:** system/bots/mr-scrooge.md, mr-scrooge-v2.md
+**Type:** rule
+**Detail:** Changed from NORMAL +10 / CAUTION -10 to NORMAL +10 / CAUTION -5 / RESTRICTED -10. CAUTION penalty halved to reduce double-counting (CAUTION already gates via enforcement).

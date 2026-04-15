@@ -25,3 +25,13 @@
 **Source:** SCROOGE.md
 **Type:** rule
 **Detail:** JPY: 5% (20:1), CHF: ~3% (33:1), EUR/GBP: 2% (50:1). Must use broker's actual per-instrument margin rate, not a fixed leverage.
+
+### [2026-03-12] [V1] — OANDA rejects LIMIT orders past market price
+**Source:** DAILY_NOTES_2026-03-12.md
+**Type:** rule
+**Detail:** OANDA returns 400 Bad Request when LIMIT TP/SL order is at or past current market price. Bot must NEVER attempt to set a LIMIT where the limit price is already consumed. Pre-submit validation mandatory. Old code retried every cycle infinitely — caused TP rejection loop.
+
+### [2026-04-09] [BOTH] — Bot logs lie about P/L — broker API is the only truth
+**Source:** scoring-inversion postmortem
+**Type:** rule
+**Detail:** P/L was wrong for 17/21 pairs due to quote-currency bug. Log-based analysis reached wrong conclusions. CRITICAL RULE: always pull closed trades from broker API for validation. Never trust bot-logged P/L for scoring calibration or strategy evaluation.
