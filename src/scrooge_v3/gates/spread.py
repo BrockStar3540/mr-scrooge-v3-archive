@@ -36,20 +36,9 @@ class SpreadGate(BaseGate):
             return self._fail(f"Spread {spread:.4f} > threshold {threshold:.2f}",
                               {"spread": spread, "threshold": threshold})
 
-        # 2. Spread as % of half-box (from zone_detector feature)
-        zd = ctx.features.get("zone_detector")
-        if zd and zd.values:
-            zm = zd.values.get("zone_map")
-            if zm and hasattr(zm, "session_range") and zm.session_range:
-                half_box = (zm.session_range.PDH - zm.session_range.PDL) / 2
-                if half_box > 0:
-                    spread_pct = spread / half_box
-                    if spread_pct > self.spread_pct_of_half:
-                        return self._fail(
-                            f"Spread {spread:.4f} = {spread_pct:.1%} of half-box (max {self.spread_pct_of_half:.0%})",
-                            {"spread": spread, "half_box": half_box, "spread_pct": spread_pct})
-
-        # 3. Spread vs natural stop (from candidate metadata)
+        # 2. Spread vs natural stop (from candidate metadata)
+        # Note: % of half-box check REMOVED — the V3 scorer handles
+        # spread cost via OTR scoring (Layer 1: -11 to +4 pts).
         risk_points = candidate.metadata.get("risk_points", 0)
         if risk_points > 0 and spread >= risk_points:
             return self._fail(
