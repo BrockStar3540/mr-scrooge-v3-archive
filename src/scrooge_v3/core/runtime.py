@@ -265,15 +265,22 @@ class Runtime:
             inst = self.broker.get_instruments().get(best.symbol, {})
             inst_info = {"pipLocation": inst.pip_location, "marginRate": inst.margin_rate} if hasattr(inst, "pip_location") else {}
             units = sizer.calculate(best.symbol, best.entry_price, equity, inst_info)
-            if units > 0:
+            if units and units > 0:
+                # Sign units: positive for LONG, negative for SHORT
+                signed_units = units if best.direction.value == "long" else -units
+                log.info("[RUNTIME] Placing order: %s %s %d units SL=%.5f TP=%.5f",
+                         best.symbol, best.direction.value, signed_units, best.stop_price, best.take_profit or 0)
                 result = self.broker.place_market_order(
-                    symbol=best.symbol, units=units,
+                    symbol=best.symbol, units=signed_units,
                     stop_loss=best.stop_price, take_profit=best.take_profit,
                 )
                 if result.success:
                     self.state.position_count += 1
                     log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
-                             result.trade_id, best.symbol, units, result.fill_price)
+                             result.trade_id, best.symbol, signed_units, result.fill_price)
+                else:
+                    log.error("[RUNTIME] ORDER FAILED: %s %s error=%s",
+                              best.symbol, best.direction.value, result.error)
 
         # Update dashboard live state with full per-pair reports
         if self.live_state:
