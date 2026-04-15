@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scrooge-v3"
+version = "0.1.0"
+description = "Mr. Scrooge V3 — Plug-in Trading Platform"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+broker = ["oandapyV20>=0.7"]
+ml = ["scikit-learn", "numpy", "pandas"]
+dashboard = ["flask>=3.0"]
+dev = ["pytest>=8.0", "pytest-cov", "ruff", "mypy"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

@@ -1,0 +1,64 @@
+{
+  "runtime": {
+    "scan_interval_seconds": 60,
+    "dry_run": true,
+    "log_level": "INFO"
+  },
+  "broker": {
+    "adapter": "oanda",
+    "environment": "practice",
+    "account_id": ""
+  },
+  "risk": {
+    "max_open_positions": 5,
+    "max_daily_loss_pct": 3.0,
+    "margin_utilization": 0.80
+  },
+  "features": {
+    "atr": { "enabled": true, "mode": "active", "period": 14 },
+    "bollinger": { "enabled": true, "mode": "active", "period": 20, "std_dev": 2.0 },
+    "otr": { "enabled": true, "mode": "active" },
+    "spread_monitor": { "enabled": true, "mode": "active" }
+  },
+  "classifiers": {
+    "regime": { "enabled": true, "mode": "active" },
+    "bb_state": { "enabled": true, "mode": "active" },
+    "opening_state": { "enabled": true, "mode": "active" },
+    "structure": { "enabled": true, "mode": "active" }
+  },
+  "strategies": {
+    "reversal": { "enabled": true, "mode": "active" },
+    "trend": { "enabled": true, "mode": "active", "size_full": 0.50, "size_stretch": 0.30 },
+    "gap": { "enabled": false, "mode": "disabled" },
+    "measured_move": { "enabled": false, "mode": "disabled" }
+  },
+  "gates": {
+    "spread": { "enabled": true, "mode": "hard", "max_spread_jpy": 5.0, "max_spread_default": 2.0 },
+    "otr": { "enabled": true, "mode": "hard" },
+    "rr": { "enabled": true, "mode": "hard", "reversal_min_rr": 1.35, "trend_min_rr": 1.10 },
+    "debounce": { "enabled": true, "mode": "hard" },
+    "cap": { "enabled": true, "mode": "hard" },
+    "regime_floor": { "enabled": true, "mode": "hard", "min_score": -1 },
+    "exhaustion": { "enabled": true, "mode": "hard" }
+  },
+  "execution": {
+    "trigger_side_validation": true,
+    "no_mans_zone_guard": true,
+    "spread_aware_trailing": true
+  },
+  "advisors": {
+    "ml_regime": { "enabled": false, "mode": "observe" },
+    "ml_trade_scorer": { "enabled": false, "mode": "observe" },
+    "llm_analyst": { "enabled": false, "mode": "observe" }
+  },
+  "telemetry": {
+    "decision_audit": true,
+    "execution_audit": true,
+    "replay_logs": true
+  },
+  "dashboard": {
+    "enabled": true,
+    "port": 8084,
+    "host": "127.0.0.1"
+  }
+}
