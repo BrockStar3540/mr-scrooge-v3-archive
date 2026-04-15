@@ -130,21 +130,25 @@ class Runtime:
         )
         from scrooge_v3.gates.pipeline import GatePipeline
 
+        from scrooge_v3.core.types import GateMode
         gate_cfg = self.config.section("gates")
         gate_pipeline = GatePipeline()
+        # HARD gates: mechanical checks that the V3 scorer doesn't cover
+        # OBSERVE gates: quality checks now handled by the V3 43-factor scorer
         gate_pipeline.register_many([
-            SpreadGate(gate_cfg.get("spread", {})),
-            OverheadRatioGate(gate_cfg.get("overhead_ratio", {})),
-            RiskRewardGate(gate_cfg.get("rr", {})),
-            DirectionalPressureGate(gate_cfg.get("directional_pressure", {})),
-            EntryConfirmationGate(gate_cfg.get("entry_confirmation", {})),
-            ExhaustionFilterGate(gate_cfg.get("exhaustion_filter", {})),
-            DebounceGate(gate_cfg.get("debounce", {})),
-            ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
-            ZoneProximityGate(gate_cfg.get("zone_proximity", {})),
-            ATRBudgetGate(gate_cfg.get("atr_budget", {})),
-            TrendFilterGate(gate_cfg.get("trend_filter", {})),
-            RegimeFloorGate(gate_cfg.get("regime_floor", {})),
+            SpreadGate(gate_cfg.get("spread", {}), mode=GateMode.HARD),
+            DebounceGate(gate_cfg.get("debounce", {}), mode=GateMode.HARD),
+            ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {}), mode=GateMode.HARD),
+            RegimeFloorGate({"min_score": -4}, mode=GateMode.HARD),  # Only BLOCKED suppresses
+            RiskRewardGate(gate_cfg.get("rr", {}), mode=GateMode.HARD),
+            # V3 scorer covers these — observe only for logging
+            OverheadRatioGate(gate_cfg.get("overhead_ratio", {}), mode=GateMode.OBSERVE),
+            DirectionalPressureGate(gate_cfg.get("directional_pressure", {}), mode=GateMode.OBSERVE),
+            EntryConfirmationGate(gate_cfg.get("entry_confirmation", {}), mode=GateMode.OBSERVE),
+            ExhaustionFilterGate(gate_cfg.get("exhaustion_filter", {}), mode=GateMode.OBSERVE),
+            ZoneProximityGate(gate_cfg.get("zone_proximity", {}), mode=GateMode.OBSERVE),
+            ATRBudgetGate(gate_cfg.get("atr_budget", {}), mode=GateMode.OBSERVE),
+            TrendFilterGate(gate_cfg.get("trend_filter", {}), mode=GateMode.OBSERVE),
         ])
 
         # --- Wire scorer and gate pipeline into scan pipeline ---
