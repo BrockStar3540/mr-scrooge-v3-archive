@@ -142,7 +142,7 @@ class ScanPipeline:
         approved: list[TradeCandidate] = []
         for candidate in candidates:
             if self.gate_pipeline is not None:
-                gate_result = self.gate_pipeline.evaluate(candidate, ctx)
+                gate_result = self.gate_pipeline.run(candidate, ctx)
                 if gate_result.all_passed:
                     approved.append(candidate)
                     self._emit(
