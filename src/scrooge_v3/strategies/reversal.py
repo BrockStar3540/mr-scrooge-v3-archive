@@ -81,7 +81,7 @@ class ReversalStrategy:
         if zone_map is None:
             return None
 
-        session_range = zone_map.get("session_range") or zone_map.get("daily_box")
+        session_range = getattr(zone_map, "session_range", None) or getattr(zone_map, "daily_box", None)
         if session_range is None:
             return None
 
