@@ -344,7 +344,8 @@ class Runtime:
             equity = acct.equity if acct else 10000.0
             inst = self.broker.get_instruments().get(best.symbol, {})
             inst_info = {"pipLocation": inst.pip_location, "marginRate": inst.margin_rate} if hasattr(inst, "pip_location") else {}
-            units = sizer.calculate(best.symbol, best.entry_price, equity, inst_info)
+            stop_dist = abs(best.entry_price - best.stop_price)
+            units = sizer.calculate(best.symbol, best.entry_price, equity, inst_info, stop_distance=stop_dist)
             if units and units > 0:
                 # --- Execution Physics: validate SL before sending ---
                 # Fetch live bid/ask for trigger-side validation
