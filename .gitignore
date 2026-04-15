@@ -20,4 +20,5 @@ htmlcov/
 *.log
 state/*.json
 !state/.gitkeep
+_v2_source/
 .DS_Store
