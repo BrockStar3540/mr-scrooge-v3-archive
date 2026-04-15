@@ -281,11 +281,88 @@ Both Doug's "Box Theory" and Sylvia's box language describe the same structure.
 
 > "The majority of activity that we need to know... is going to take place at those levels."
 
+### Box definition
+
+```
+BOX = [PDH, PDL]
+
+PDH = Prior Day High (or dominant swing high)
+PDL = Prior Day Low  (or dominant swing low)
+```
+
+A box is valid if it has clear extremes, price has reacted to both sides, and the range is tradeable.
+
 ### Trading logic within the box
 
 > "I'm trying to catch one swing towards the resistance zone and be out of the market. I'm not trying to predict what is going to happen after that."
 
 Many of these trades are box-to-box swings, not large directional predictions.
+
+### Fakeout vs true break
+
+A wick beyond the box boundary is NOT a break. It is a sweep — the ideal reversal condition.
+
+A single close beyond the boundary is suspect but not confirmed. It is a high-probability fakeout zone.
+
+A true break requires structure forming outside the box: multiple closes, sustained acceptance, pullbacks that respect the new level.
+
+Master rules from the source theory:
+```
+A box is valid until proven broken.
+A wick is not a break.
+A close is not enough — structure confirms.
+New boxes form from accepted price, not touched price.
+```
+
+### Alternative box
+
+When a true break occurs, the old box is deprecated and a new box forms:
+
+**Break up:**
+```
+New floor   = OLD PDH (resistance becomes support)
+New ceiling = NEW SESSION HIGH
+```
+
+**Break down:**
+```
+New ceiling = OLD PDL (support becomes resistance)
+New floor   = NEW SESSION LOW
+```
+
+After break up: look for pullbacks to old PDH (now support), continuation trades. Do not short immediately after clean breakout.
+
+After break down: look for rallies into old PDL (now resistance), continuation trades.
+
+### Transition behavior
+
+Do NOT trade during the transition between boxes. Between break and confirmation is a no-trade zone.
+
+Most traders get trapped during box transitions.
+
+**Double trap scenario:** break up fails, then break down fails. This means the market is range-expanding. Stand down or widen the box.
+
+### Box-to-box priority
+
+When multiple boxes exist (daily, session, intraday):
+```
+Daily > Session > Intraday
+```
+
+If boxes disagree, trade the higher-timeframe box. Ignore lower-timeframe noise.
+
+### Box validity and the obvious-level problem
+
+Each touch of a level reduces its edge:
+```
+1-2 touches -> strong
+3-4 touches -> weakening
+5+ touches  -> exhaustion
+```
+
+> "The more obvious the level, the more stops cluster there — which means the sweep gets bigger or the level finally fails."
+
+Levels that hold for very long without being tested also weaken from staleness. Fresh, recently-tested levels with clean reactions are the strongest.
 
 ---
 
@@ -680,7 +757,133 @@ This is a classification overlay on the source theory, not a replacement for it.
 
 ---
 
-# 25. Behavior Classification (Double BB Layer)
+# 25. Box Lifecycle State Machine (Engineering Formalization)
+
+This section formalizes the box lifecycle from Part I Section 9 into mechanical rules for automation.
+
+### State Machine
+
+```
+1. RANGING           -> price between PDH and PDL
+2. BREACH_INITIATED  -> price closes beyond PDH or PDL (single close)
+3. LIQUIDITY_SWEEP   -> price wicks/extends beyond boundary, then rejects back inside
+4. CONFIRMED_BREAK   -> structure forming outside box (multiple closes, sustained acceptance)
+5. ALTERNATIVE_BOX   -> new box active after confirmed break
+6. INVALID           -> box shelved (too old, too many touches, or structure collapsed)
+```
+
+### Trade Permissions per State
+
+```
+RANGING         -> reversal allowed at edges, no middle trades
+LIQUIDITY_SWEEP -> HIGH probability reversal (ideal condition)
+BREACH_INITIATED -> NO TRADE (single close = fakeout zone, wait for resolution)
+CONFIRMED_BREAK -> trend/continuation trades allowed
+ALTERNATIVE_BOX -> treat as new RANGING with new boundaries
+INVALID         -> no trades, wait for new box formation
+```
+
+### Confirmed Break Criteria
+
+A break is confirmed ONLY if:
+
+```
+EITHER:
+  2+ consecutive closes outside box
+
+OR:
+  Extension > threshold beyond boundary (instrument-dependent)
+
+AND:
+  No immediate rejection back inside
+  Pullbacks respect the new level (old boundary becomes support/resistance)
+```
+
+### Box Creation Algorithm
+
+```python
+if no_active_box:
+    box = [PDH, PDL]
+    state = RANGING
+
+elif price_inside(box):
+    state = RANGING
+
+elif wick_outside and return_inside:
+    state = LIQUIDITY_SWEEP
+    # keep original box — ideal reversal condition
+
+elif close_outside:
+    breach_count += 1
+
+    if breach_count == 1:
+        state = BREACH_INITIATED
+        # no trade — wait for confirmation or rejection
+
+    elif breach_count >= 2 or extension > threshold:
+        state = CONFIRMED_BREAK
+
+        if break_up:
+            new_box = [old_PDH, new_session_high]
+        elif break_down:
+            new_box = [new_session_low, old_PDL]
+
+        state = ALTERNATIVE_BOX
+```
+
+### Validity Decay (Engineering Parameters)
+
+**Time-based:**
+```
+0-2 hrs  -> strong
+2-4 hrs  -> moderate
+4-6 hrs  -> weak
+6+ hrs   -> low confidence (consider INVALID)
+```
+
+**Interaction-based:**
+```
+1-2 touches -> strong
+3-4 touches -> weakening
+5+ touches  -> exhaustion (level is obvious, sweep gets bigger or level fails)
+```
+
+These thresholds are engineering parameters — the source theory establishes the principle (levels weaken with time and touches) but does not specify exact numbers.
+
+### Gap Edge Cases (from Section 15)
+
+```
+Gap up (open > PDH):
+  Box = [PDH, Session High]
+
+Gap down (open < PDL):
+  Box = [Session Low, PDL]
+
+Dead-center open:
+  Box = [PDH, PDL] — wait for price to test one edge
+```
+
+### Multi-Box Resolution
+
+When daily, session, and intraday boxes exist simultaneously:
+```
+Daily > Session > Intraday
+```
+
+If boxes conflict, the higher-timeframe box wins. The engineering implementation should tag each box with its timeframe source and resolve conflicts by priority.
+
+### Double Trap Detection
+
+```
+Break up -> fail -> break down -> fail
+= RANGE EXPANDING
+```
+
+When detected: stand down entirely or widen the box to encompass the new range. Do not attempt reversal trades at the original edges — they have been consumed.
+
+---
+
+# 26. Behavior Classification (Double BB Layer)
 
 ### Purpose
 
@@ -715,7 +918,7 @@ RANGE   -> mean reversion possible, no engine eligible (middle = noise)
 
 ---
 
-# 26. ATR + OTR Expansion Logic
+# 27. ATR + OTR Expansion Logic
 
 ### ATR (from source theory)
 
@@ -736,7 +939,7 @@ Note: Exact thresholds are engineering parameters, not source theory.
 
 ---
 
-# 27. Strategy Stack
+# 28. Strategy Stack
 
 ### Reversal Engine (Primary) — source: Sections 3, 4, 5, 11, 12
 
@@ -745,7 +948,7 @@ Conditions:
 - Sucker move (Section 3: emotional push, can be messy)
 - Pitchfork confirmation (Section 11: first reversal candle)
 - John Wick quality bonus (Section 12: wick rejection)
-- EXTREME BB context (Section 25: engineering classification)
+- EXTREME BB context (Section 26: engineering classification)
 
 ### Trend Engine (Secondary) — engineering addition
 
@@ -763,7 +966,7 @@ Conditions:
 
 ---
 
-# 28. Regime Theory
+# 29. Regime Theory
 
 ### Not just trend vs range
 
@@ -786,7 +989,7 @@ OPENING    -> gap engine (source: Section 15)
 
 ---
 
-# 29. Gate Theory
+# 30. Gate Theory
 
 ### Purpose
 
@@ -810,7 +1013,7 @@ Each gate must be: independent, removable, observable.
 
 ---
 
-# 30. Execution Theory (Critical Discovery)
+# 31. Execution Theory (Critical Discovery)
 
 ### Core Insight
 
@@ -853,7 +1056,7 @@ CREATED -> SENT -> ACK -> TRIGGERED -> FILLED
 
 ---
 
-# 31. Trade Management (Engineering Extensions)
+# 32. Trade Management (Engineering Extensions)
 
 The source theory (Section 17) defines: partial take profit, break-even shift, hourly trailing stop, exit at opposing zone.
 
@@ -873,7 +1076,7 @@ Hard circuit breaker for account-level risk events (margin, equity drawdown, bro
 
 ---
 
-# 32. Re-Entry Logic (Engineering Implementation)
+# 33. Re-Entry Logic (Engineering Implementation)
 
 Source theory (Section 18): zone remains valid after being stopped, re-entry allowed if new pitchfork forms.
 
@@ -886,7 +1089,7 @@ Engineering implementation:
 
 ---
 
-# 33. Timing Physics
+# 34. Timing Physics
 
 ### Definition
 
@@ -906,7 +1109,7 @@ A correct decision executed incorrectly is still a loss. This is the engineering
 
 ---
 
-# 34. System Philosophy (V3)
+# 35. System Philosophy (V3)
 
 ### Core Doctrine
 
@@ -930,19 +1133,19 @@ Any module can be added, removed, disabled, or put in observe-only mode without 
 
 ---
 
-# 35. Edge Summary
+# 36. Edge Summary
 
 The system's edge comes from combining:
 
-1. **Structure** — box theory (Sections 2, 5, 9), liquidity zones (Section 5)
-2. **Behavior** — sucker moves (Section 3), stop hunts (Section 2), BB classification (Section 25)
-3. **Timing** — pitchfork entries (Section 11), execution precision (Section 30)
-4. **Control** — gates (Section 29), regime routing (Section 28), spread awareness (Section 30)
-5. **Management** — partial exits, ratchet logic, trailing structure (Sections 17, 31)
+1. **Structure** — box theory (Sections 2, 5, 9, 25), liquidity zones (Section 5)
+2. **Behavior** — sucker moves (Section 3), stop hunts (Section 2), BB classification (Section 26)
+3. **Timing** — pitchfork entries (Section 11), execution precision (Section 31)
+4. **Control** — gates (Section 30), regime routing (Section 29), spread awareness (Section 31)
+5. **Management** — partial exits, ratchet logic, trailing structure (Sections 17, 32)
 
 ---
 
-# 36. Final Statement
+# 37. Final Statement
 
 You are not trading patterns. You are trading **forced behavior at known locations**, executed with **precision timing**, protected by **strict risk control**, and governed by a **modular decision system**.
 
