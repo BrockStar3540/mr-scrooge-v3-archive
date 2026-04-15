@@ -146,8 +146,29 @@ class Runtime:
         self.scan_pipeline.gate_pipeline = gate_pipeline
         self.scan_pipeline.scorer = scorer
 
+        # --- Position pipeline (manages all open trades every cycle) ---
+        from scrooge_v3.core.position_pipeline import PositionPipeline
+        from scrooge_v3.management.trail import TrailManager
+        from scrooge_v3.management.ratchet import RatchetManager
+        from scrooge_v3.management.be_manager import BreakEvenManager
+        from scrooge_v3.management.partial_harvest import PartialHarvestManager
+        from scrooge_v3.management.emergency_close import EmergencyCloseManager
+        from scrooge_v3.execution.stop_planner import StopPlanner
+
+        mgmt_cfg = self.config.section("management") if self.config.get("management") else {}
+        self.position_pipeline = PositionPipeline(
+            trail_manager=TrailManager(mgmt_cfg.get("trail", {})),
+            ratchet_manager=RatchetManager(mgmt_cfg.get("ratchet", {})),
+            be_manager=BreakEvenManager(mgmt_cfg.get("break_even", {})),
+            harvest_manager=PartialHarvestManager(mgmt_cfg.get("harvest", {})),
+            emergency_manager=EmergencyCloseManager(mgmt_cfg.get("emergency", {})),
+            stop_planner=StopPlanner(self.config.section("execution")),
+            event_bus=self.event_bus,
+        )
+        log.info("[RUNTIME] Position pipeline initialized (trail, ratchet, BE, harvest, emergency)")
+
         # --- Universe screener ---
-        from scrooge_v3.market.screener import get_active_sessions, get_session_pairs
+        from scrooge_v3.market.screener import get_session_pairs
         self.screener = get_session_pairs
 
         # --- Load instruments ---
@@ -259,28 +280,128 @@ class Runtime:
                      best.symbol, best.strategy, best.score)
 
             from scrooge_v3.execution.sizing import SizingCalculator
+            from scrooge_v3.execution.stop_planner import StopPlanner
             sizer = SizingCalculator()
+            stop_planner = StopPlanner()
             acct = self.broker.get_account()
             equity = acct.equity if acct else 10000.0
             inst = self.broker.get_instruments().get(best.symbol, {})
             inst_info = {"pipLocation": inst.pip_location, "marginRate": inst.margin_rate} if hasattr(inst, "pip_location") else {}
             units = sizer.calculate(best.symbol, best.entry_price, equity, inst_info)
             if units and units > 0:
-                # Sign units: positive for LONG, negative for SHORT
-                signed_units = units if best.direction.value == "long" else -units
-                log.info("[RUNTIME] Placing order: %s %s %d units SL=%.5f TP=%.5f",
-                         best.symbol, best.direction.value, signed_units, best.stop_price, best.take_profit or 0)
-                result = self.broker.place_market_order(
-                    symbol=best.symbol, units=signed_units,
-                    stop_loss=best.stop_price, take_profit=best.take_profit,
-                )
-                if result.success:
-                    self.state.position_count += 1
-                    log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
-                             result.trade_id, best.symbol, signed_units, result.fill_price)
+                # --- Execution Physics: validate SL before sending ---
+                # Fetch live bid/ask for trigger-side validation
+                quote = self.broker.get_price(best.symbol)
+                if quote:
+                    validated_sl, sl_reason = stop_planner.validate_stop(
+                        best.direction, best.stop_price,
+                        quote.bid, quote.ask, quote.spread,
+                    )
+                    if sl_reason != "valid":
+                        log.warning("[RUNTIME] SL adjusted: %s %.5f → %.5f (%s)",
+                                    best.symbol, best.stop_price, validated_sl, sl_reason)
+                    # Check if trailing is safe (spread kill switch)
+                    trail_ok, trail_reason = stop_planner.should_trail(
+                        best.direction, best.stop_price, validated_sl,
+                        quote.spread, quote.spread,  # mean_spread = current (first cycle)
+                    )
+                    if not trail_ok and "hostile_spread" in trail_reason:
+                        log.warning("[RUNTIME] ENTRY SKIPPED: %s spread kill — %s",
+                                    best.symbol, trail_reason)
+                    else:
+                        # Sign units: positive for LONG, negative for SHORT
+                        signed_units = units if best.direction.value == "long" else -units
+                        log.info("[RUNTIME] Placing order: %s %s %d units SL=%.5f TP=%.5f",
+                                 best.symbol, best.direction.value, signed_units,
+                                 validated_sl, best.take_profit or 0)
+                        result = self.broker.place_market_order(
+                            symbol=best.symbol, units=signed_units,
+                            stop_loss=validated_sl, take_profit=best.take_profit,
+                        )
+                        if result.success:
+                            self.state.position_count += 1
+                            log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
+                                     result.trade_id, best.symbol, signed_units, result.fill_price)
+                        else:
+                            log.error("[RUNTIME] ORDER FAILED: %s %s error=%s",
+                                      best.symbol, best.direction.value, result.error)
                 else:
-                    log.error("[RUNTIME] ORDER FAILED: %s %s error=%s",
-                              best.symbol, best.direction.value, result.error)
+                    log.error("[RUNTIME] Cannot get price for %s — skipping entry", best.symbol)
+
+        # --- Manage open positions (trail, ratchet, BE, harvest, emergency) ---
+        open_trades = self.broker.get_open_trades()
+        self.state.position_count = len(open_trades)
+
+        if open_trades and hasattr(self, 'position_pipeline'):
+            # Build market data for each position's symbol
+            market_data: dict[str, dict] = {}
+            for trade in open_trades:
+                sym = trade.symbol
+                if sym not in market_data:
+                    q = self.broker.get_price(sym)
+                    h1 = self.broker.get_candles(sym, "H1", 24)
+                    if q:
+                        market_data[sym] = {
+                            "mid": q.mid, "bid": q.bid, "ask": q.ask,
+                            "spread": q.spread, "mean_spread": q.spread,
+                            "hourly_bars": h1,
+                        }
+
+            actions = self.position_pipeline.manage_all(open_trades, market_data)
+            for action in actions:
+                if action.action == "hold":
+                    continue
+                details = action.details or {}
+                new_stop = details.get("new_stop")
+
+                if action.action in ("trail", "ratchet", "break_even") and new_stop:
+                    # Validate SL before submitting (execution physics)
+                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
+                    if trade:
+                        q = self.broker.get_price(trade.symbol)
+                        if q:
+                            from scrooge_v3.execution.stop_planner import StopPlanner
+                            sp = StopPlanner()
+                            validated, reason = sp.validate_stop(
+                                TradeDirection(trade.direction), new_stop,
+                                q.bid, q.ask, q.spread,
+                            )
+                            if reason == "valid" or "adjusted" in reason:
+                                success = self.broker.modify_stop_loss(trade.trade_id, validated)
+                                if success:
+                                    log.info("[RUNTIME] SL %s: %s → %.5f (%s)",
+                                             action.action, trade.trade_id, validated, reason)
+                            else:
+                                log.warning("[RUNTIME] SL blocked: %s %s (%s)",
+                                            trade.trade_id, action.action, reason)
+
+                elif action.action == "harvest":
+                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
+                    if trade:
+                        fraction = details.get("fraction", 0.5)
+                        close_units = int(trade.units * fraction)
+                        if close_units > 0:
+                            result = self.broker.close_trade(trade.trade_id, close_units)
+                            if result.success:
+                                log.info("[RUNTIME] HARVEST: %s closed %d units @ %.5f",
+                                         trade.trade_id, close_units, result.fill_price)
+
+                elif action.action == "emergency_close":
+                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
+                    if trade:
+                        result = self.broker.close_trade(trade.trade_id)
+                        if result.success:
+                            log.warning("[RUNTIME] EMERGENCY CLOSE: %s @ %.5f reason=%s",
+                                        trade.trade_id, result.fill_price, details.get("reason", ""))
+
+        # --- Detect vanished trades (OANDA closed between cycles) ---
+        broker_trade_ids = {t.trade_id for t in open_trades}
+        # (Position tracking will be enhanced when state persistence is added)
+
+        # --- Daily P&L check ---
+        daily_pl = self.broker.get_realized_pl_today()
+        if self.live_state:
+            self.live_state.update(daily_pnl=daily_pl)
 
         # Update dashboard live state with full per-pair reports
         if self.live_state:
