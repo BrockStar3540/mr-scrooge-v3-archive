@@ -89,10 +89,8 @@ class ReversalStrategy:
         if bars_5m is None or len(bars_5m) < 4:
             return None
 
-        # Regime check — block if regime score too low
-        regime = ctx.classifications.get("regime")
-        if regime and regime.metadata.get("score", 0) <= -3:
-            return None
+        # Regime BLOCKED handled by gate pipeline (score < -4).
+        # CAUTION/RESTRICTED pass through — V3 scorer evaluates quality.
 
         # Determine direction from BB state
         if bb.label in ("REJECTION_LONG", "EXTREME_DOWN"):

@@ -122,18 +122,21 @@ class Runtime:
         self.registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
 
         # --- Register gates ---
-        from scrooge_v3.gates import DebounceGate, ZoneEntryCapGate
+        from scrooge_v3.gates import DebounceGate, ZoneEntryCapGate, RegimeFloorGate
         from scrooge_v3.gates.pipeline import GatePipeline
 
         gate_cfg = self.config.section("gates")
         gate_pipeline = GatePipeline()
-        # V3 pipeline: the scorer IS the filter (43 factors + pair layer).
-        # Only 2 mechanical gates remain — these prevent re-entry problems
-        # that the scorer has no visibility into (it scores each trade
-        # independently without knowing what happened 20 minutes ago).
-        # Everything else (spread, OTR, RR, regime, BB state, directional
-        # pressure, etc.) is scored by the V3 Hybrid Scorer.
+        # V3 gate pipeline — 3 gates only:
+        #   1. Regime BLOCKED (score < -4): macro circuit breaker, multiple
+        #      failure signals stacking. No trade can work in this state.
+        #   2. Debounce: prevents re-entry at same zone within 20 min.
+        #      Scorer has no memory of recent entries.
+        #   3. Zone cap: max 3 entries per zone+direction per day.
+        #      Scorer evaluates each trade independently.
+        # Everything else is handled by the V3 43-factor scorer.
         gate_pipeline.register_many([
+            RegimeFloorGate({"min_score": -4}),
             DebounceGate(gate_cfg.get("debounce", {})),
             ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
         ])
