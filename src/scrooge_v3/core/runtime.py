@@ -272,7 +272,9 @@ class Runtime:
             sizer = SizingCalculator()
             acct = self.broker.get_account()
             equity = acct.equity if acct else 10000.0
-            units = sizer.calculate(equity, best, self.broker.get_pip_size(best.symbol))
+            inst = self.broker.get_instruments().get(best.symbol, {})
+            inst_info = {"pipLocation": inst.pip_location, "marginRate": inst.margin_rate} if hasattr(inst, "pip_location") else {}
+            units = sizer.calculate(best.symbol, best.entry_price, equity, inst_info)
             if units > 0:
                 result = self.broker.place_market_order(
                     symbol=best.symbol, units=units,
