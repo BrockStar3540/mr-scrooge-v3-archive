@@ -229,9 +229,8 @@ class Runtime:
             return
 
         # Get active pairs for current session
-        from scrooge_v3.market.screener import get_active_sessions, get_session_pairs
-        active_sessions = get_active_sessions(now.hour)
-        pairs = get_session_pairs(active_sessions)
+        from scrooge_v3.market.screener import get_session_pairs
+        pairs = get_session_pairs(now.hour)
 
         if not pairs:
             log.debug("[RUNTIME] No active pairs this session")
