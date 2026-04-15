@@ -114,10 +114,12 @@ class Runtime:
 
         # --- Register strategies ---
         from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, V3HybridScorer
+        from scrooge_v3.strategies.direct_entry import DirectEntryStrategy
 
         strat_cfg = self.config.section("strategies")
         self.registry.register("strategies", "reversal", ReversalStrategy(strat_cfg.get("reversal", {})))
         self.registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
+        self.registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
 
         # --- Register gates ---
         from scrooge_v3.gates import (

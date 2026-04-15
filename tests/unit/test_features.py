@@ -206,7 +206,7 @@ class TestStrategyRouter:
         allowed = router.get_allowed(sym_ctx)
         assert "reversal" in allowed
 
-    def test_normal_blocks_all(self):
+    def test_normal_allows_direct(self):
         from scrooge_v3.core.strategy_router import StrategyRouter
         from scrooge_v3.core.types import SymbolContext, ClassificationResult
         router = StrategyRouter()
@@ -215,4 +215,4 @@ class TestStrategyRouter:
                                classifications={"bb_state": ClassificationResult(
                                    name="bb_state", label="NORMAL")})
         allowed = router.get_allowed(sym_ctx)
-        assert allowed == []
+        assert "direct" in allowed

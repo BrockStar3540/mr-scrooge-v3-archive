@@ -24,13 +24,14 @@ def test_all_imports():
     from scrooge_v3.classifiers.bb_state import BollingerStateClassifier
     from scrooge_v3.classifiers.regime import RegimeClassifier
     from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, V3HybridScorer
+    from scrooge_v3.strategies.direct_entry import DirectEntryStrategy
     from scrooge_v3.gates import (
         SpreadGate, OverheadRatioGate, RiskRewardGate,
         EntryConfirmationGate, ExhaustionFilterGate, DebounceGate,
         ZoneEntryCapGate, RegimeFloorGate,
     )
     from scrooge_v3.market import OANDAAdapter, DryRunAdapter, FeeCalculator
-    from scrooge_v3.dashboard import create_app, WidgetRegistry
+    from scrooge_v3.dashboard import create_app, LiveState
 
 
 def test_config_loads():
@@ -86,16 +87,11 @@ def test_fee_calculator_otr_inversion():
     assert result2.viable
 
 
-def test_widget_registry():
-    """Widget registry collects and renders widgets."""
-    from scrooge_v3.dashboard.widget_registry import WidgetRegistry
-    from scrooge_v3.dashboard.widgets import SystemWidget, ScoringWidget
-
-    reg = WidgetRegistry()
-    reg.register(SystemWidget())
-    reg.register(ScoringWidget())
-
-    assert len(reg.get_all()) == 2
-    rendered = reg.render_all()
-    assert "core" in rendered
-    assert "strategies" in rendered
+def test_live_state():
+    """LiveState creates snapshots."""
+    from scrooge_v3.dashboard.live_state import LiveState
+    state = LiveState()
+    state.update(cycle_count=5, equity=1500.0)
+    snap = state.snapshot()
+    assert snap["system"]["cycle_count"] == 5
+    assert snap["account"]["equity"] == 1500.0

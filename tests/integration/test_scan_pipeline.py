@@ -82,11 +82,13 @@ class TestScanPipelineFeatures:
         # No candidate (no strategies), but no crash
         assert result is None
 
-    def test_scan_universe_returns_list(self):
+    def test_scan_universe_returns_tuple(self):
         pipeline = _build_pipeline()
         snaps = {"EUR_USD": _snapshot(), "USD_JPY": _snapshot("USD_JPY", 150.5)}
-        results = pipeline.scan_universe(["EUR_USD", "USD_JPY"], snaps)
-        assert isinstance(results, list)
+        candidates, reports = pipeline.scan_universe(["EUR_USD", "USD_JPY"], snaps)
+        assert isinstance(candidates, list)
+        assert isinstance(reports, list)
+        assert len(reports) == 2
 
 
 class TestScanPipelineEvents:

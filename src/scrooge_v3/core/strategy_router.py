@@ -15,23 +15,25 @@ log = logging.getLogger("scrooge_v3.core.strategy_router")
 
 # Default routing rules — BB state to strategy mapping
 _DEFAULT_ROUTES: dict[str, list[str]] = {
-    # Exhaustion states → reversal
-    "EXTREME_UP": ["reversal"],
-    "EXTREME_DOWN": ["reversal"],
-    "REJECTION_SHORT": ["reversal"],
-    "REJECTION_LONG": ["reversal"],
-    # Trend states → trend
-    "TREND_UP": ["trend"],
-    "TREND_DOWN": ["trend"],
+    # Exhaustion states → reversal + direct
+    "EXTREME_UP": ["reversal", "direct"],
+    "EXTREME_DOWN": ["reversal", "direct"],
+    "REJECTION_SHORT": ["reversal", "direct"],
+    "REJECTION_LONG": ["reversal", "direct"],
+    # Trend states → trend + direct
+    "TREND_UP": ["trend", "direct"],
+    "TREND_DOWN": ["trend", "direct"],
     # STRETCH_UP = 0% WR on V1 live data — hard block, no strategies allowed
     "STRETCH_UP": [],
     # STRETCH_DOWN = -3 pts in V3 scorer, allow trend but scorer penalizes
-    "STRETCH_DOWN": ["trend"],
-    # Breakout → trend (cautious)
-    "BREAKOUT_UP": ["trend"],
-    "BREAKOUT_DOWN": ["trend"],
-    # Normal/range → no strategy (don't trade the middle)
-    "NORMAL": [],
+    "STRETCH_DOWN": ["trend", "direct"],
+    # Breakout → trend + direct
+    "BREAKOUT_UP": ["trend", "direct"],
+    "BREAKOUT_DOWN": ["trend", "direct"],
+    # Normal/range → direct entry only (V3 scorer decides quality)
+    "NORMAL": ["direct"],
+    # Compression → direct only
+    "COMPRESSION": ["direct"],
 }
 
 
