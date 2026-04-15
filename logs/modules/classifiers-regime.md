@@ -60,3 +60,8 @@
 **Source:** system/bots/mr-scrooge.md, mr-scrooge-v2.md
 **Type:** rule
 **Detail:** Changed from NORMAL +10 / CAUTION -10 to NORMAL +10 / CAUTION -5 / RESTRICTED -10. CAUTION penalty halved to reduce double-counting (CAUTION already gates via enforcement).
+
+### [2026-04-13] [BOTH] — Regime block uses wrong box when alternative is active
+**Source:** Dropbox: 2026-04-13_31367b51.md
+**Type:** bug
+**Detail:** When using_alternative=True, regime still evaluates against original box's PDH/PDL instead of alternative walls. Example: USD/JPY at 159.7, original PDH 159.275 (43p above), alt PDH 159.858 (16p above). Regime says "broke above PDH" (true for original, false for alternative). V3 fix: when alternative range active, regime must assess against alternative geometry.

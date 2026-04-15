@@ -70,3 +70,18 @@
 **Source:** DAILY_NOTES_2026-03-12.md
 **Type:** rule
 **Detail:** Stage 3 trailing after break-even: max(hourly_candle_low, entry + 80% × peak_profit, peak − 1.5×ATR). For shorts: min() of mirror equivalents. Profit-lock + ATR activate only when profit > 1 ATR to avoid tightening early.
+
+### [2026-04-10] [BOTH] — Harvester entries are reactive, not proactive
+**Source:** Dropbox: 2026-04-10_54314085.md
+**Type:** discovery
+**Detail:** Harvester places TP1/TP2 limits only AFTER bot detects price passed those levels (polls every 30 sec). By the time the limit is created, price has already moved past — limit fills immediately at market, not at target. Pre-placing harvester limits before entry would capture true TP levels and avoid taker spread.
+
+### [2026-04-10] [BOTH] — Harvester tier transitions not synced to bot
+**Source:** Dropbox: 2026-04-10_54314085.md
+**Type:** bug
+**Detail:** Harvester tracks tiers_hit in its own state file; bot uses partial_1_taken as sentinel for "TP1 passed." If harvester takes T1 before ratchet detects TP1, ratchet's Stage 2 never fires. Breaks staged SL progression. Fix: shared coordination state, not dual-tracking.
+
+### [2026-03-11] [BOTH] — Green exit (TP1) placement timing: FOK rejected
+**Source:** Dropbox: 2026-03-11_d66ae964.md
+**Type:** bug
+**Detail:** Setting TP1 limits reactively after BE achieved — price may have already passed. FOK (fill-or-kill) order rejected with "would trigger immediately." Fix: place TP1 as standing GTC limit at entry time, not reactively after breakeven. Never use FOK for TP orders.

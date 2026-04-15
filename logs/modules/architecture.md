@@ -60,3 +60,8 @@
 **Source:** AUDIT.md
 **Type:** bug
 **Detail:** _send_scrooge_alert() routed to non-existent #mr-scrooge Slack channel, causing syslog flooding. Fixed to route via Telegram. V3 alert routing must target valid channels.
+
+### [2026-02-14] [V1] — OANDA server latency: NYC region is critical
+**Source:** Dropbox: 2026-02-14_Building a forex trading agent with OAND.md
+**Type:** lesson
+**Detail:** OANDA primary servers in NYC/NJ. VPS in NYC: 1-3ms latency. San Francisco: 60-70ms. London: 70-80ms. Home WiFi: 30-50ms + jitter. For live trading with aggressive entries, NYC region deployment is critical. Affects fill quality and slippage on limit orders, especially harvester partials.
