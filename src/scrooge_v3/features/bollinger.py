@@ -54,7 +54,7 @@ class BollingerCalculator:
         self.band_a_std = config.get("band_a_std", 2)
         self.band_b_period = config.get("band_b_period", 4)
         self.band_b_std = config.get("band_b_std", 4)
-        self.timeframe = config.get("timeframe", "5m")
+        self.timeframe = config.get("timeframe", "5M")
 
     def compute(
         self, symbol: str, snapshot: MarketSnapshot, state: dict

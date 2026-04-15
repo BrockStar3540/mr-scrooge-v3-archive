@@ -69,11 +69,22 @@ class ScanPipeline:
         state = state or {}
 
         # 1. Run all active feature modules
+        #    After each feature, propagate key values into state so
+        #    downstream features can access them (e.g. OTR needs zone_detector's range_half).
         features: dict[str, FeatureResult] = {}
         for entry in self.registry.get_active("features"):
             try:
                 result = entry.instance.compute(symbol, snapshot, state)
                 features[entry.name] = result
+                # Propagate zone_detector outputs into state for OTR and others
+                if entry.name == "zone_detector" and result.values:
+                    zm = result.values.get("zone_map")
+                    if zm and hasattr(zm, "session_range") and zm.session_range:
+                        sr = zm.session_range
+                        box_range = sr.PDH - sr.PDL
+                        state["range_half"] = box_range / 2
+                        state["box_range"] = box_range
+                        state["total_overhead"] = snapshot.spread * 2
             except Exception:
                 log.exception("[SCAN] Feature %s failed for %s", entry.name, symbol)
 
