@@ -1,8 +1,8 @@
-"""Position sizing — risk-based calculation.
+"""Position sizing — margin-utilization based calculation.
 
-Sizes positions so that the stop loss distance risks a fixed
-percentage of account equity (default 1%). This produces sane
-unit counts regardless of margin rate or leverage.
+Determines unit count based on equity, margin rate, and free margin caps.
+Broker-agnostic interface — requires instrument metadata and pip values
+but does not call the broker directly.
 """
 
 from __future__ import annotations
@@ -14,18 +14,15 @@ log = logging.getLogger("scrooge_v3.execution.sizing")
 
 
 class SizingCalculator:
-    """Risk-based sizing.
+    """Margin-utilization sizing.
 
-    units = (equity * risk_pct) / stop_distance_in_account_currency
-
-    Example: $80K equity, 1% risk = $800.
-    Stop is 5 pips on NZD/USD (pip value ~$1/unit) → 800 / 0.0005 = ~160K units.
+    base_units = (equity * margin_utilization) / (base_price_usd * margin_rate)
+    Caps at 80% of free margin to avoid INSUFFICIENT_MARGIN rejections.
     """
 
     def __init__(self, config: dict | None = None):
         config = config or {}
-        self.risk_pct = config.get("risk_pct", 0.01)  # 1% of equity per trade
-        self.max_units = config.get("max_units", 500_000)  # absolute cap
+        self.margin_utilization = config.get("margin_utilization", 0.80)
 
     def calculate(
         self,
@@ -33,42 +30,60 @@ class SizingCalculator:
         current_price: float,
         equity: float,
         instrument_info: dict[str, Any] | None = None,
-        stop_distance: float = 0.0,
-        **kwargs: Any,
+        pip_value_per_unit: float = 0.0,
+        free_margin: float | None = None,
     ) -> int | None:
-        """Returns integer unit count based on risk.
+        """Returns integer unit count, or None if sizing is impossible.
 
         Args:
             symbol: Instrument symbol
             current_price: Current mid price
             equity: Account equity
             instrument_info: Dict with pipLocation, marginRate
-            stop_distance: Distance from entry to stop in price units
+            pip_value_per_unit: Value of one pip per one unit in account currency
+            free_margin: Available margin (optional cap)
         """
-        if equity <= 0 or stop_distance <= 0:
-            log.warning("[SIZING] %s: equity=%.0f stop_dist=%.5f — cannot size",
-                        symbol, equity, stop_distance)
+        info = instrument_info or {}
+        pip_size = 10 ** int(info.get("pipLocation", -4))
+        margin_rate = float(info.get("marginRate", 0.0333))
+
+        if pip_value_per_unit <= 0:
+            pip_value_per_unit = pip_size  # rough fallback
+
+        base_price_usd = pip_value_per_unit * current_price / pip_size if pip_size > 0 else current_price
+        if base_price_usd <= 0:
+            log.warning("[SIZING] %s: base_price_usd=%.4f — cannot size", symbol, base_price_usd)
             return None
 
-        risk_amount = equity * self.risk_pct
-        units = round(risk_amount / stop_distance)
+        target_margin = equity * self.margin_utilization
+        units = round(target_margin / (base_price_usd * margin_rate))
 
         if units < 1:
             log.warning("[SIZING] %s: sized to %d units — too small", symbol, units)
             return None
 
-        if units > self.max_units:
-            log.info("[SIZING] %s: capped %d → %d units", symbol, units, self.max_units)
-            units = self.max_units
+        # Cap to 80% of free margin
+        if free_margin is not None:
+            usable = free_margin * 0.80
+            max_units = round(usable / (base_price_usd * margin_rate))
+            if max_units < 1:
+                log.warning("[SIZING] %s: insufficient free margin ($%.2f)", symbol, free_margin)
+                return None
+            if units > max_units:
+                if max_units < units * 0.50:
+                    log.warning(
+                        "[SIZING] %s: margin cap too severe (%d < 50%% of %d) — skip",
+                        symbol, max_units, units,
+                    )
+                    return None
+                log.info("[SIZING] %s: units capped by margin: %d → %d", symbol, units, max_units)
+                units = max_units
 
-        info = instrument_info or {}
-        pip_size = 10 ** int(info.get("pipLocation", -4))
-        risk_pips = stop_distance / pip_size if pip_size > 0 else 0
-
+        pip_dollar = units * pip_value_per_unit
         log.info(
-            "[SIZING] %s: %d units | equity $%.0f | risk $%.0f (%.1f%%) | "
-            "stop %.1f pips | $%.2f/pip",
-            symbol, units, equity, risk_amount, self.risk_pct * 100,
-            risk_pips, units * pip_size,
+            "[SIZING] %s: %d units | equity $%.0f | "
+            "margin target $%.0f (%.0f%%) | margin_rate %.2f%% | $%.2f/pip",
+            symbol, units, equity, target_margin,
+            self.margin_utilization * 100, margin_rate * 100, pip_dollar,
         )
         return units
