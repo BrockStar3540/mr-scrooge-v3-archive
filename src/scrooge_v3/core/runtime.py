@@ -21,7 +21,7 @@ from .registry import ModuleRegistry
 from .scan_pipeline import ScanPipeline
 from .state_controller import StateController
 from .strategy_router import StrategyRouter
-from .types import MarketSnapshot, ModuleMode
+from .types import MarketSnapshot, ModuleMode, TradeDirection
 
 log = logging.getLogger("scrooge_v3.core.runtime")
 
