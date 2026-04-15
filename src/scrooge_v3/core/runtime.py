@@ -40,7 +40,6 @@ class Runtime:
         self.config = config
         self.event_bus = EventBus()
         self.registry = ModuleRegistry()
-        # State persists to disk for restart recovery
         from pathlib import Path
         persist_path = Path(config.get("runtime.state_file", "data/state.json"))
         self.state = StateController(
@@ -172,6 +171,13 @@ class Runtime:
             event_bus=self.event_bus,
         )
         log.info("[RUNTIME] Position pipeline initialized (trail, ratchet, BE, harvest, emergency)")
+
+        # --- Position tracker (per-trade state across cycles) ---
+        from scrooge_v3.execution.position_tracker import PositionTracker
+        self.tracker = PositionTracker(
+            persist_path=Path("data/positions.json"),
+        )
+        self.tracker.restore()
 
         # --- Universe screener ---
         from scrooge_v3.market.screener import get_session_pairs
@@ -378,6 +384,23 @@ class Runtime:
                         )
                         if result.success:
                             self.state.position_count += 1
+                            # Register with tracker for management
+                            self.tracker.register_entry(
+                                trade_id=result.trade_id,
+                                symbol=best.symbol,
+                                direction=best.direction.value,
+                                units=abs(signed_units),
+                                entry_price=result.fill_price,
+                                stop_price=validated_sl,
+                                tp_price=best.take_profit or 0,
+                                tp1_price=best.metadata.get("tp1", 0),
+                                tp2_price=best.take_profit or 0,
+                                strategy=best.strategy,
+                                v3_score=int(best.score),
+                                metadata=best.metadata,
+                            )
+                            # Record zone entry for debounce/cap
+                            self.state.record_zone_entry(best.symbol, f"{validated_sl:.5f}")
                             log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
                                      result.trade_id, best.symbol, signed_units, result.fill_price)
                         else:
@@ -386,63 +409,89 @@ class Runtime:
                 else:
                     log.error("[RUNTIME] Cannot get price for %s — skipping entry", best.symbol)
 
-        # --- Manage open positions (trail, ratchet, BE, harvest, emergency) ---
+        # --- Manage open positions ---
+        # Reconcile tracker with broker (detect vanished trades)
         open_trades = self.broker.get_open_trades()
+        broker_ids = {t.trade_id for t in open_trades}
+        vanished = self.tracker.reconcile_with_broker(broker_ids)
+        for tid in vanished:
+            self.state.decrement_positions()
         self.state.position_count = len(open_trades)
 
-        if open_trades and hasattr(self, 'position_pipeline'):
-            # Build market data for each position's symbol
-            market_data: dict[str, dict] = {}
-            for trade in open_trades:
-                sym = trade.symbol
-                if sym not in market_data:
-                    q = self.broker.get_price(sym)
-                    h1 = self.broker.get_candles(sym, "H1", 24)
-                    if q:
-                        market_data[sym] = {
-                            "mid": q.mid, "bid": q.bid, "ask": q.ask,
-                            "spread": q.spread, "mean_spread": q.spread,
-                            "hourly_bars": h1,
-                        }
+        # Run management pipeline on each tracked position
+        from scrooge_v3.execution.stop_planner import StopPlanner
+        sp = StopPlanner(self.config.section("execution"))
 
-            actions = self.position_pipeline.manage_all(open_trades, market_data)
-            for action in actions:
-                if action.action == "hold":
+        for tracked in self.tracker.all_positions():
+            # Get live price for execution physics
+            quote = self.broker.get_price(tracked.symbol)
+            if not quote:
+                continue
+
+            h1 = self.broker.get_candles(tracked.symbol, "H1", 24)
+            pip = 0.01 if "JPY" in tracked.symbol else 0.0001
+            direction = TradeDirection(tracked.direction)
+
+            # Run position pipeline
+            action = self.position_pipeline.manage_position(
+                tracked,
+                current_price=quote.mid,
+                bid=quote.bid,
+                ask=quote.ask,
+                spread=quote.spread,
+                mean_spread=quote.spread,
+                hourly_bars=h1,
+                pip_size=pip,
+            )
+
+            if action.action == "hold":
+                continue
+
+            details = action.details or {}
+            new_stop = details.get("new_stop")
+            log.info("[RUNTIME] Position %s: action=%s details=%s",
+                     tracked.trade_id, action.action, details)
+
+            if action.action in ("trail", "ratchet", "break_even") and new_stop:
+                # === EXECUTION PHYSICS: 4 guards before any SL submission ===
+                # 1. Spread kill switch
+                trail_ok, trail_reason = sp.should_trail(
+                    direction, tracked.current_stop, new_stop,
+                    quote.spread, quote.spread,
+                )
+                if not trail_ok:
+                    log.warning("[RUNTIME] SL %s BLOCKED (%s): %s spread=%.5f — native SL stays",
+                                action.action, trail_reason, tracked.trade_id, quote.spread)
                     continue
-                details = action.details or {}
-                new_stop = details.get("new_stop")
 
-                if action.action in ("trail", "ratchet", "break_even") and new_stop:
-                    # Validate SL before submitting (execution physics)
-                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
-                    if trade:
-                        q = self.broker.get_price(trade.symbol)
-                        if q:
-                            from scrooge_v3.execution.stop_planner import StopPlanner
-                            sp = StopPlanner()
-                            validated, reason = sp.validate_stop(
-                                TradeDirection(trade.direction), new_stop,
-                                q.bid, q.ask, q.spread,
-                            )
-                            if reason == "valid" or "adjusted" in reason:
-                                success = self.broker.modify_stop_loss(trade.trade_id, validated)
-                                if success:
-                                    log.info("[RUNTIME] SL %s: %s → %.5f (%s)",
-                                             action.action, trade.trade_id, validated, reason)
-                            else:
-                                log.warning("[RUNTIME] SL blocked: %s %s (%s)",
-                                            trade.trade_id, action.action, reason)
+                # 2-4. Trigger-side, no-man's-zone, buffer
+                validated, reason = sp.validate_stop(
+                    direction, new_stop, quote.bid, quote.ask, quote.spread,
+                )
 
-                elif action.action == "harvest":
-                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
-                    if trade:
-                        fraction = details.get("fraction", 0.5)
-                        close_units = int(trade.units * fraction)
-                        if close_units > 0:
-                            result = self.broker.close_trade(trade.trade_id, close_units)
-                            if result.success:
-                                log.info("[RUNTIME] HARVEST: %s closed %d units @ %.5f",
-                                         trade.trade_id, close_units, result.fill_price)
+                if reason == "valid" or "adjusted" in reason:
+                    success = self.broker.modify_stop_loss(tracked.trade_id, validated)
+                    if success:
+                        self.tracker.update_stop(tracked.trade_id, validated)
+                        if action.action == "break_even":
+                            self.tracker.mark_break_even(tracked.trade_id)
+                        log.info("[RUNTIME] SL %s: %s %.5f → %.5f (%s)",
+                                 action.action, tracked.trade_id, tracked.current_stop, validated, reason)
+                    else:
+                        log.error("[RUNTIME] SL modify failed: %s", tracked.trade_id)
+                else:
+                    log.warning("[RUNTIME] SL %s BLOCKED (%s): %s — native SL stays",
+                                action.action, reason, tracked.trade_id)
+
+            elif action.action == "harvest":
+                fraction = details.get("fraction", 0.5)
+                close_units = int(tracked.units * fraction)
+                if close_units > 0:
+                    result = self.broker.close_trade(tracked.trade_id, close_units)
+                    if result.success:
+                        self.tracker.mark_tp1_taken(tracked.trade_id)
+                        log.info("[RUNTIME] HARVEST: %s closed %d units @ %.5f",
+                                 tracked.trade_id, close_units, result.fill_price)
 
                 elif action.action == "favorable_exit":
                     # Green exit — limit order for better fill, market fallback
