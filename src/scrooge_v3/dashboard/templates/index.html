@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<!-- HEADER -->
 <header>
   <div class="hdr-left">
     <h1>SCROOGE V3</h1>
@@ -17,31 +16,36 @@
   <div id="sessions" class="hdr-right"></div>
 </header>
 
-<!-- METRICS BAR -->
 <section class="metrics-bar" id="metrics-bar"></section>
-
-<!-- MARKET / BLOCKERS / REGIME ROW -->
 <section class="info-row" id="info-row"></section>
 
-<!-- DECISION SUMMARY -->
-<section class="decision-row" id="decision-row"></section>
-
-<!-- TABS -->
 <nav class="tab-bar">
   <button class="tab active" data-tab="signals">Signals</button>
-  <button class="tab" data-tab="positions">Positions</button>
-  <button class="tab" data-tab="execution">Execution</button>
 </nav>
 
-<!-- SIGNAL CARDS -->
-<section class="signals-grid" id="signals-grid"></section>
+<section id="signals-grid" class="signals-grid"></section>
 
-<!-- FOOTER -->
 <footer>Mr. Scrooge V3 &mdash; Plug-in Trading Platform</footer>
 
 <script>
 const BASE = window.location.protocol + '//' + window.location.host;
-const REFRESH = 4000;
+
+// V3 Scorer factor labels for display
+const FACTOR_LABELS = {
+  hr: 'Entry Hour', age: 'Box Age', stp: 'Nat Stop', vol: 'Volume',
+  mom: 'Momentum', dc: 'Dir Candles', z: 'Z-Score', bb: 'BB Pos',
+  e50: 'EMA50 Dist', e20: 'EMA20 Dist', otr: 'OTR', adr: 'ADR Consumed',
+  dur: 'Duration', wal: 'Wall Prox', bdy: 'Body %', bbs: 'BB State', rsi: 'RSI'
+};
+const PAIR_LABELS = {
+  p_hr_norm: '00-07+NORM', p_hr_mom0: '00-07+mom0', p_hr_z: '00-07+z.5-1',
+  p_hr_ns: '00-07+ns4-6', p_hr_age: '00-07+fresh', p_z_norm: 'z1-1.5+NORM',
+  p_hr_e50: '00-07+e50>60', p_age_rsi: 'fresh+RSI<45', p_age_otr: 'fresh+OTR8-18',
+  p_age_norm: 'fresh+NORM',
+  n_hr_adr: '12-15+ADR.8-1.2', n_hr_dc0: '12-15+dc0', n_z_adr: 'z<.5+ADR',
+  n_z_bdy: 'z<.5+body', n_mom_bb: 'mom0+bb>.85', n_ns_vr: 'ns<4+vol.7-.9',
+  n_dc_otr: 'dc0+OTR<8', n_z_norm: 'z<.5+NORM'
+};
 
 async function load() {
   try {
@@ -52,149 +56,175 @@ async function load() {
 }
 
 function render(d) {
-  renderMode(d.system);
-  renderSessions(d.sessions);
+  renderHeader(d);
   renderMetrics(d);
-  renderInfoRow(d);
-  renderDecision(d.decision);
-  renderSignals(d.signals);
+  renderInfo(d);
+  renderSignals(d.signals || []);
 }
 
-function renderMode(sys) {
+function renderHeader(d) {
   const b = document.getElementById('mode-badge');
-  if (sys.dry_run) { b.textContent = 'DRY'; b.className = 'badge badge-dry'; }
-  else { b.textContent = 'LIVE'; b.className = 'badge badge-live'; }
-}
-
-function renderSessions(sessions) {
-  const el = document.getElementById('sessions');
+  b.textContent = d.system.dry_run ? 'DRY' : 'LIVE';
+  b.className = d.system.dry_run ? 'badge badge-dry' : 'badge badge-live';
   const all = ['London','New York','Tokyo','Sydney'];
-  el.innerHTML = all.map(s => {
-    const on = sessions.includes(s);
-    return `<span class="session-dot ${on?'on':'off'}">${s}</span>`;
-  }).join('') + `<span class="clock">${new Date().toUTCString().slice(17,25)} UTC</span>`;
+  document.getElementById('sessions').innerHTML = all.map(s =>
+    `<span class="sdot ${(d.sessions||[]).includes(s)?'on':''}">${s}</span>`
+  ).join('') + `<span class="clock">${new Date().toUTCString().slice(17,25)} UTC</span>`;
 }
 
 function renderMetrics(d) {
   const a = d.account, s = d.scan, sys = d.system;
-  const pnlClass = a.daily_pnl >= 0 ? 'pos' : 'neg';
-  const rlClass = a.realized_pl >= 0 ? 'pos' : 'neg';
   document.getElementById('metrics-bar').innerHTML = `
-    <div class="metric"><label>EQUITY</label><span class="val">$${a.equity.toLocaleString('en',{minimumFractionDigits:2})}</span></div>
-    <div class="metric"><label>DAILY PNL</label><span class="val ${pnlClass}">${a.daily_pnl>=0?'+':''}$${a.daily_pnl.toFixed(2)}</span></div>
-    <div class="metric"><label>REALIZED P/L</label><span class="val ${rlClass}">$${a.realized_pl.toFixed(2)}</span></div>
-    <div class="metric"><label>POSITIONS</label><span class="val">${a.position_count}</span></div>
-    <div class="metric"><label>SCANNED</label><span class="val">${s.pairs_scanned}</span></div>
-    <div class="metric"><label>VIABLE</label><span class="val">${s.pairs_viable}</span></div>
-    <div class="metric"><label>CYCLE</label><span class="val">${sys.cycle_count}</span></div>
-    <div class="metric"><label>LAST UPDATE</label><span class="val">${sys.last_update}</span></div>
-  `;
+    <div class="m"><label>EQUITY</label><span class="v">$${a.equity.toLocaleString('en',{minimumFractionDigits:2})}</span></div>
+    <div class="m"><label>DAILY PNL</label><span class="v ${a.daily_pnl>=0?'pos':'neg'}">${a.daily_pnl>=0?'+':''}$${a.daily_pnl.toFixed(2)}</span></div>
+    <div class="m"><label>REALIZED P/L</label><span class="v ${a.realized_pl>=0?'pos':'neg'}">$${a.realized_pl.toFixed(2)}</span></div>
+    <div class="m"><label>POSITIONS</label><span class="v">${a.position_count}</span></div>
+    <div class="m"><label>SCANNED</label><span class="v">${s.pairs_scanned}</span></div>
+    <div class="m"><label>VIABLE</label><span class="v">${s.pairs_viable}</span></div>
+    <div class="m"><label>CYCLE</label><span class="v">${sys.cycle_count}</span></div>
+    <div class="m"><label>UPDATED</label><span class="v">${sys.last_update}</span></div>`;
 }
 
-function renderInfoRow(d) {
-  const m = d.market, b = d.blockers, r = m.regime || {};
-  const blockerHtml = Object.entries(b).map(([k,v]) =>
-    `<div class="info-line"><span>${k}</span><span class="cnt">${v}</span></div>`
-  ).join('') || '<div class="info-line dim">None</div>';
-
-  const regimeHtml = Object.entries(r).map(([k,v]) => {
-    const cls = k === 'blocked' ? 'neg' : k === 'restricted' ? 'warn' : 'pos';
-    return `<div class="info-line"><span>${k}</span><span class="cnt ${cls}">${v}</span></div>`;
-  }).join('');
-
+function renderInfo(d) {
+  const dec = d.decision;
   document.getElementById('info-row').innerHTML = `
-    <div class="info-card">
-      <h3>MARKET STATE</h3>
-      <div class="market-state">${m.state || 'SCANNING'}</div>
-    </div>
-    <div class="info-card">
-      <h3>BLOCKERS</h3>
-      ${blockerHtml}
-    </div>
-    <div class="info-card">
-      <h3>REGIME</h3>
-      ${regimeHtml}
-      <div class="info-line dim"><span>Avg score: ${m.regime_avg_score}</span></div>
-      <div class="info-line dim"><span>Dominant: ${m.regime_dominant || '—'}</span></div>
-    </div>
-  `;
-}
-
-function renderDecision(dec) {
-  const rejHtml = Object.entries(dec.top_rejections || {}).map(([k,v]) =>
-    `<span class="rej-tag">${k}: ${v}</span>`
-  ).join(' ') || '<span class="dim">No rejections</span>';
-  const typeHtml = Object.entries(dec.setup_types || {}).map(([k,v]) =>
-    `<span class="setup-tag">${k}: ${v}</span>`
-  ).join(' ') || '';
-
-  document.getElementById('decision-row').innerHTML = `
-    <div class="dec-card">
-      <h3>DECISION SUMMARY</h3>
-      <div class="dec-grid">
-        <div><span class="pos">VALID</span> <span class="cnt">${dec.valid}</span></div>
-        <div><span class="neg">REJECTED</span> <span class="cnt">${dec.rejected}</span></div>
-        <div class="dec-reasons">${rejHtml}</div>
-        <div>${typeHtml}</div>
-      </div>
-    </div>
-  `;
+    <div class="ic"><h3>DECISION</h3>
+      <span class="pos">VALID ${dec.valid}</span> &nbsp;
+      <span class="neg">REJECTED ${dec.rejected}</span>
+    </div>`;
 }
 
 function renderSignals(signals) {
-  if (!signals || !signals.length) {
-    document.getElementById('signals-grid').innerHTML = '<div class="no-signals">No signals this cycle</div>';
-    return;
-  }
-  document.getElementById('signals-grid').innerHTML = signals.map(s => {
-    const gateRows = Object.entries(s.gates || {}).map(([name, g]) => {
-      const cls = g.passed ? 'gate-pass' : 'gate-fail';
-      const label = g.passed ? 'PASS' : 'FAIL';
-      return `<div class="gate-row"><span class="gate-name">${name}</span>
-        ${g.reason ? `<span class="gate-reason">${g.reason}</span>` : ''}
-        <span class="gate-badge ${cls}">${label}</span></div>`;
-    }).join('');
+  const el = document.getElementById('signals-grid');
+  if (!signals.length) { el.innerHTML = '<div class="empty">No pairs scanned this cycle</div>'; return; }
 
-    const scoreBadges = [];
-    if (s.z_score) scoreBadges.push(`<span class="sbadge">Z</span>`);
-    if (s.atr_consumed) scoreBadges.push(`<span class="sbadge ${s.atr_consumed>80?'sbad':''}">ATR</span>`);
-    if (s.otr_ratio) scoreBadges.push(`<span class="sbadge ${s.otr_ratio<8?'sbad':''}">OTR</span>`);
+  // Sort: TAKE first, then by score descending
+  signals.sort((a,b) => {
+    const va = a.verdict.startsWith('TAKE') ? 1000 : 0;
+    const vb = b.verdict.startsWith('TAKE') ? 1000 : 0;
+    return (vb + (b.scorer?.score||0)) - (va + (a.scorer?.score||0));
+  });
 
-    const v3Line = s.v3_blocks && s.v3_blocks.length
-      ? `<div class="v3-block">V3 BLOCKED: ${s.v3_blocks.join(', ')}</div>`
-      : s.v3_score
-        ? `<div class="v3-score">V3 Score: ${s.v3_score} (${s.v3_tier})</div>`
-        : '';
-
-    const verdictCls = s.tradeable ? 'verdict-trade' : 'verdict-no';
-    return `
-    <div class="signal-card">
-      <div class="sig-header">
-        <span class="sig-pair">${s.symbol.replace('_','/')}</span>
-        ${s.signal_type ? `<span class="sig-type">${s.signal_type}</span>` : ''}
-        ${scoreBadges.join('')}
-        <span class="${verdictCls}">${s.verdict}</span>
-      </div>
-      <div class="sig-meta">
-        Z ${s.z_score} &nbsp; ADR ${s.atr_consumed}% &nbsp; BB ${s.bb_state || '—'} &nbsp;
-        RSI ${s.rsi} &nbsp; Box ${s.box_age}h
-      </div>
-      <div class="sig-gates">${gateRows || '<span class="dim">No gates evaluated</span>'}</div>
-      ${v3Line}
-      ${s.rejection_reason ? `<div class="sig-reject">${s.rejection_reason}</div>` : ''}
-    </div>`;
-  }).join('');
+  el.innerHTML = signals.map(renderPairCard).join('');
 }
 
-// Tab switching
+function renderPairCard(sig) {
+  const sc = sig.scorer || {};
+  const bd = sc.breakdown || {};
+  const score = sc.score || 0;
+  const tier = sc.tier || '';
+  const blocks = sc.blocks || [];
+  const verdict = sig.verdict || '';
+
+  // Verdict badge
+  let vclass = 'v-no', vlabel = verdict;
+  if (verdict.startsWith('TAKE')) { vclass = 'v-take'; vlabel = `TAKE (${tier})`; }
+  else if (verdict === 'V3_BLOCKED') { vclass = 'v-block'; vlabel = 'BLOCKED'; }
+  else if (verdict === 'V3_REJECT') { vclass = 'v-rej'; }
+
+  // BB state from classifications
+  const bbState = sig.classifications?.bb_state?.label || '—';
+  const regimeLabel = sig.classifications?.regime?.label || '—';
+  const regimeScore = sig.classifications?.regime?.metadata?.score ?? '—';
+
+  // Features
+  const f = sig.features || {};
+  const rsi = f.rsi?.rsi ?? '—';
+  const zScore = f.bollinger?.z_score ?? '—';
+  const bbPos = f.bollinger?.bb_position ?? '—';
+  const boxAge = f.zone_detector?.box_age_hours ?? '—';
+  const wallProx = f.zone_detector?.wall_proximity ?? '—';
+  const otr = f.otr?.otr_ratio != null ? (f.otr.otr_ratio * 100).toFixed(1) + '%' : '—';
+  const adr = f.atr?.adr_consumed ?? '—';
+  const ema20 = f.ema?.ema20_dist_pct ?? '—';
+  const ema50 = f.ema?.ema50_dist_pct ?? '—';
+  const volRatio = f.volume?.volume_ratio ?? '—';
+
+  // Scorer factor rows (Layer 1)
+  let factorRows = '';
+  const factorKeys = ['hr','age','stp','vol','mom','dc','z','bb','e50','e20','otr','adr','dur','wal','bdy','bbs','rsi'];
+  for (const k of factorKeys) {
+    if (bd[k] !== undefined) {
+      const pts = bd[k];
+      const cls = pts > 0 ? 'fpos' : pts < 0 ? 'fneg' : 'fzero';
+      factorRows += `<div class="frow"><span class="fname">${FACTOR_LABELS[k]||k}</span><span class="fpts ${cls}">${pts>0?'+':''}${pts}</span></div>`;
+    }
+  }
+
+  // Pair bonuses (Layer 2)
+  let pairRows = '';
+  const pairsTotal = sc.pairs_total || 0;
+  for (const [k, v] of Object.entries(bd)) {
+    if (k.startsWith('p_') || k.startsWith('n_')) {
+      const cls = v > 0 ? 'fpos' : 'fneg';
+      const label = PAIR_LABELS[k] || k;
+      pairRows += `<span class="ptag ${cls}">${label} ${v>0?'+':''}${v}</span> `;
+    }
+  }
+
+  // Hard blocks
+  let blockHtml = '';
+  if (blocks.length) {
+    blockHtml = `<div class="hblock">${blocks.map(b => `<span class="btag">${b}</span>`).join(' ')}</div>`;
+  }
+
+  // Gate results
+  let gateHtml = '';
+  for (const [name, g] of Object.entries(sig.gates || {})) {
+    if (name === '_rejection') continue;
+    const cls = g.passed ? 'gp' : 'gf';
+    gateHtml += `<div class="grow"><span class="gn">${name}</span><span class="${cls}">${g.passed?'PASS':'FAIL'}</span></div>`;
+  }
+
+  return `
+  <div class="card ${verdict.startsWith('TAKE')?'card-take':''}">
+    <div class="card-hdr">
+      <span class="pair">${sig.symbol.replace('_','/')}</span>
+      <span class="bb-tag">${bbState}</span>
+      <span class="regime-tag">R:${regimeScore}</span>
+      <span class="${vclass}">${vlabel}</span>
+    </div>
+
+    <div class="card-features">
+      <span>RSI <b>${typeof rsi==='number'?rsi.toFixed(0):rsi}</b></span>
+      <span>Z <b>${typeof zScore==='number'?zScore.toFixed(2):zScore}</b></span>
+      <span>BB <b>${typeof bbPos==='number'?bbPos.toFixed(2):bbPos}</b></span>
+      <span>Box <b>${typeof boxAge==='number'?boxAge.toFixed(1)+'h':boxAge}</b></span>
+      <span>OTR <b>${otr}</b></span>
+      <span>ADR <b>${typeof adr==='number'?adr.toFixed(2):adr}</b></span>
+      <span>EMA20 <b>${typeof ema20==='number'?ema20.toFixed(0)+'%':ema20}</b></span>
+      <span>EMA50 <b>${typeof ema50==='number'?ema50.toFixed(0)+'%':ema50}</b></span>
+      <span>Vol <b>${typeof volRatio==='number'?volRatio.toFixed(2):volRatio}</b></span>
+      <span>Wall <b>${typeof wallProx==='number'?wallProx.toFixed(2):wallProx}</b></span>
+    </div>
+
+    ${blockHtml}
+
+    ${score ? `
+    <div class="scorer-section">
+      <div class="score-hdr">
+        <span class="score-label">V3 SCORE</span>
+        <span class="score-val ${tier==='A'?'tier-a':tier==='B'?'tier-b':'tier-rej'}">${score}</span>
+        <span class="score-tier">${tier}</span>
+        ${pairsTotal?`<span class="pairs-badge ${pairsTotal>0?'fpos':'fneg'}">Pairs: ${pairsTotal>0?'+':''}${pairsTotal}</span>`:''}
+      </div>
+      <div class="factor-grid">${factorRows}</div>
+      ${pairRows ? `<div class="pair-section">${pairRows}</div>` : ''}
+    </div>` : ''}
+
+    ${gateHtml ? `<div class="gate-section">${gateHtml}</div>` : ''}
+  </div>`;
+}
+
 document.querySelector('.tab-bar').addEventListener('click', e => {
-  if (!e.target.classList.contains('tab')) return;
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  e.target.classList.add('active');
+  if (e.target.classList.contains('tab')) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+  }
 });
 
 load();
-setInterval(load, REFRESH);
+setInterval(load, 4000);
 </script>
 </body>
 </html>

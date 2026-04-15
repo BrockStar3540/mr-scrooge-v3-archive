@@ -80,8 +80,8 @@ class LiveState:
     # Blockers summary
     blockers: dict[str, int] = field(default_factory=dict)  # {reason: count}
 
-    # Per-pair signals (the main display)
-    pair_signals: list[PairSignal] = field(default_factory=list)
+    # Per-pair scan reports from pipeline (the main display)
+    scan_reports: list[dict[str, Any]] = field(default_factory=list)
 
     # Recent trades
     recent_entries: list[dict[str, Any]] = field(default_factory=list)
@@ -136,7 +136,7 @@ class LiveState:
                     "regime_dominant": self.regime_dominant,
                 },
                 "blockers": self.blockers,
-                "signals": [self._signal_dict(s) for s in self.pair_signals],
+                "signals": self._clean_reports(self.scan_reports),
                 "decision": {
                     "valid": self.valid_count,
                     "rejected": self.rejected_count,
@@ -146,6 +146,40 @@ class LiveState:
                 "recent_entries": self.recent_entries[-10:],
                 "recent_closes": self.recent_closes[-10:],
             }
+
+    @staticmethod
+    def _clean_reports(reports: list[dict]) -> list[dict]:
+        """Serialize scan reports for JSON — strip non-serializable objects."""
+        clean = []
+        for r in reports:
+            cr: dict[str, Any] = {
+                "symbol": r.get("symbol", ""),
+                "spread": r.get("spread", 0),
+                "verdict": r.get("verdict", ""),
+                "features": {},
+                "classifications": r.get("classifications", {}),
+                "strategy_allowed": r.get("strategy_allowed", []),
+                "gates": r.get("gates", {}),
+                "scorer": r.get("scorer", {}),
+            }
+            # Clean features — extract only serializable values
+            for fname, fvals in r.get("features", {}).items():
+                if isinstance(fvals, dict):
+                    safe = {}
+                    for k, v in fvals.items():
+                        if isinstance(v, (str, int, float, bool, type(None))):
+                            safe[k] = v
+                        elif k == "zone_map":
+                            # Extract key zone fields
+                            if hasattr(v, "session_range") and v.session_range:
+                                sr = v.session_range
+                                safe["PDH"] = sr.PDH
+                                safe["PDL"] = sr.PDL
+                                safe["center"] = sr.center if hasattr(sr, "center") else (sr.PDH + sr.PDL) / 2
+                                safe["box_range"] = sr.PDH - sr.PDL
+                    cr["features"][fname] = safe
+            clean.append(cr)
+        return clean
 
     @staticmethod
     def _signal_dict(s: PairSignal) -> dict[str, Any]:

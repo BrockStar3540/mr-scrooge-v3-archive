@@ -253,8 +253,8 @@ class Runtime:
                 timestamp=quote.timestamp or now, candles=candles,
             )
 
-        # Run scan pipeline
-        candidates = self.scan_pipeline.scan_universe(pairs, snapshots)
+        # Run scan pipeline — returns candidates + full per-pair reports
+        candidates, reports = self.scan_pipeline.scan_universe(pairs, snapshots)
 
         # Fire best candidate if not at max positions
         if candidates and self.state.position_count < self.state.max_positions:
@@ -262,46 +262,28 @@ class Runtime:
             log.info("[RUNTIME] Best candidate: %s %s score=%.0f",
                      best.symbol, best.strategy, best.score)
 
-            if not self._dry_run or True:  # Always execute (dry-run adapter handles it)
-                from scrooge_v3.execution.entry_planner import EntryPlanner
-                from scrooge_v3.execution.sizing import SizingCalculator
+            from scrooge_v3.execution.sizing import SizingCalculator
+            sizer = SizingCalculator()
+            acct = self.broker.get_account()
+            equity = acct.equity if acct else 10000.0
+            units = sizer.calculate(equity, best, self.broker.get_pip_size(best.symbol))
+            if units > 0:
+                result = self.broker.place_market_order(
+                    symbol=best.symbol, units=units,
+                    stop_loss=best.stop_price, take_profit=best.take_profit,
+                )
+                if result.success:
+                    self.state.position_count += 1
+                    log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
+                             result.trade_id, best.symbol, units, result.fill_price)
 
-                planner = EntryPlanner(self.config.section("execution"))
-                sizer = SizingCalculator()
-
-                acct = self.broker.get_account()
-                equity = acct.equity if acct else 10000.0
-
-                units = sizer.calculate(equity, best, self.broker.get_pip_size(best.symbol))
-                if units > 0:
-                    result = self.broker.place_market_order(
-                        symbol=best.symbol, units=units,
-                        stop_loss=best.stop_price, take_profit=best.take_profit,
-                    )
-                    if result.success:
-                        self.state.position_count += 1
-                        log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
-                                 result.trade_id, best.symbol, units, result.fill_price)
-
-        # Update dashboard live state
+        # Update dashboard live state with full per-pair reports
         if self.live_state:
-            from scrooge_v3.dashboard.live_state import PairSignal
             from scrooge_v3.market.screener import get_active_sessions
-
             acct = self.broker.get_account()
             sessions = get_active_sessions(now.hour)
-            session_names = [s["name"] for s in sessions]
 
-            # Build per-pair signals from scan context
-            pair_signals = []
-            for symbol in pairs:
-                snap = snapshots.get(symbol)
-                if not snap:
-                    continue
-                sig = PairSignal(symbol=symbol, spread=snap.spread)
-                # Try to pull feature data from the scan
-                # (features are computed inside scan_pipeline, not directly accessible here)
-                pair_signals.append(sig)
+            viable = [r for r in reports if r.get("verdict", "").startswith("TAKE")]
 
             self.live_state.update(
                 cycle_count=self.state.cycle_count,
@@ -310,13 +292,13 @@ class Runtime:
                 realized_pl=acct.unrealized_pl if acct else 0,
                 daily_pnl=self.broker.get_realized_pl_today() if acct else 0,
                 position_count=self.state.position_count,
-                pairs_scanned=len(pairs),
-                pairs_viable=len(candidates),
-                signals_evaluated=len(candidates),
-                active_sessions=session_names,
-                pair_signals=pair_signals,
-                valid_count=len(candidates),
-                rejected_count=len(pairs) - len(candidates),
+                pairs_scanned=len(reports),
+                pairs_viable=len(viable),
+                signals_evaluated=len(reports),
+                active_sessions=[s["name"] for s in sessions],
+                scan_reports=reports,
+                valid_count=len(viable),
+                rejected_count=len(reports) - len(viable),
                 daily_loss_exceeded=self.state.is_daily_loss_exceeded(),
             )
 
