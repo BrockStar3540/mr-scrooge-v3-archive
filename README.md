@@ -157,22 +157,39 @@ tests/
 - [ ] If smoke fails → do not start trading
 - [ ] Wire gate pipeline to scan pipeline
 
-### Phase C: Dashboard
-- [ ] Health tab: module status lights (green/yellow/red/gray/blue per module)
-  - [ ] Core section (runtime, scheduler, event bus, state, config, audit)
-  - [ ] Broker section (pricing stream, transaction stream, order submit)
-  - [ ] Context builders section
-  - [ ] Classifiers section
-  - [ ] Strategies section
-  - [ ] Gates section
-  - [ ] Execution section
-  - [ ] Advisors section
-- [ ] Modules tab: every module with enabled/mode/health/last_run/latency/errors/version
-- [ ] Features tab: per-symbol BB state, ATR, volatility regime, spread, opening state
-- [ ] Execution tab: stop attempts, blocked reasons, engine outcomes, trigger/fill timeline
-- [ ] Replay tab: per-trade event timeline with all module decisions
-- [ ] Dashboard API (Flask, port 8084, bind 127.0.0.1, HTTP Basic Auth)
-- [ ] Tailscale Serve HTTPS exposure
+### Phase C: Modular Dashboard
+- [ ] Define `DashboardWidget` Protocol (widget_name, widget_category, render_data())
+- [ ] Dashboard widget registry in ModuleRegistry
+- [ ] Core infrastructure:
+  - [ ] Flask app (port 8084, bind 127.0.0.1, HTTP Basic Auth)
+  - [ ] REST API: `/api/status`, `/api/widgets`, `/api/pair/{symbol}`, `/api/trade/{trade_id}`
+  - [ ] Tailscale Serve HTTPS exposure
+  - [ ] Widget auto-discovery from registry (modules register their own panels)
+- [ ] Core tabs (always present):
+  - [ ] Health tab: auto-populated status lights from health registry, per-layer grouping
+  - [ ] System tab: cycle count, uptime, equity, daily P&L, active sessions, loss limit status
+- [ ] Module-registered panels (appear/disappear with module registration):
+  - [ ] Feature widgets: zone map, BB bands, ATR values, range state
+  - [ ] Classifier widgets: regime score timeline, BB state, opening state
+  - [ ] Strategy widgets: candidate counts, win/loss stats
+  - [ ] Gate widgets: pass/fail counts, rejection reasons, latency
+  - [ ] Execution widgets: entry log, stop movements, order lifecycle
+  - [ ] Management widgets: trail events, ratchet locks, harvest tiers, BE transitions
+  - [ ] Telemetry widgets: MFE/MAE, follow-through scores, experiment results
+- [ ] Pair view: per-symbol deep dive (all features, classifications, gates, position state)
+- [ ] Replay view: per-trade event timeline with all module decisions
+- [ ] P&L display: broker-reconciled values, flag discrepancies with bot calculations
+- [ ] "Signals evaluated this cycle" counter — zero = red light (catches silent bugs)
+- [ ] Zone hit count, CT failure memory, entry cap status per symbol visible
+- [ ] Live config panel per module:
+  - [ ] Display current config values with editable fields
+  - [ ] Module defines valid ranges/types — dashboard enforces before applying
+  - [ ] Changes apply immediately via hot-reload (ConfigChanged event)
+  - [ ] Changes persist to config file (survive restart)
+  - [ ] Config change history (what changed, when)
+  - [ ] Rollback to previous config or defaults with one click
+  - [ ] Config changes require auth + audit log
+- [ ] Dev log: `logs/modules/dashboard.md` (9 historical V1/V2 lessons already captured)
 
 ### Phase D: Tests
 - [ ] Unit tests: every gate with fake context (verify pass/fail logic)

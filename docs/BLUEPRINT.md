@@ -304,31 +304,136 @@ After strategy candidate generation, before final execution planning.
 
 ---
 
-## 13. Dashboard Design
+## 13. Dashboard Design — Modular Widget System
 
-### 13.1 Health Tab — Module Status Lights
-**Core:** runtime, scheduler, event bus, state store, config store, audit store.
-**Broker:** pricing stream, transaction stream, order submit, modify, cancel, reconciliation poll.
-**Context builders:** box, zone, BB, measured move, opening state.
-**Classifiers:** regime, BB, opening, structure.
-**Strategies:** reversal, trend, gap, measured move.
-**Gates:** spread, RR, OTR, debounce, exhaustion, regime floor, etc.
-**Execution:** order planner, execution router, stop manager, trail manager, harvester manager.
-**Advisors:** ML regime advisor, ML trade scorer, LLM log analyst, parameter tuner.
+The dashboard follows the same plug-in architecture as the trading system. Modules are not hard-wired into tabs — they register their own dashboard widgets. When a module is added, its panel appears. When disabled, its panel goes gray. No dashboard code changes required to add visibility for a new module.
+
+### 13.1 Widget Contract
+
+Every module can optionally implement a dashboard widget:
+
+```python
+class DashboardWidget(Protocol):
+    widget_name: str
+    widget_category: str  # "health", "features", "execution", "strategy", "advisory"
+    def render_data(self) -> dict: ...
+```
+
+The dashboard discovers widgets from the module registry's `dashboard_widget_registry`. Core tabs are always present. Module-specific panels appear/disappear based on what's registered.
+
+### 13.2 Core Tabs (Always Present)
+
+**Health tab** — module status lights, auto-populated from health registry:
+- Every registered module gets a status light (green/yellow/red/gray/blue)
+- Grouped by layer: core, broker, features, classifiers, strategies, gates, execution, management, advisors
+- Must show "signals evaluated this cycle" count — zero evaluations = red light
+- Must show zone hit count, CT failure memory, entry cap status per symbol
 
 **Status colors:** green=healthy, yellow=degraded, red=failed, gray=disabled, blue=observe-only.
 
-### 13.2 Modules Tab
-Every module with: enabled, mode, health, last run, avg latency, error count, version, config namespace, recent outputs.
+**System tab** — runtime info:
+- Cycle count, uptime, equity, daily P&L, position count
+- Active sessions (must update live, not freeze at boot)
+- Daily loss limit status
+- Last scan timestamp
 
-### 13.3 Features Tab
-Per symbol: BB state, ATR state, volatility regime, spread regime, measured move, opening state, trend strength.
+### 13.3 Module-Registered Panels
 
-### 13.4 Execution Tab
-Stop attempts, blocked reasons, engine outcomes, spread around updates, trigger/fill timeline.
+Each module registers its own panel data. Examples:
 
-### 13.5 Replay Tab
-For a symbol or trade: all events in order, all module decisions, why trade was blocked/fired.
+**From feature modules:**
+- Zone detector → per-symbol zone map, PDH/PDL, tier counts
+- Bollinger → band levels, BB state per symbol
+- ATR → ATR values, consumption percentage
+- Range builder → range state per symbol (RANGING/BREACH/CONFIRMED_BREAK)
+
+**From classifiers:**
+- Regime → regime score timeline, signal breakdown, state per symbol
+- BB state → current BB classification per symbol
+- Opening → gap detection status
+
+**From strategies:**
+- Reversal → candidate count, last candidate details, win/loss stats
+- Trend → pullback detection count, entry stats
+
+**From gates:**
+- Each gate → pass/fail counts, rejection reasons, latency
+- Pipeline → aggregate gate results per symbol
+
+**From execution:**
+- Entry planner → recent entries, staleness rejections, TP2 guard blocks
+- Stop planner → stop update attempts, blocked reasons, trigger-side adjustments
+- Order tracker → active orders, lifecycle states, fill timeline
+
+**From management:**
+- Trail → trailing stop movements, spread-pause events
+- Ratchet → lock events, current lock levels
+- Harvester → tier hits, partial close events
+- BE → breakeven transitions
+
+**From telemetry:**
+- Quality tracker → MFE/MAE ratios, follow-through scores
+- Experiments → active A/B tests, variant stats
+
+### 13.4 Pair View
+
+Per-pair dashboard accessible from any tab:
+- All features for that symbol
+- All classifications for that symbol
+- All gate results for that symbol
+- Current position (if any) with management state
+- Zone entry count / CT failure count / cooldown status
+- Historical trade outcomes
+
+### 13.5 Replay View
+
+For a trade ID or symbol + time range:
+- All events in chronological order
+- All module decisions with pass/fail/reason
+- Why the trade was blocked or fired
+- Entry → management → exit timeline with P&L
+
+### 13.6 Data Contract
+
+Dashboard reads from a single API, not scattered files:
+- REST endpoint at `/api/status` returns full system state
+- REST endpoint at `/api/widgets` returns all registered widget data
+- REST endpoint at `/api/pair/{symbol}` returns pair-specific view
+- REST endpoint at `/api/trade/{trade_id}` returns trade replay
+- WebSocket at `/ws/live` for real-time updates (optional, Phase H)
+
+P&L displayed on dashboard must use broker-reconciled values, not bot calculations. Show both if they differ and flag the discrepancy.
+
+### 13.7 Live Configuration Panel
+
+Every module's dashboard widget includes an adjustable configuration panel:
+
+- Module ships with default config values (from `config/default.json`)
+- Dashboard displays current config for each module with editable fields
+- Changes apply immediately via hot-reload (emit `ConfigChanged` event)
+- Changes persist to config file (survive restart)
+- Config history: track what changed, when, and by whom
+- Rollback: revert to previous config or defaults with one click
+- Validation: module defines valid ranges/types for its parameters — dashboard enforces them before applying
+
+Example: the RR gate widget shows:
+```
+reversal_min_rr: [1.35] (default: 1.35, range: 0.5-5.0)
+trend_min_rr:    [1.10] (default: 1.10, range: 0.5-5.0)
+mode:            [hard ▾] (options: hard, soft, observe)
+enabled:         [✓]
+```
+
+Adjusting `mode` from `hard` to `observe` takes effect next scan cycle — no restart, no code edit, no SSH.
+
+### 13.8 Security
+
+- Bind to `127.0.0.1` only (not 0.0.0.0)
+- HTTP Basic Auth (401 on failure)
+- HTTPS via Tailscale Serve
+- Not publicly routable
+- Config changes require auth (same Basic Auth)
+- Config change audit log (who changed what, when)
 
 ---
 

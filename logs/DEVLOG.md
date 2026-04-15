@@ -35,3 +35,9 @@
 - `[2026-04-15] [broker/oanda]` — 4 lessons: P/L currency bug, 404 fallback, 502 cache, margin rates -> [logs/modules/broker-oanda.md](modules/broker-oanda.md)
 - `[2026-04-15] [architecture]` — 6 lessons: dual-loop, 4-actor coordination, code isolation, broker-API truth, session freeze, log duplication -> [logs/modules/architecture.md](modules/architecture.md)
 - `[2026-04-15] [telemetry/quality]` — 4 lessons: MFE/MAE ratio, follow-through score, entry context fields, quiet trades discovery -> [logs/modules/telemetry-quality.md](modules/telemetry-quality.md)
+- `[2026-04-15] [dashboard]` — 9 lessons from V1/V2: market summary 0/0, box states all 26, session frozen, false CRITICALs, no zone re-entry visibility, P/L wrong, silent bug invisible, security posture, status.json contract -> [logs/modules/dashboard.md](modules/dashboard.md)
+
+## 2026-04-15 — Architecture Updates
+
+- `[2026-04-15] [docs/BLUEPRINT]` — Dashboard redesigned as modular widget system: DashboardWidget Protocol, widget registry, auto-discovery, module-registered panels, pair view, replay view, REST API contract
+- `[2026-04-15] [README]` — Phase C updated to modular dashboard with detailed checklist
