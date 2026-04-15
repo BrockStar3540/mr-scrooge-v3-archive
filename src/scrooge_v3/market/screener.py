@@ -94,37 +94,23 @@ def get_active_sessions(utc_hour: int) -> list[dict[str, Any]]:
     return active
 
 
-def get_session_pairs(utc_hour: int, mode: str = "balanced") -> list[str]:
-    """Session-aware pair list.
+def get_session_pairs(utc_hour: int, mode: str = "standard") -> list[str]:
+    """Return all pairs for currently active sessions.
 
-    Modes:
-      balanced (default): suppress probation pairs when only thin sessions
-        (Sydney/Tokyo) are open; include full list when London/NY open.
-      standard: all session pairs regardless.
-      aggressive: all candidate pairs for any open session.
+    V3: no probation filtering. The V3 scorer evaluates every pair
+    on 43 factors — pair quality is scored, not categorized.
     """
     active_sessions = get_active_sessions(utc_hour)
     if not active_sessions:
-        return list(CANDIDATE_PAIRS)
-
-    mode = (mode or "balanced").lower()
-    active_names = {s["name"] for s in active_sessions}
-    liquid_open = bool(active_names & {"London", "New York"})
-
-    if mode == "aggressive":
         return list(CANDIDATE_PAIRS)
 
     seen: set[str] = set()
     pairs: list[str] = []
     for session in active_sessions:
         for p in session["pairs"]:
-            if p in seen:
-                continue
-            # In balanced mode, skip probation pairs during thin sessions
-            if mode == "balanced" and not liquid_open and p in PROBATION_PAIRS:
-                continue
-            seen.add(p)
-            pairs.append(p)
+            if p not in seen:
+                seen.add(p)
+                pairs.append(p)
 
     return pairs
 
