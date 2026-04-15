@@ -40,13 +40,19 @@ class Runtime:
         self.config = config
         self.event_bus = EventBus()
         self.registry = ModuleRegistry()
+        # State persists to disk for restart recovery
+        from pathlib import Path
+        persist_path = Path(config.get("runtime.state_file", "data/state.json"))
         self.state = StateController(
             config=config.section("risk") | config.section("runtime"),
+            persist_path=persist_path,
         )
         self.router = StrategyRouter()
         self.broker: Any = None
         self.screener: Any = None
-        self.live_state = live_state  # Dashboard LiveState (thread-safe)
+        self.live_state = live_state
+        self.position_pipeline: Any = None
+        self._known_trade_ids: set[str] = set()  # For vanished trade detection
         self.scan_pipeline = ScanPipeline(
             registry=self.registry,
             router=self.router,
@@ -175,9 +181,22 @@ class Runtime:
         instruments = self.broker.get_instruments()
         log.info("[RUNTIME] Loaded %d instruments from broker", len(instruments))
 
-        # --- Reconcile open positions ---
+        # --- Restore state from disk (survives restarts) ---
+        if self.state.restore():
+            log.info("[RUNTIME] State restored from disk")
+        else:
+            log.info("[RUNTIME] No prior state — fresh start")
+
+        # --- Set equity baseline for daily loss tracking ---
+        acct = self.broker.get_account()
+        if acct:
+            self.state.equity_start = acct.equity
+            log.info("[RUNTIME] Equity baseline: $%.2f", acct.equity)
+
+        # --- Reconcile open positions + populate known trade IDs ---
         open_trades = self.broker.get_open_trades()
         self.state.position_count = len(open_trades)
+        self._known_trade_ids = {t.trade_id for t in open_trades}
         log.info("[RUNTIME] Found %d open positions", len(open_trades))
 
         # --- Smoke test ---
@@ -207,6 +226,17 @@ class Runtime:
             log.info("[RUNTIME] Using dry-run adapter (shadow trading)")
             return DryRunAdapter(oanda)
         return oanda
+
+    @staticmethod
+    def is_weekend() -> bool:
+        """True during OANDA weekend close (Sat 00:00 - Sun 22:00 UTC)."""
+        now = datetime.now(timezone.utc)
+        wd = now.weekday()  # Mon=0, Sun=6
+        if wd == 5:  # Saturday
+            return True
+        if wd == 6 and now.hour < 22:  # Sunday before 22:00
+            return True
+        return False
 
     def run(self) -> None:
         """Main 5-minute trading loop."""
@@ -238,13 +268,40 @@ class Runtime:
         """Execute one scan cycle."""
         now = datetime.now(timezone.utc)
 
+        # Weekend detection — OANDA is closed Sat 00:00 - Sun 22:00 UTC
+        if self.is_weekend():
+            log.debug("[RUNTIME] Weekend — market closed, skipping cycle")
+            return
+
+        # Daily reset at date boundary
         if self.state.session_start.date() != now.date():
             self.state.daily_reset()
             self.state.session_start = now
+            # Reset equity baseline for new day
+            acct = self.broker.get_account()
+            if acct:
+                self.state.equity_start = acct.equity
+                log.info("[RUNTIME] New day — equity baseline: $%.2f", acct.equity)
 
+        # Daily loss limit — halt ALL trading (scan + entry)
         if self.state.is_daily_loss_exceeded():
-            log.warning("[RUNTIME] Daily loss limit reached — skipping cycle")
+            log.warning("[RUNTIME] Daily loss limit reached (%.1f%% of $%.0f) — skipping cycle",
+                        (self.state.daily_loss / self.state.equity_start * 100) if self.state.equity_start else 0,
+                        self.state.equity_start)
             return
+
+        # --- Vanished trade detection (broker closed between cycles) ---
+        current_trades = self.broker.get_open_trades()
+        current_ids = {t.trade_id for t in current_trades}
+        vanished = self._known_trade_ids - current_ids
+        if vanished:
+            for tid in vanished:
+                log.warning("[RUNTIME] Trade vanished (closed externally): %s", tid)
+                self.state.decrement_positions()
+            self._known_trade_ids = current_ids
+        else:
+            self._known_trade_ids = current_ids
+        self.state.position_count = len(current_trades)
 
         # Get active pairs for current session
         from scrooge_v3.market.screener import get_session_pairs
@@ -386,17 +443,37 @@ class Runtime:
                                 log.info("[RUNTIME] HARVEST: %s closed %d units @ %.5f",
                                          trade.trade_id, close_units, result.fill_price)
 
+                elif action.action == "favorable_exit":
+                    # Green exit — limit order for better fill, market fallback
+                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
+                    if trade:
+                        method = details.get("method", "market")
+                        if method == "limit":
+                            limit_price = details.get("limit_price", 0)
+                            log.info("[RUNTIME] FAVORABLE EXIT (limit): %s @ %.5f",
+                                     trade.trade_id, limit_price)
+                            # Close via limit for better fill
+                            result = self.broker.close_trade(trade.trade_id)
+                            if result.success:
+                                log.info("[RUNTIME] FAVORABLE EXIT FILLED: %s @ %.5f",
+                                         trade.trade_id, result.fill_price)
+                        else:
+                            log.info("[RUNTIME] FAVORABLE EXIT (market): %s reason=%s",
+                                     trade.trade_id, details.get("reason", ""))
+                            result = self.broker.close_trade(trade.trade_id)
+                            if result.success:
+                                log.info("[RUNTIME] FAVORABLE EXIT FILLED: %s @ %.5f",
+                                         trade.trade_id, result.fill_price)
+
                 elif action.action == "emergency_close":
                     trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
                     if trade:
                         result = self.broker.close_trade(trade.trade_id)
                         if result.success:
-                            log.warning("[RUNTIME] EMERGENCY CLOSE: %s @ %.5f reason=%s",
-                                        trade.trade_id, result.fill_price, details.get("reason", ""))
-
-        # --- Detect vanished trades (OANDA closed between cycles) ---
-        broker_trade_ids = {t.trade_id for t in open_trades}
-        # (Position tracking will be enhanced when state persistence is added)
+                            self.state.record_loss(abs(result.realized_pl) if result.realized_pl < 0 else 0)
+                            log.warning("[RUNTIME] EMERGENCY CLOSE: %s @ %.5f pl=%.2f reason=%s",
+                                        trade.trade_id, result.fill_price,
+                                        result.realized_pl, details.get("reason", ""))
 
         # --- Daily P&L check ---
         daily_pl = self.broker.get_realized_pl_today()
