@@ -199,11 +199,27 @@ class Runtime:
             self.state.equity_start = acct.equity
             log.info("[RUNTIME] Equity baseline: $%.2f", acct.equity)
 
-        # --- Reconcile open positions + populate known trade IDs ---
+        # --- Reconcile open positions with tracker ---
         open_trades = self.broker.get_open_trades()
         self.state.position_count = len(open_trades)
         self._known_trade_ids = {t.trade_id for t in open_trades}
-        log.info("[RUNTIME] Found %d open positions", len(open_trades))
+        # Auto-register broker positions not in tracker (restart recovery)
+        for trade in open_trades:
+            if not self.tracker.get(trade.trade_id):
+                self.tracker.register_entry(
+                    trade_id=trade.trade_id,
+                    symbol=trade.symbol,
+                    direction=trade.direction,
+                    units=trade.units,
+                    entry_price=trade.entry_price,
+                    stop_price=trade.current_stop,
+                    tp_price=trade.current_tp,
+                    strategy="recovered",
+                )
+                log.warning("[RUNTIME] Recovered orphaned position: %s %s %s %.0f units",
+                            trade.trade_id, trade.symbol, trade.direction, trade.units)
+        log.info("[RUNTIME] %d positions tracked (%d from broker)",
+                 len(self.tracker.all_positions()), len(open_trades))
 
         # --- Smoke test ---
         if not self.broker.ping():
