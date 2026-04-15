@@ -1,0 +1,2511 @@
+[
+  {
+    "id": "6109",
+    "instrument": "EUR_JPY",
+    "price": "187.338",
+    "openTime": "2026-04-13T23:21:13.279744524Z",
+    "initialUnits": "-10199",
+    "initialMarginRequired": "599.9715",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-0.5189",
+    "closingTransactionIDs": [
+      "6115"
+    ],
+    "financing": "-0.7990",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-14T21:32:51.602458557Z",
+    "averageClosePrice": "187.346",
+    "clientExtensions": {
+      "id": "scrooge_eurjpy402efc35",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "6110",
+      "createTime": "2026-04-13T23:21:13.279744524Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "6109",
+      "price": "186.206",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "6116",
+      "cancelledTime": "2026-04-14T21:32:51.602458557Z"
+    },
+    "stopLossOrder": {
+      "id": "6114",
+      "createTime": "2026-04-14T21:32:51.602458557Z",
+      "replacesOrderID": "6111",
+      "type": "STOP_LOSS",
+      "tradeID": "6109",
+      "price": "187.295",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "6115",
+      "filledTime": "2026-04-14T21:32:51.602458557Z",
+      "tradeClosedIDs": [
+        "6109"
+      ]
+    }
+  },
+  {
+    "id": "6100",
+    "instrument": "EUR_USD",
+    "price": "1.17578",
+    "openTime": "2026-04-13T20:54:13.448601650Z",
+    "initialUnits": "-51421",
+    "initialMarginRequired": "1209.2779",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-12.8552",
+    "closingTransactionIDs": [
+      "6105"
+    ],
+    "financing": "1.1972",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-13T22:19:23.347695987Z",
+    "averageClosePrice": "1.17603",
+    "clientExtensions": {
+      "id": "scrooge_eurusd7608284d",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "6101",
+      "createTime": "2026-04-13T20:54:13.448601650Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "6100",
+      "price": "1.16781",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "6106",
+      "cancelledTime": "2026-04-13T22:19:23.347695987Z"
+    },
+    "stopLossOrder": {
+      "id": "6102",
+      "createTime": "2026-04-13T20:54:13.448601650Z",
+      "type": "STOP_LOSS",
+      "tradeID": "6100",
+      "price": "1.17897",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "6107",
+      "cancelledTime": "2026-04-13T22:19:23.347695987Z"
+    }
+  },
+  {
+    "id": "6004",
+    "instrument": "USD_CHF",
+    "price": "0.78959",
+    "openTime": "2026-04-10T17:17:30.404013997Z",
+    "initialUnits": "41595",
+    "initialMarginRequired": "1247.8500",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-48.2285",
+    "closingTransactionIDs": [
+      "6096"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-10T19:50:32.658127265Z",
+    "averageClosePrice": "0.78868",
+    "clientExtensions": {
+      "id": "scrooge_usdchfd54c410c",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "6005",
+      "createTime": "2026-04-10T17:17:30.404013997Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "6004",
+      "price": "0.79220",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "6097",
+      "cancelledTime": "2026-04-10T19:50:32.658127265Z"
+    },
+    "stopLossOrder": {
+      "id": "6006",
+      "createTime": "2026-04-10T17:17:30.404013997Z",
+      "type": "STOP_LOSS",
+      "tradeID": "6004",
+      "price": "0.78382",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "6098",
+      "cancelledTime": "2026-04-10T19:50:32.658127265Z"
+    }
+  },
+  {
+    "id": "5988",
+    "instrument": "NZD_JPY",
+    "price": "93.129",
+    "openTime": "2026-04-10T15:17:23.466377357Z",
+    "initialUnits": "-41781",
+    "initialMarginRequired": "1223.1388",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "30.9288",
+    "closingTransactionIDs": [
+      "5992",
+      "5996",
+      "6000"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-10T17:17:29.013417302Z",
+    "averageClosePrice": "93.011",
+    "clientExtensions": {
+      "id": "scrooge_nzdjpy1ac1d497",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5989",
+      "createTime": "2026-04-10T15:17:23.466377357Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5988",
+      "price": "92.278",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "6001",
+      "cancelledTime": "2026-04-10T17:17:29.013417302Z"
+    },
+    "stopLossOrder": {
+      "id": "5998",
+      "createTime": "2026-04-10T16:45:07.000471939Z",
+      "replacesOrderID": "5994",
+      "type": "STOP_LOSS",
+      "tradeID": "5988",
+      "price": "93.041",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "6002",
+      "cancelledTime": "2026-04-10T17:17:29.013417302Z"
+    }
+  },
+  {
+    "id": "5978",
+    "instrument": "AUD_CAD",
+    "price": "0.97802",
+    "openTime": "2026-04-10T12:42:06.040475044Z",
+    "initialUnits": "-57443",
+    "initialMarginRequired": "1219.7447",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "4.2202",
+    "closingTransactionIDs": [
+      "5982",
+      "5985"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-10T14:14:55.075075046Z",
+    "averageClosePrice": "0.97792",
+    "clientExtensions": {
+      "id": "scrooge_audcadcaead901",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5979",
+      "createTime": "2026-04-10T12:42:06.040475044Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5978",
+      "price": "0.97288",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5986",
+      "cancelledTime": "2026-04-10T14:14:55.075075046Z"
+    },
+    "stopLossOrder": {
+      "id": "5984",
+      "createTime": "2026-04-10T14:07:37.454527500Z",
+      "replacesOrderID": "5980",
+      "type": "STOP_LOSS",
+      "tradeID": "5978",
+      "price": "0.97802",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5985",
+      "filledTime": "2026-04-10T14:14:55.075075046Z",
+      "tradeClosedIDs": [
+        "5978"
+      ]
+    }
+  },
+  {
+    "id": "5968",
+    "instrument": "USD_MXN",
+    "price": "17.37990",
+    "openTime": "2026-04-10T05:06:16.145983578Z",
+    "initialUnits": "12521",
+    "initialMarginRequired": "1252.1000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-40.4079",
+    "closingTransactionIDs": [
+      "5971"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-10T12:30:01.262463196Z",
+    "averageClosePrice": "17.32424",
+    "clientExtensions": {
+      "id": "scrooge_usdmxnf666ab7b",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5969",
+      "createTime": "2026-04-10T05:06:16.145983578Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5968",
+      "price": "17.49154",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5972",
+      "cancelledTime": "2026-04-10T12:30:01.262463196Z"
+    },
+    "stopLossOrder": {
+      "id": "5970",
+      "createTime": "2026-04-10T05:06:16.145983578Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5968",
+      "price": "17.32915",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5971",
+      "filledTime": "2026-04-10T12:30:01.262463196Z",
+      "tradeClosedIDs": [
+        "5968"
+      ]
+    }
+  },
+  {
+    "id": "5959",
+    "instrument": "NZD_JPY",
+    "price": "93.105",
+    "openTime": "2026-04-09T22:45:40.451834763Z",
+    "initialUnits": "-42717",
+    "initialMarginRequired": "1250.4547",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "2.1360",
+    "closingTransactionIDs": [
+      "5965"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-10T04:46:20.926018253Z",
+    "averageClosePrice": "93.097",
+    "clientExtensions": {
+      "id": "scrooge_nzdjpy90f1dcbc",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5964",
+      "createTime": "2026-04-10T04:46:20.926018253Z",
+      "replacesOrderID": "5960",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5959",
+      "price": "93.097",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5965",
+      "filledTime": "2026-04-10T04:46:20.926018253Z",
+      "tradeClosedIDs": [
+        "5959"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5961",
+      "createTime": "2026-04-09T22:45:40.451834763Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5959",
+      "price": "93.391",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5966",
+      "cancelledTime": "2026-04-10T04:46:20.926018253Z"
+    }
+  },
+  {
+    "id": "5944",
+    "instrument": "GBP_USD",
+    "price": "1.34341",
+    "openTime": "2026-04-09T18:59:30.724292849Z",
+    "initialUnits": "-18522",
+    "initialMarginRequired": "1244.2154",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "8.5201",
+    "closingTransactionIDs": [
+      "5952"
+    ],
+    "financing": "-0.7195",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T22:40:37.401072307Z",
+    "averageClosePrice": "1.34295",
+    "clientExtensions": {
+      "id": "scrooge_gbpusdccd25647",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5945",
+      "createTime": "2026-04-09T18:59:30.724292849Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5944",
+      "price": "1.32882",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5953",
+      "cancelledTime": "2026-04-09T22:40:37.401072307Z"
+    },
+    "stopLossOrder": {
+      "id": "5950",
+      "createTime": "2026-04-09T22:40:35.364433062Z",
+      "replacesOrderID": "5946",
+      "type": "STOP_LOSS",
+      "tradeID": "5944",
+      "price": "1.34295",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5952",
+      "filledTime": "2026-04-09T22:40:37.401072307Z",
+      "tradeClosedIDs": [
+        "5944"
+      ]
+    }
+  },
+  {
+    "id": "5926",
+    "instrument": "AUD_CAD",
+    "price": "0.97915",
+    "openTime": "2026-04-09T17:08:06.583042376Z",
+    "initialUnits": "-57243",
+    "initialMarginRequired": "1217.2838",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "33.7949",
+    "closingTransactionIDs": [
+      "5931",
+      "5935",
+      "5941"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T18:54:50.562485609Z",
+    "averageClosePrice": "0.97833",
+    "clientExtensions": {
+      "id": "scrooge_audcadf2622535",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5927",
+      "createTime": "2026-04-09T17:08:06.583042376Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5926",
+      "price": "0.96790",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5942",
+      "cancelledTime": "2026-04-09T18:54:50.562485609Z"
+    },
+    "stopLossOrder": {
+      "id": "5939",
+      "createTime": "2026-04-09T18:54:23.324869399Z",
+      "replacesOrderID": "5937",
+      "type": "STOP_LOSS",
+      "tradeID": "5926",
+      "price": "0.97827",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5941",
+      "filledTime": "2026-04-09T18:54:50.562485609Z",
+      "tradeClosedIDs": [
+        "5926"
+      ]
+    }
+  },
+  {
+    "id": "5915",
+    "instrument": "EUR_USD",
+    "price": "1.17020",
+    "openTime": "2026-04-09T15:32:57.148170010Z",
+    "initialUnits": "-54824",
+    "initialMarginRequired": "1283.1996",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-82.7842",
+    "closingTransactionIDs": [
+      "5918"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T17:06:43.930901421Z",
+    "averageClosePrice": "1.17171",
+    "clientExtensions": {
+      "id": "scrooge_eurusd507c27a7",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5916",
+      "createTime": "2026-04-09T15:32:57.148170010Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5915",
+      "price": "1.15889",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5919",
+      "cancelledTime": "2026-04-09T17:06:43.930901421Z"
+    },
+    "stopLossOrder": {
+      "id": "5917",
+      "createTime": "2026-04-09T15:32:57.148170010Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5915",
+      "price": "1.17169",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5918",
+      "filledTime": "2026-04-09T17:06:43.930901421Z",
+      "tradeClosedIDs": [
+        "5915"
+      ]
+    }
+  },
+  {
+    "id": "5909",
+    "instrument": "USD_MXN",
+    "price": "17.41055",
+    "openTime": "2026-04-09T14:57:50.024976335Z",
+    "initialUnits": "13010",
+    "initialMarginRequired": "1301.0000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-22.0908",
+    "closingTransactionIDs": [
+      "5912"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T15:32:37.618088951Z",
+    "averageClosePrice": "17.38118",
+    "clientExtensions": {
+      "id": "scrooge_usdmxn6c362127",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5910",
+      "createTime": "2026-04-09T14:57:50.024976335Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5909",
+      "price": "17.76580",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5913",
+      "cancelledTime": "2026-04-09T15:32:37.618088951Z"
+    },
+    "stopLossOrder": {
+      "id": "5911",
+      "createTime": "2026-04-09T14:57:50.024976335Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5909",
+      "price": "17.38148",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5912",
+      "filledTime": "2026-04-09T15:32:37.618088951Z",
+      "tradeClosedIDs": [
+        "5909"
+      ]
+    }
+  },
+  {
+    "id": "5900",
+    "instrument": "NZD_USD",
+    "price": "0.58428",
+    "openTime": "2026-04-09T14:42:49.735064994Z",
+    "initialUnits": "-76642",
+    "initialMarginRequired": "1343.6875",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-53.6494",
+    "closingTransactionIDs": [
+      "5905"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T14:55:44.960215305Z",
+    "averageClosePrice": "0.58498",
+    "clientExtensions": {
+      "id": "scrooge_nzdusd3b6d3b4c",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5901",
+      "createTime": "2026-04-09T14:42:49.735064994Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5900",
+      "price": "0.57140",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5906",
+      "cancelledTime": "2026-04-09T14:55:44.960215305Z"
+    },
+    "stopLossOrder": {
+      "id": "5902",
+      "createTime": "2026-04-09T14:42:49.735064994Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5900",
+      "price": "0.58526",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5907",
+      "cancelledTime": "2026-04-09T14:55:44.960215305Z"
+    }
+  },
+  {
+    "id": "5891",
+    "instrument": "GBP_USD",
+    "price": "1.34172",
+    "openTime": "2026-04-09T12:25:15.086432821Z",
+    "initialUnits": "-19905",
+    "initialMarginRequired": "1335.4464",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "10.5496",
+    "closingTransactionIDs": [
+      "5897"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T14:37:40.495903109Z",
+    "averageClosePrice": "1.34119",
+    "clientExtensions": {
+      "id": "scrooge_gbpusde926c319",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5892",
+      "createTime": "2026-04-09T12:25:15.086432821Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5891",
+      "price": "1.32882",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5898",
+      "cancelledTime": "2026-04-09T14:37:40.495903109Z"
+    },
+    "stopLossOrder": {
+      "id": "5895",
+      "createTime": "2026-04-09T14:37:39.839356479Z",
+      "replacesOrderID": "5893",
+      "type": "STOP_LOSS",
+      "tradeID": "5891",
+      "price": "1.34119",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5897",
+      "filledTime": "2026-04-09T14:37:40.495903109Z",
+      "tradeClosedIDs": [
+        "5891"
+      ]
+    }
+  },
+  {
+    "id": "5873",
+    "instrument": "AUD_USD",
+    "price": "0.70313",
+    "openTime": "2026-04-09T07:29:51.002777709Z",
+    "initialUnits": "61534",
+    "initialMarginRequired": "1297.8628",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "46.9196",
+    "closingTransactionIDs": [
+      "5877",
+      "5881",
+      "5885",
+      "5888"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T12:21:19.619976284Z",
+    "averageClosePrice": "0.70389",
+    "clientExtensions": {
+      "id": "scrooge_audusd5a0fad26",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5874",
+      "createTime": "2026-04-09T07:29:51.002777709Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5873",
+      "price": "0.70841",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5889",
+      "cancelledTime": "2026-04-09T12:21:19.619976284Z"
+    },
+    "stopLossOrder": {
+      "id": "5887",
+      "createTime": "2026-04-09T11:44:47.783741143Z",
+      "replacesOrderID": "5883",
+      "type": "STOP_LOSS",
+      "tradeID": "5873",
+      "price": "0.70393",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5888",
+      "filledTime": "2026-04-09T12:21:19.619976284Z",
+      "tradeClosedIDs": [
+        "5873"
+      ]
+    }
+  },
+  {
+    "id": "5775",
+    "instrument": "AUD_CHF",
+    "price": "0.55626",
+    "openTime": "2026-04-09T07:24:50.661503916Z",
+    "initialUnits": "62034",
+    "initialMarginRequired": "1308.8181",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-14.1902",
+    "closingTransactionIDs": [
+      "5779"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T07:24:51.054840062Z",
+    "averageClosePrice": "0.55608",
+    "clientExtensions": {
+      "id": "scrooge_audchf64174533",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5776",
+      "createTime": "2026-04-09T07:24:50.661503916Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5775",
+      "price": "0.56019",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5780",
+      "cancelledTime": "2026-04-09T07:24:51.054840062Z"
+    },
+    "stopLossOrder": {
+      "id": "5777",
+      "createTime": "2026-04-09T07:24:50.661503916Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5775",
+      "price": "0.55559",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5781",
+      "cancelledTime": "2026-04-09T07:24:51.054840062Z"
+    }
+  },
+  {
+    "id": "5765",
+    "instrument": "NZD_USD",
+    "price": "0.58360",
+    "openTime": "2026-04-09T07:09:48.428244794Z",
+    "initialUnits": "-74571",
+    "initialMarginRequired": "1305.8128",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "4.2879",
+    "closingTransactionIDs": [
+      "5769",
+      "5772"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T07:22:08.145173037Z",
+    "averageClosePrice": "0.58354",
+    "clientExtensions": {
+      "id": "scrooge_nzdusd45515d7b",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5766",
+      "createTime": "2026-04-09T07:09:48.428244794Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5765",
+      "price": "0.57140",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5773",
+      "cancelledTime": "2026-04-09T07:22:08.145173037Z"
+    },
+    "stopLossOrder": {
+      "id": "5771",
+      "createTime": "2026-04-09T07:18:15.432333202Z",
+      "replacesOrderID": "5767",
+      "type": "STOP_LOSS",
+      "tradeID": "5765",
+      "price": "0.58360",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5772",
+      "filledTime": "2026-04-09T07:22:08.145173037Z",
+      "tradeClosedIDs": [
+        "5765"
+      ]
+    }
+  },
+  {
+    "id": "5755",
+    "instrument": "AUD_USD",
+    "price": "0.70358",
+    "openTime": "2026-04-09T06:44:46.329997613Z",
+    "initialUnits": "61677",
+    "initialMarginRequired": "1301.7301",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "5.0883",
+    "closingTransactionIDs": [
+      "5759",
+      "5762"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T07:06:45.080709867Z",
+    "averageClosePrice": "0.70366",
+    "clientExtensions": {
+      "id": "scrooge_audusdb5ab4659",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5756",
+      "createTime": "2026-04-09T06:44:46.329997613Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5755",
+      "price": "0.70841",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5763",
+      "cancelledTime": "2026-04-09T07:06:45.080709867Z"
+    },
+    "stopLossOrder": {
+      "id": "5761",
+      "createTime": "2026-04-09T06:59:06.808891991Z",
+      "replacesOrderID": "5757",
+      "type": "STOP_LOSS",
+      "tradeID": "5755",
+      "price": "0.70358",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5762",
+      "filledTime": "2026-04-09T07:06:45.080709867Z",
+      "tradeClosedIDs": [
+        "5755"
+      ]
+    }
+  },
+  {
+    "id": "5745",
+    "instrument": "NZD_USD",
+    "price": "0.58344",
+    "openTime": "2026-04-09T05:04:33.210619362Z",
+    "initialUnits": "-74172",
+    "initialMarginRequired": "1298.5144",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "4.0795",
+    "closingTransactionIDs": [
+      "5749",
+      "5752"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T06:43:49.177876943Z",
+    "averageClosePrice": "0.58338",
+    "clientExtensions": {
+      "id": "scrooge_nzdusd7e695766",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5746",
+      "createTime": "2026-04-09T05:04:33.210619362Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5745",
+      "price": "0.57140",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5753",
+      "cancelledTime": "2026-04-09T06:43:49.177876943Z"
+    },
+    "stopLossOrder": {
+      "id": "5751",
+      "createTime": "2026-04-09T05:50:36.141626892Z",
+      "replacesOrderID": "5747",
+      "type": "STOP_LOSS",
+      "tradeID": "5745",
+      "price": "0.58344",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5752",
+      "filledTime": "2026-04-09T06:43:49.177876943Z",
+      "tradeClosedIDs": [
+        "5745"
+      ]
+    }
+  },
+  {
+    "id": "5733",
+    "instrument": "AUD_JPY",
+    "price": "111.623",
+    "openTime": "2026-04-09T00:24:11.486944907Z",
+    "initialUnits": "36278",
+    "initialMarginRequired": "1276.1331",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "27.9824",
+    "closingTransactionIDs": [
+      "5737",
+      "5741"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-09T04:24:23.897472134Z",
+    "averageClosePrice": "111.746",
+    "clientExtensions": {
+      "id": "scrooge_audjpyf2e36350",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5734",
+      "createTime": "2026-04-09T00:24:11.486944907Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5733",
+      "price": "112.363",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5742",
+      "cancelledTime": "2026-04-09T04:24:23.897472134Z"
+    },
+    "stopLossOrder": {
+      "id": "5739",
+      "createTime": "2026-04-09T00:41:13.194876198Z",
+      "replacesOrderID": "5735",
+      "type": "STOP_LOSS",
+      "tradeID": "5733",
+      "price": "111.623",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5743",
+      "cancelledTime": "2026-04-09T04:24:23.897472134Z"
+    }
+  },
+  {
+    "id": "5723",
+    "instrument": "AUD_JPY",
+    "price": "111.668",
+    "openTime": "2026-04-08T03:52:09.659158419Z",
+    "initialUnits": "-36076",
+    "initialMarginRequired": "1271.9676",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "5.2164",
+    "closingTransactionIDs": [
+      "5727",
+      "5730"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-08T08:32:12.121539048Z",
+    "averageClosePrice": "111.645",
+    "clientExtensions": {
+      "id": "scrooge_audjpydc5135ce",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5724",
+      "createTime": "2026-04-08T03:52:09.659158419Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5723",
+      "price": "110.595",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5731",
+      "cancelledTime": "2026-04-08T08:32:12.121539048Z"
+    },
+    "stopLossOrder": {
+      "id": "5729",
+      "createTime": "2026-04-08T08:11:52.123702968Z",
+      "replacesOrderID": "5725",
+      "type": "STOP_LOSS",
+      "tradeID": "5723",
+      "price": "111.668",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5730",
+      "filledTime": "2026-04-08T08:32:12.121539048Z",
+      "tradeClosedIDs": [
+        "5723"
+      ]
+    }
+  },
+  {
+    "id": "5713",
+    "instrument": "AUD_CHF",
+    "price": "0.55702",
+    "openTime": "2026-04-08T03:32:06.512199397Z",
+    "initialUnits": "-60003",
+    "initialMarginRequired": "1268.5054",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "4.1549",
+    "closingTransactionIDs": [
+      "5717",
+      "5720"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-08T03:40:12.337026771Z",
+    "averageClosePrice": "0.55696",
+    "clientExtensions": {
+      "id": "scrooge_audchfe14ca4d7",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5714",
+      "createTime": "2026-04-08T03:32:06.512199397Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5713",
+      "price": "0.55322",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5721",
+      "cancelledTime": "2026-04-08T03:40:12.337026771Z"
+    },
+    "stopLossOrder": {
+      "id": "5719",
+      "createTime": "2026-04-08T03:36:41.497449515Z",
+      "replacesOrderID": "5715",
+      "type": "STOP_LOSS",
+      "tradeID": "5713",
+      "price": "0.55702",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5720",
+      "filledTime": "2026-04-08T03:40:12.337026771Z",
+      "tradeClosedIDs": [
+        "5713"
+      ]
+    }
+  },
+  {
+    "id": "5591",
+    "instrument": "AUD_JPY",
+    "price": "111.798",
+    "openTime": "2026-04-08T02:31:59.009919106Z",
+    "initialUnits": "-35285",
+    "initialMarginRequired": "1244.3961",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "30.3069",
+    "closingTransactionIDs": [
+      "5705",
+      "5709"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-08T03:32:05.634893943Z",
+    "averageClosePrice": "111.661",
+    "clientExtensions": {
+      "id": "scrooge_audjpy96e358f3",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5592",
+      "createTime": "2026-04-08T02:31:59.009919106Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5591",
+      "price": "110.595",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5710",
+      "cancelledTime": "2026-04-08T03:32:05.634893943Z"
+    },
+    "stopLossOrder": {
+      "id": "5707",
+      "createTime": "2026-04-08T03:05:52.523142369Z",
+      "replacesOrderID": "5593",
+      "type": "STOP_LOSS",
+      "tradeID": "5591",
+      "price": "111.798",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5711",
+      "cancelledTime": "2026-04-08T03:32:05.634893943Z"
+    }
+  },
+  {
+    "id": "5573",
+    "instrument": "AUD_CHF",
+    "price": "0.55842",
+    "openTime": "2026-04-08T01:26:54.025063502Z",
+    "initialUnits": "-57124",
+    "initialMarginRequired": "1211.5829",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "40.9886",
+    "closingTransactionIDs": [
+      "5577",
+      "5581",
+      "5585"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-08T02:31:54.654368475Z",
+    "averageClosePrice": "0.55785",
+    "clientExtensions": {
+      "id": "scrooge_audchf997002da",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5574",
+      "createTime": "2026-04-08T01:26:54.025063502Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5573",
+      "price": "0.55353",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5586",
+      "cancelledTime": "2026-04-08T02:31:54.654368475Z"
+    },
+    "stopLossOrder": {
+      "id": "5583",
+      "createTime": "2026-04-08T02:17:53.794461262Z",
+      "replacesOrderID": "5579",
+      "type": "STOP_LOSS",
+      "tradeID": "5573",
+      "price": "0.55810",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5587",
+      "cancelledTime": "2026-04-08T02:31:54.654368475Z"
+    }
+  },
+  {
+    "id": "5559",
+    "instrument": "AUD_JPY",
+    "price": "112.151",
+    "openTime": "2026-04-07T23:26:38.548045747Z",
+    "initialUnits": "-33641",
+    "initialMarginRequired": "1188.9402",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "28.2763",
+    "closingTransactionIDs": [
+      "5563",
+      "5567",
+      "5570"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-08T01:17:13.457001343Z",
+    "averageClosePrice": "112.017",
+    "clientExtensions": {
+      "id": "scrooge_audjpy92ec506d",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5560",
+      "createTime": "2026-04-07T23:26:38.548045747Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5559",
+      "price": "110.593",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5571",
+      "cancelledTime": "2026-04-08T01:17:13.457001343Z"
+    },
+    "stopLossOrder": {
+      "id": "5569",
+      "createTime": "2026-04-08T00:40:55.431183221Z",
+      "replacesOrderID": "5565",
+      "type": "STOP_LOSS",
+      "tradeID": "5559",
+      "price": "112.045",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5570",
+      "filledTime": "2026-04-08T01:17:13.457001343Z",
+      "tradeClosedIDs": [
+        "5559"
+      ]
+    }
+  },
+  {
+    "id": "5549",
+    "instrument": "AUD_JPY",
+    "price": "111.463",
+    "openTime": "2026-04-07T22:11:30.220179852Z",
+    "initialUnits": "-34788",
+    "initialMarginRequired": "1216.2059",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-34.0091",
+    "closingTransactionIDs": [
+      "5553"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-07T22:32:35.295483989Z",
+    "averageClosePrice": "111.618",
+    "clientExtensions": {
+      "id": "scrooge_audjpyc852b617",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5550",
+      "createTime": "2026-04-07T22:11:30.220179852Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5549",
+      "price": "110.593",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5554",
+      "cancelledTime": "2026-04-07T22:32:35.295483989Z"
+    },
+    "stopLossOrder": {
+      "id": "5551",
+      "createTime": "2026-04-07T22:11:30.220179852Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5549",
+      "price": "111.644",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5555",
+      "cancelledTime": "2026-04-07T22:32:35.295483989Z"
+    }
+  },
+  {
+    "id": "5539",
+    "instrument": "GBP_USD",
+    "price": "1.32544",
+    "openTime": "2026-04-07T17:02:38.083788289Z",
+    "initialUnits": "-19140",
+    "initialMarginRequired": "1268.5418",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-65.4588",
+    "closingTransactionIDs": [
+      "5542"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-07T19:45:48.327292613Z",
+    "averageClosePrice": "1.32886",
+    "clientExtensions": {
+      "id": "scrooge_gbpusd0925fd13",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5540",
+      "createTime": "2026-04-07T17:02:38.083788289Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5539",
+      "price": "1.31809",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5543",
+      "cancelledTime": "2026-04-07T19:45:48.327292613Z"
+    },
+    "stopLossOrder": {
+      "id": "5541",
+      "createTime": "2026-04-07T17:02:38.083788289Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5539",
+      "price": "1.32885",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5542",
+      "filledTime": "2026-04-07T19:45:48.327292613Z",
+      "tradeClosedIDs": [
+        "5539"
+      ]
+    }
+  },
+  {
+    "id": "5529",
+    "instrument": "NZD_JPY",
+    "price": "91.234",
+    "openTime": "2026-04-07T14:52:24.164596457Z",
+    "initialUnits": "-44316",
+    "initialMarginRequired": "1265.0445",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "4.4047",
+    "closingTransactionIDs": [
+      "5533",
+      "5536"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-07T15:55:18.569848244Z",
+    "averageClosePrice": "91.218",
+    "clientExtensions": {
+      "id": "scrooge_nzdjpye31648ab",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5530",
+      "createTime": "2026-04-07T14:52:24.164596457Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5529",
+      "price": "90.754",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5537",
+      "cancelledTime": "2026-04-07T15:55:18.569848244Z"
+    },
+    "stopLossOrder": {
+      "id": "5535",
+      "createTime": "2026-04-07T15:05:27.674028607Z",
+      "replacesOrderID": "5531",
+      "type": "STOP_LOSS",
+      "tradeID": "5529",
+      "price": "91.234",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5536",
+      "filledTime": "2026-04-07T15:55:18.569848244Z",
+      "tradeClosedIDs": [
+        "5529"
+      ]
+    }
+  },
+  {
+    "id": "5519",
+    "instrument": "GBP_USD",
+    "price": "1.32529",
+    "openTime": "2026-04-07T12:47:13.095345344Z",
+    "initialUnits": "-19012",
+    "initialMarginRequired": "1259.9062",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "6.3690",
+    "closingTransactionIDs": [
+      "5523",
+      "5526"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-07T14:21:39.911946750Z",
+    "averageClosePrice": "1.32496",
+    "clientExtensions": {
+      "id": "scrooge_gbpusdeb91895f",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5520",
+      "createTime": "2026-04-07T12:47:13.095345344Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5519",
+      "price": "1.31809",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5527",
+      "cancelledTime": "2026-04-07T14:21:39.911946750Z"
+    },
+    "stopLossOrder": {
+      "id": "5525",
+      "createTime": "2026-04-07T13:31:43.660818444Z",
+      "replacesOrderID": "5521",
+      "type": "STOP_LOSS",
+      "tradeID": "5519",
+      "price": "1.32529",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5526",
+      "filledTime": "2026-04-07T14:21:39.911946750Z",
+      "tradeClosedIDs": [
+        "5519"
+      ]
+    }
+  },
+  {
+    "id": "5509",
+    "instrument": "GBP_USD",
+    "price": "1.32528",
+    "openTime": "2026-04-07T08:26:48.028116524Z",
+    "initialUnits": "-18945",
+    "initialMarginRequired": "1255.4567",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "5.4938",
+    "closingTransactionIDs": [
+      "5513",
+      "5516"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-07T12:06:40.262656745Z",
+    "averageClosePrice": "1.32499",
+    "clientExtensions": {
+      "id": "scrooge_gbpusddaff91b3",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5510",
+      "createTime": "2026-04-07T08:26:48.028116524Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5509",
+      "price": "1.31809",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5517",
+      "cancelledTime": "2026-04-07T12:06:40.262656745Z"
+    },
+    "stopLossOrder": {
+      "id": "5515",
+      "createTime": "2026-04-07T10:50:05.070537051Z",
+      "replacesOrderID": "5511",
+      "type": "STOP_LOSS",
+      "tradeID": "5509",
+      "price": "1.32528",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5516",
+      "filledTime": "2026-04-07T12:06:40.262656745Z",
+      "tradeClosedIDs": [
+        "5509"
+      ]
+    }
+  },
+  {
+    "id": "5498",
+    "instrument": "GBP_USD",
+    "price": "1.31958",
+    "openTime": "2026-04-03T20:33:42.506086453Z",
+    "initialUnits": "19183",
+    "initialMarginRequired": "1265.4066",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-12.2771",
+    "closingTransactionIDs": [
+      "5506"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-05T21:04:55.015822619Z",
+    "averageClosePrice": "1.31894",
+    "clientExtensions": {
+      "id": "scrooge_gbpusdb88219db",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5503",
+      "createTime": "2026-04-04T02:34:05.034313457Z",
+      "replacesOrderID": "5499",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5498",
+      "price": "1.31884",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5506",
+      "filledTime": "2026-04-05T21:04:55.015822619Z",
+      "tradeClosedIDs": [
+        "5498"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5500",
+      "createTime": "2026-04-03T20:33:42.506086453Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5498",
+      "price": "1.31566",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5507",
+      "cancelledTime": "2026-04-05T21:04:55.015822619Z"
+    }
+  },
+  {
+    "id": "5488",
+    "instrument": "USD_CHF",
+    "price": "0.80030",
+    "openTime": "2026-04-03T16:33:22.519915899Z",
+    "initialUnits": "-42306",
+    "initialMarginRequired": "1269.1800",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-4.7854",
+    "closingTransactionIDs": [
+      "5492",
+      "5495"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-03T20:10:54.416281333Z",
+    "averageClosePrice": "0.80039",
+    "clientExtensions": {
+      "id": "scrooge_usdchf149e145d",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5489",
+      "createTime": "2026-04-03T16:33:22.519915899Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5488",
+      "price": "0.79282",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5496",
+      "cancelledTime": "2026-04-03T20:10:54.416281333Z"
+    },
+    "stopLossOrder": {
+      "id": "5494",
+      "createTime": "2026-04-03T20:10:54.416281333Z",
+      "replacesOrderID": "5490",
+      "type": "STOP_LOSS",
+      "tradeID": "5488",
+      "price": "0.80030",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5495",
+      "filledTime": "2026-04-03T20:10:54.416281333Z",
+      "tradeClosedIDs": [
+        "5488"
+      ]
+    }
+  },
+  {
+    "id": "5480",
+    "instrument": "AUD_CAD",
+    "price": "0.96118",
+    "openTime": "2026-04-03T10:22:46.097311599Z",
+    "initialUnits": "-60886",
+    "initialMarginRequired": "1261.3083",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "9.9937",
+    "closingTransactionIDs": [
+      "5485"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-03T16:32:00.615201103Z",
+    "averageClosePrice": "0.96095",
+    "clientExtensions": {
+      "id": "scrooge_audcadcb5af23b",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5484",
+      "createTime": "2026-04-03T16:32:00.615201103Z",
+      "replacesOrderID": "5481",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5480",
+      "price": "0.96095",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5485",
+      "filledTime": "2026-04-03T16:32:00.615201103Z",
+      "tradeClosedIDs": [
+        "5480"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5482",
+      "createTime": "2026-04-03T10:22:46.097311599Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5480",
+      "price": "0.96386",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5486",
+      "cancelledTime": "2026-04-03T16:32:00.615201103Z"
+    }
+  },
+  {
+    "id": "5472",
+    "instrument": "USD_JPY",
+    "price": "159.586",
+    "openTime": "2026-04-03T08:07:38.556016348Z",
+    "initialUnits": "-25275",
+    "initialMarginRequired": "1263.7500",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-3.1832",
+    "closingTransactionIDs": [
+      "5476"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-03T10:18:47.797708703Z",
+    "averageClosePrice": "159.606",
+    "clientExtensions": {
+      "id": "scrooge_usdjpy0ee1db52",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5473",
+      "createTime": "2026-04-03T08:07:38.556016348Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5472",
+      "price": "158.545",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5477",
+      "cancelledTime": "2026-04-03T10:18:47.797708703Z"
+    },
+    "stopLossOrder": {
+      "id": "5474",
+      "createTime": "2026-04-03T08:07:38.556016348Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5472",
+      "price": "160.039",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5478",
+      "cancelledTime": "2026-04-03T10:18:47.797708703Z"
+    }
+  },
+  {
+    "id": "5464",
+    "instrument": "AUD_CAD",
+    "price": "0.96183",
+    "openTime": "2026-04-03T02:02:13.112234347Z",
+    "initialUnits": "-60835",
+    "initialMarginRequired": "1261.0183",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "3.4782",
+    "closingTransactionIDs": [
+      "5469"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-03T08:06:48.437608281Z",
+    "averageClosePrice": "0.96175",
+    "clientExtensions": {
+      "id": "scrooge_audcad98aa888a",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5468",
+      "createTime": "2026-04-03T08:06:48.437608281Z",
+      "replacesOrderID": "5465",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5464",
+      "price": "0.96175",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5469",
+      "filledTime": "2026-04-03T08:06:48.437608281Z",
+      "tradeClosedIDs": [
+        "5464"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5466",
+      "createTime": "2026-04-03T02:02:13.112234347Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5464",
+      "price": "0.96436",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5470",
+      "cancelledTime": "2026-04-03T08:06:48.437608281Z"
+    }
+  },
+  {
+    "id": "5455",
+    "instrument": "USD_CHF",
+    "price": "0.79846",
+    "openTime": "2026-04-02T15:57:02.949199656Z",
+    "initialUnits": "-42474",
+    "initialMarginRequired": "1274.2200",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-16.5685",
+    "closingTransactionIDs": [
+      "5460"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-02T23:39:11.797534880Z",
+    "averageClosePrice": "0.79877",
+    "clientExtensions": {
+      "id": "scrooge_usdchff7390fa8",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5456",
+      "createTime": "2026-04-02T15:57:02.949199656Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5455",
+      "price": "0.79079",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5461",
+      "cancelledTime": "2026-04-02T23:39:11.797534880Z"
+    },
+    "stopLossOrder": {
+      "id": "5457",
+      "createTime": "2026-04-02T15:57:02.949199656Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5455",
+      "price": "0.80243",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5462",
+      "cancelledTime": "2026-04-02T23:39:11.797534880Z"
+    }
+  },
+  {
+    "id": "5446",
+    "instrument": "CHF_JPY",
+    "price": "199.836",
+    "openTime": "2026-04-01T15:02:26.083544733Z",
+    "initialUnits": "-20414",
+    "initialMarginRequired": "1287.7627",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-16.5353",
+    "closingTransactionIDs": [
+      "5452"
+    ],
+    "financing": "-0.0849",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-01T21:09:43.227593395Z",
+    "averageClosePrice": "199.964",
+    "clientExtensions": {
+      "id": "scrooge_chfjpyd4884c8b",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5451",
+      "createTime": "2026-04-01T21:09:43.227593395Z",
+      "replacesOrderID": "5447",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5446",
+      "price": "199.964",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5452",
+      "filledTime": "2026-04-01T21:09:43.227593395Z",
+      "tradeClosedIDs": [
+        "5446"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5448",
+      "createTime": "2026-04-01T15:02:26.083544733Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5446",
+      "price": "201.016",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5453",
+      "cancelledTime": "2026-04-01T21:09:43.227593395Z"
+    }
+  },
+  {
+    "id": "5438",
+    "instrument": "USD_MXN",
+    "price": "17.85610",
+    "openTime": "2026-04-01T06:36:35.130300387Z",
+    "initialUnits": "12849",
+    "initialMarginRequired": "1284.9000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "3.2708",
+    "closingTransactionIDs": [
+      "5443"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-04-01T12:37:17.823560037Z",
+    "averageClosePrice": "17.86067",
+    "clientExtensions": {
+      "id": "scrooge_usdmxnecfb4a96",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5442",
+      "createTime": "2026-04-01T12:37:17.823560037Z",
+      "replacesOrderID": "5439",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5438",
+      "price": "17.86044",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5443",
+      "filledTime": "2026-04-01T12:37:17.823560037Z",
+      "tradeClosedIDs": [
+        "5438"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5440",
+      "createTime": "2026-04-01T06:36:35.130300387Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5438",
+      "price": "17.75692",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5444",
+      "cancelledTime": "2026-04-01T12:37:17.823560037Z"
+    }
+  },
+  {
+    "id": "5429",
+    "instrument": "NZD_JPY",
+    "price": "91.312",
+    "openTime": "2026-03-31T12:31:38.856542956Z",
+    "initialUnits": "46259",
+    "initialMarginRequired": "1324.7884",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-53.3043",
+    "closingTransactionIDs": [
+      "5434"
+    ],
+    "financing": "3.3698",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-31T22:54:41.435053171Z",
+    "averageClosePrice": "91.130",
+    "clientExtensions": {
+      "id": "scrooge_nzdjpy33279783",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5430",
+      "createTime": "2026-03-31T12:31:38.856542956Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5429",
+      "price": "92.109",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5435",
+      "cancelledTime": "2026-03-31T22:54:41.435053171Z"
+    },
+    "stopLossOrder": {
+      "id": "5431",
+      "createTime": "2026-03-31T12:31:38.856542956Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5429",
+      "price": "90.639",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5436",
+      "cancelledTime": "2026-03-31T22:54:41.435053171Z"
+    }
+  },
+  {
+    "id": "5415",
+    "instrument": "NZD_JPY",
+    "price": "91.201",
+    "openTime": "2026-03-31T07:26:12.402987084Z",
+    "initialUnits": "45618",
+    "initialMarginRequired": "1301.7781",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "28.8834",
+    "closingTransactionIDs": [
+      "5419",
+      "5423",
+      "5426"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-31T12:16:06.051572110Z",
+    "averageClosePrice": "91.302",
+    "clientExtensions": {
+      "id": "scrooge_nzdjpy23a39e19",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5416",
+      "createTime": "2026-03-31T07:26:12.402987084Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5415",
+      "price": "92.109",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5427",
+      "cancelledTime": "2026-03-31T12:16:06.051572110Z"
+    },
+    "stopLossOrder": {
+      "id": "5425",
+      "createTime": "2026-03-31T12:02:46.873260948Z",
+      "replacesOrderID": "5421",
+      "type": "STOP_LOSS",
+      "tradeID": "5415",
+      "price": "91.287",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5426",
+      "filledTime": "2026-03-31T12:16:06.051572110Z",
+      "tradeClosedIDs": [
+        "5415"
+      ]
+    }
+  },
+  {
+    "id": "5406",
+    "instrument": "USD_MXN",
+    "price": "18.07922",
+    "openTime": "2026-03-30T11:04:12.882518986Z",
+    "initialUnits": "-13019",
+    "initialMarginRequired": "1301.9000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-2.4607",
+    "closingTransactionIDs": [
+      "5412"
+    ],
+    "financing": "2.2649",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-31T01:26:13.331744548Z",
+    "averageClosePrice": "18.08262",
+    "clientExtensions": {
+      "id": "scrooge_usdmxn89de7a49",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5411",
+      "createTime": "2026-03-31T01:26:13.331744548Z",
+      "replacesOrderID": "5407",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5406",
+      "price": "18.08262",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5412",
+      "filledTime": "2026-03-31T01:26:13.331744548Z",
+      "tradeClosedIDs": [
+        "5406"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5408",
+      "createTime": "2026-03-30T11:04:12.882518986Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5406",
+      "price": "18.17653",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5413",
+      "cancelledTime": "2026-03-31T01:26:13.331744548Z"
+    }
+  },
+  {
+    "id": "5388",
+    "instrument": "USD_MXN",
+    "price": "18.14172",
+    "openTime": "2026-03-29T23:08:08.903983650Z",
+    "initialUnits": "-12764",
+    "initialMarginRequired": "1276.4000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "31.9016",
+    "closingTransactionIDs": [
+      "5392",
+      "5403"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-30T05:08:18.855531614Z",
+    "averageClosePrice": "18.09628",
+    "clientExtensions": {
+      "id": "scrooge_usdmxn138a1182",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5402",
+      "createTime": "2026-03-30T05:08:18.855531614Z",
+      "replacesOrderID": "5389",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5388",
+      "price": "18.09160",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5403",
+      "filledTime": "2026-03-30T05:08:18.855531614Z",
+      "tradeClosedIDs": [
+        "5388"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5400",
+      "createTime": "2026-03-30T05:03:37.766155206Z",
+      "replacesOrderID": "5398",
+      "type": "STOP_LOSS",
+      "tradeID": "5388",
+      "price": "18.09905",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5404",
+      "cancelledTime": "2026-03-30T05:08:18.855531614Z"
+    }
+  },
+  {
+    "id": "5375",
+    "instrument": "USD_CHF",
+    "price": "0.79883",
+    "openTime": "2026-03-27T19:11:15.709924375Z",
+    "initialUnits": "-43461",
+    "initialMarginRequired": "1303.8300",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-27.4818",
+    "closingTransactionIDs": [
+      "5382",
+      "5385"
+    ],
+    "financing": "-6.8466",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-29T21:07:00.278810978Z",
+    "averageClosePrice": "0.79933",
+    "clientExtensions": {
+      "id": "scrooge_usdchf9298b354",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5376",
+      "createTime": "2026-03-27T19:11:15.709924375Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5375",
+      "price": "0.79135",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5386",
+      "cancelledTime": "2026-03-29T21:07:00.278810978Z"
+    },
+    "stopLossOrder": {
+      "id": "5384",
+      "createTime": "2026-03-29T21:07:00.278810978Z",
+      "replacesOrderID": "5377",
+      "type": "STOP_LOSS",
+      "tradeID": "5375",
+      "price": "0.79883",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5385",
+      "filledTime": "2026-03-29T21:07:00.278810978Z",
+      "tradeClosedIDs": [
+        "5375"
+      ]
+    }
+  },
+  {
+    "id": "5368",
+    "instrument": "USD_JPY",
+    "price": "159.880",
+    "openTime": "2026-03-27T14:56:58.390917716Z",
+    "initialUnits": "-20000",
+    "initialMarginRequired": "1000.0000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-49.4144",
+    "closingTransactionIDs": [
+      "5372"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-27T17:17:52.372877830Z",
+    "averageClosePrice": "160.274",
+    "clientExtensions": {
+      "id": "110582626",
+      "tag": "0"
+    },
+    "takeProfitOrder": {
+      "id": "5370",
+      "createTime": "2026-03-27T14:58:34.364002426Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5368",
+      "price": "159.559",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5373",
+      "cancelledTime": "2026-03-27T17:17:52.372877830Z"
+    }
+  },
+  {
+    "id": "5357",
+    "instrument": "USD_JPY",
+    "price": "159.655",
+    "openTime": "2026-03-26T20:28:08.645619282Z",
+    "initialUnits": "-16402",
+    "initialMarginRequired": "820.1000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-3.4071",
+    "closingTransactionIDs": [
+      "5362"
+    ],
+    "financing": "-1.8514",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-26T21:53:46.328245890Z",
+    "averageClosePrice": "159.688",
+    "clientExtensions": {
+      "id": "scrooge_usdjpy6cc695ef",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5358",
+      "createTime": "2026-03-26T20:28:08.645619282Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5357",
+      "price": "158.580",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5363",
+      "cancelledTime": "2026-03-26T21:53:46.328245890Z"
+    },
+    "stopLossOrder": {
+      "id": "5359",
+      "createTime": "2026-03-26T20:28:08.645619282Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5357",
+      "price": "160.095",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5364",
+      "cancelledTime": "2026-03-26T21:53:46.328245890Z"
+    }
+  },
+  {
+    "id": "5347",
+    "instrument": "USD_CHF",
+    "price": "0.79482",
+    "openTime": "2026-03-26T18:52:56.899454795Z",
+    "initialUnits": "-15671",
+    "initialMarginRequired": "470.1300",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "17.4815",
+    "closingTransactionIDs": [
+      "5354"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-26T20:23:35.187506179Z",
+    "averageClosePrice": "0.79393",
+    "clientExtensions": {
+      "id": "scrooge_usdchf56a14daf",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5353",
+      "createTime": "2026-03-26T20:23:35.187506179Z",
+      "replacesOrderID": "5348",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5347",
+      "price": "0.79393",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5354",
+      "filledTime": "2026-03-26T20:23:35.187506179Z",
+      "tradeClosedIDs": [
+        "5347"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5351",
+      "createTime": "2026-03-26T20:18:10.090346102Z",
+      "replacesOrderID": "5349",
+      "type": "STOP_LOSS",
+      "tradeID": "5347",
+      "price": "0.79472",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5355",
+      "cancelledTime": "2026-03-26T20:23:35.187506179Z"
+    }
+  },
+  {
+    "id": "5339",
+    "instrument": "USD_JPY",
+    "price": "159.775",
+    "openTime": "2026-03-26T18:22:53.265499577Z",
+    "initialUnits": "-16161",
+    "initialMarginRequired": "808.0500",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "0.8052",
+    "closingTransactionIDs": [
+      "5344"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-26T18:51:50.436091358Z",
+    "averageClosePrice": "159.767",
+    "clientExtensions": {
+      "id": "scrooge_usdjpy947d2027",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5340",
+      "createTime": "2026-03-26T18:22:53.265499577Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5339",
+      "price": "158.574",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5345",
+      "cancelledTime": "2026-03-26T18:51:50.436091358Z"
+    },
+    "stopLossOrder": {
+      "id": "5343",
+      "createTime": "2026-03-26T18:42:53.253915083Z",
+      "replacesOrderID": "5341",
+      "type": "STOP_LOSS",
+      "tradeID": "5339",
+      "price": "159.765",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5344",
+      "filledTime": "2026-03-26T18:51:50.436091358Z",
+      "tradeClosedIDs": [
+        "5339"
+      ]
+    }
+  },
+  {
+    "id": "5333",
+    "instrument": "USD_CHF",
+    "price": "0.79296",
+    "openTime": "2026-03-26T14:42:39.523382094Z",
+    "initialUnits": "-15228",
+    "initialMarginRequired": "456.8400",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "-44.8418",
+    "closingTransactionIDs": [
+      "5336"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-26T18:20:20.261075446Z",
+    "averageClosePrice": "0.79529",
+    "clientExtensions": {
+      "id": "scrooge_usdchf2a8e7d88",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5334",
+      "createTime": "2026-03-26T14:42:39.523382094Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5333",
+      "price": "0.78707",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5337",
+      "cancelledTime": "2026-03-26T18:20:20.261075446Z"
+    },
+    "stopLossOrder": {
+      "id": "5335",
+      "createTime": "2026-03-26T14:42:39.523382094Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5333",
+      "price": "0.79528",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5336",
+      "filledTime": "2026-03-26T18:20:20.261075446Z",
+      "tradeClosedIDs": [
+        "5333"
+      ]
+    }
+  },
+  {
+    "id": "5325",
+    "instrument": "USD_JPY",
+    "price": "159.537",
+    "openTime": "2026-03-26T14:22:32.636467996Z",
+    "initialUnits": "-16824",
+    "initialMarginRequired": "841.2000",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "1.0494",
+    "closingTransactionIDs": [
+      "5330"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-26T14:41:12.361997374Z",
+    "averageClosePrice": "159.527",
+    "clientExtensions": {
+      "id": "scrooge_usdjpyf49267ff",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5326",
+      "createTime": "2026-03-26T14:22:32.636467996Z",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5325",
+      "price": "158.574",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5331",
+      "cancelledTime": "2026-03-26T14:41:12.361997374Z"
+    },
+    "stopLossOrder": {
+      "id": "5329",
+      "createTime": "2026-03-26T14:37:28.828727455Z",
+      "replacesOrderID": "5327",
+      "type": "STOP_LOSS",
+      "tradeID": "5325",
+      "price": "159.527",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "FILLED",
+      "fillingTransactionID": "5330",
+      "filledTime": "2026-03-26T14:41:12.361997374Z",
+      "tradeClosedIDs": [
+        "5325"
+      ]
+    }
+  },
+  {
+    "id": "5317",
+    "instrument": "GBP_USD",
+    "price": "1.33637",
+    "openTime": "2026-03-26T07:01:50.326319887Z",
+    "initialUnits": "12762",
+    "initialMarginRequired": "852.6803",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "3.5734",
+    "closingTransactionIDs": [
+      "5322"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-26T14:18:20.739932822Z",
+    "averageClosePrice": "1.33665",
+    "clientExtensions": {
+      "id": "scrooge_gbpusd2253ad2d",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5321",
+      "createTime": "2026-03-26T14:18:20.739932822Z",
+      "replacesOrderID": "5318",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5317",
+      "price": "1.33665",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5322",
+      "filledTime": "2026-03-26T14:18:20.739932822Z",
+      "tradeClosedIDs": [
+        "5317"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5319",
+      "createTime": "2026-03-26T07:01:50.326319887Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5317",
+      "price": "1.33172",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5323",
+      "cancelledTime": "2026-03-26T14:18:20.739932822Z"
+    }
+  },
+  {
+    "id": "5309",
+    "instrument": "USD_JPY",
+    "price": "159.410",
+    "openTime": "2026-03-26T04:56:30.727663410Z",
+    "initialUnits": "-15775",
+    "initialMarginRequired": "788.7500",
+    "state": "CLOSED",
+    "currentUnits": "0",
+    "realizedPL": "2.5606",
+    "closingTransactionIDs": [
+      "5314"
+    ],
+    "financing": "0.0000",
+    "dividendAdjustment": "0.0000",
+    "closeTime": "2026-03-26T06:48:36.727159242Z",
+    "averageClosePrice": "159.384",
+    "clientExtensions": {
+      "id": "scrooge_usdjpyed0d86c0",
+      "comment": "mr-scrooge"
+    },
+    "takeProfitOrder": {
+      "id": "5313",
+      "createTime": "2026-03-26T06:48:36.727159242Z",
+      "replacesOrderID": "5310",
+      "type": "TAKE_PROFIT",
+      "tradeID": "5309",
+      "price": "159.384",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "state": "FILLED",
+      "fillingTransactionID": "5314",
+      "filledTime": "2026-03-26T06:48:36.727159242Z",
+      "tradeClosedIDs": [
+        "5309"
+      ]
+    },
+    "stopLossOrder": {
+      "id": "5311",
+      "createTime": "2026-03-26T04:56:30.727663410Z",
+      "type": "STOP_LOSS",
+      "tradeID": "5309",
+      "price": "159.881",
+      "timeInForce": "GTC",
+      "triggerCondition": "DEFAULT",
+      "triggerMode": "TOP_OF_BOOK",
+      "state": "CANCELLED",
+      "cancellingTransactionID": "5315",
+      "cancelledTime": "2026-03-26T06:48:36.727159242Z"
+    }
+  }
+]
