@@ -241,11 +241,11 @@ class Runtime:
         snapshots: dict[str, MarketSnapshot] = {}
         for symbol, quote in prices.items():
             candles = {}
-            for tf in ("D", "1H", "5M"):
-                df = self.broker.get_candles(symbol, tf)
+            # OANDA granularity names: D, H1, M5 (not 1H, 5M)
+            for oanda_tf, internal_key in (("D", "D"), ("H1", "1H"), ("M5", "5M")):
+                df = self.broker.get_candles(symbol, oanda_tf)
                 if df is not None:
-                    key = "5M" if tf == "M5" else tf
-                    candles[tf] = df
+                    candles[internal_key] = df
             snapshots[symbol] = MarketSnapshot(
                 symbol=symbol, bid=quote.bid, ask=quote.ask,
                 mid=quote.mid, spread=quote.spread,
