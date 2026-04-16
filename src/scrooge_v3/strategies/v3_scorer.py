@@ -1,19 +1,20 @@
-"""V3 Hybrid Scorer — the 43-factor scoring engine.
+"""V3 Hybrid Scorer — rebalanced scoring engine.
 
-Ported from scripts/hybrid_formula_test.py::score_hybrid().
-Reads features from SymbolContext and computes the V3 quality score.
-
-All factor weights are calibrated from raw OANDA candle data (50 V1 live
-trades, 2026-04-15). Out-of-sample validated: 100% WR on 20-trade test
-set, +80.3 pt separation between winners and losers.
+V3.1 reconfig (2026-04-16):
+  - Decompressed hour/box-age penalties so NY session is not starved
+  - Split session rules: asia_london / london / ny_active / late_ny / dead_late
+  - Shrunk weak factors (wall proximity, BB position, ADR, OTR)
+  - Strengthened directional conviction (dc)
+  - Halved pair layer magnitudes, removed hour-dependent positive pairs
+  - Added correlated-negative caps (hour+age, neutral cluster)
+  - Removed OTR<8+NORM hard block (kept as soft penalty)
+  - Lowered decision thresholds for NY-active
 
 Architecture:
   Layer 0 — Hard blocks (automatic reject, before scoring)
-  Layer 1 — 17 single-factor points (proportional gap calibrated)
-  Layer 2 — 18 paired-aspect bonuses/penalties (interaction effects)
-  Decision — A-tier (>=65), B-tier (50-64), REJECT (<50), BLOCKED
-
-See docs/SCORING_V3_LIVE.md for the full specification.
+  Layer 1 — 17 single-factor points (decompressed)
+  Layer 2 — 15 paired-aspect bonuses/penalties (halved magnitudes)
+  Decision — Session-aware A/B/REJECT/BLOCKED
 """
 
 from __future__ import annotations
@@ -38,54 +39,54 @@ class ScorerResult:
     pairs_total: int = 0
 
 
-# Session-aware thresholds — pair bonuses must not compensate for bad hours
+# Session-aware thresholds — 5 sessions instead of 3
 _SESSION_RULES = {
-    # hour_range: (base_min, final_min, pair_cap)
-    "late":    (50, 75, 8),   # 20-23 UTC: require strong base, cap pairs
-    "afternoon": (45, 65, 12),  # 12-19 UTC: moderate requirements
-    "prime":   (40, 60, 999),  # 0-11 UTC: normal scoring, no pair cap
+    # session: (base_floor, final_min_b, final_min_a, pair_cap)
+    "asia_london_open": (36, 50, 60, 16),   # 0-7 UTC
+    "london":           (38, 50, 60, 12),   # 8-11 UTC
+    "ny_active":        (36, 48, 56, 12),   # 12-17 UTC
+    "late_ny":          (40, 50, 60, 10),   # 18-19 UTC
+    "dead_late":        (46, 58, 68, 8),    # 20-23 UTC
 }
+
+# Correlated-negative caps — prevent triple-dipping
+_MAX_HOUR_PLUS_AGE = -10
+_MAX_NEUTRAL_CLUSTER = -10
 
 
 class V3HybridScorer:
-    """Scores trade candidates using the V3 WR-Lift Hybrid formula with Pair Layer.
+    """Scores trade candidates using V3.1 rebalanced formula.
 
-    Session-aware decision rule (from 2026-04-15 live data analysis):
-      - Pair bonuses are CONFIRMATION, not RESCUE
-      - Base score must clear a floor before pairs can push it over threshold
-      - Late sessions require higher thresholds because 20-23 UTC = 38% WR
+    Key changes from V3.0:
+      - NY active session (12-17 UTC) has its own thresholds
+      - Hour/age penalties decompressed so they don't kill NY
+      - Directional conviction (dc) is the strongest soft factor
+      - Weak factors (wall, ADR, OTR) reduced
+      - Pair bonuses halved — confirmation not rescue
     """
 
     name = "v3_scorer"
 
     def __init__(self, config: dict | None = None):
         config = config or {}
-        # These are now session-dependent, kept for backward compat
-        self.threshold_a = config.get("threshold_a", 65)
+        self.threshold_a = config.get("threshold_a", 60)
         self.threshold_b = config.get("threshold_b", 50)
 
     def score(self, ctx: SymbolContext, candidate: TradeCandidate) -> ScorerResult:
-        """Score a trade candidate using V3 Hybrid formula.
-
-        Extracts all 17 factors from SymbolContext features and classifications,
-        then applies Layer 0 hard blocks, Layer 1 single-factor scoring,
-        and Layer 2 paired-aspect bonuses/penalties.
-        """
+        """Score a trade candidate using V3.1 Hybrid formula."""
         f = self._extract_factors(ctx, candidate)
         return self._compute_score(f)
 
     # ------------------------------------------------------------------
-    # Factor extraction — maps SymbolContext features to scorer inputs
+    # Factor extraction
     # ------------------------------------------------------------------
 
     def _extract_factors(self, ctx: SymbolContext, candidate: TradeCandidate) -> dict[str, Any]:
         """Build flat factor dict from SymbolContext features."""
         now = datetime.now(timezone.utc)
 
-        # BB state from classifier
         bb_cls = ctx.classifications.get("bb_state")
         bbs = bb_cls.label if bb_cls else "NORM"
-        # Normalize to scorer's short names
         _bb_map = {
             "NORMAL": "NORM", "EXTREME_UP": "EXT_U", "EXTREME_DOWN": "EXT_D",
             "REJECTION_SHORT": "REJ_S", "REJECTION_LONG": "REJ_L",
@@ -95,46 +96,36 @@ class V3HybridScorer:
         }
         bbs = _bb_map.get(bbs, bbs)
 
-        # RSI
         rsi_feat = ctx.features.get("rsi")
         rsi = rsi_feat.values.get("rsi", 50.0) if rsi_feat else 50.0
 
-        # Bollinger
         bb_feat = ctx.features.get("bollinger")
         zs = bb_feat.values.get("z_score", 0.0) if bb_feat else 0.0
         bbp = bb_feat.values.get("bb_position", 0.5) if bb_feat else 0.5
 
-        # Zone detector
         zd_feat = ctx.features.get("zone_detector")
         box_age = zd_feat.values.get("box_age_hours", 0.0) if zd_feat else 0.0
         wall_prox = zd_feat.values.get("wall_proximity", 0.5) if zd_feat else 0.5
 
-        # EMA distances
         ema_feat = ctx.features.get("ema")
         e50d = ema_feat.values.get("ema50_dist_pct", 30.0) if ema_feat else 30.0
         e20d = ema_feat.values.get("ema20_dist_pct", 20.0) if ema_feat else 20.0
 
-        # OTR
         otr_feat = ctx.features.get("otr")
         otr = otr_feat.values.get("otr_ratio", 0.15) * 100 if otr_feat else 15.0
 
-        # ATR / ADR consumed
         atr_feat = ctx.features.get("atr")
         adr = atr_feat.values.get("adr_consumed", 0.5) if atr_feat else 0.5
 
-        # Volume
         vol_feat = ctx.features.get("volume")
         vr = vol_feat.values.get("volume_ratio", 1.0) if vol_feat else 1.0
 
-        # Natural stop in pips (from candidate metadata)
         risk_points = candidate.metadata.get("risk_points", 0.0)
         pip = 0.01 if "JPY" in ctx.symbol else 0.0001
         ns = risk_points / pip if pip > 0 else 0.0
 
-        # Momentum and directional candles from 5m bars
         mom, dc, bp = self._candle_features(ctx, candidate.direction)
 
-        # Duration not known at entry — set to midpoint (scoring exits only)
         dur = 60.0
 
         return {
@@ -173,7 +164,6 @@ class V3HybridScorer:
         highs = bars["high"].astype(float).values
         lows = bars["low"].astype(float).values
 
-        # Last 5 candles for momentum/directional count
         mom_count = 0
         dc_count = 0
         for i in range(-5, 0):
@@ -181,7 +171,6 @@ class V3HybridScorer:
             body = abs(closes[i] - opens[i])
             if candle_range > 0 and body / candle_range > 0.6:
                 mom_count += 1
-            # Directional: count candles aligned with trade direction
             if direction == TradeDirection.LONG:
                 if closes[i] > opens[i]:
                     dc_count += 1
@@ -189,7 +178,6 @@ class V3HybridScorer:
                 if closes[i] < opens[i]:
                     dc_count += 1
 
-        # Body % of entry candle
         entry_range = highs[-1] - lows[-1]
         entry_body = abs(closes[-1] - opens[-1])
         body_pct = entry_body / entry_range if entry_range > 0 else 0.3
@@ -197,11 +185,11 @@ class V3HybridScorer:
         return float(mom_count), float(dc_count), body_pct
 
     # ------------------------------------------------------------------
-    # Scoring engine — direct port from scripts/hybrid_formula_test.py
+    # Scoring engine — V3.1 rebalanced
     # ------------------------------------------------------------------
 
     def _compute_score(self, r: dict[str, Any]) -> ScorerResult:
-        """Compute the V3 Hybrid score. Logic matches score_hybrid() exactly."""
+        """Compute the V3.1 rebalanced score."""
         blocks: list[str] = []
         bd: dict[str, int] = {}
 
@@ -212,8 +200,7 @@ class V3HybridScorer:
             blocks.append("STR_UP")
         if r["dur"] >= 720:
             blocks.append("DUR_12H")
-        if r["otr"] < 8 and r["bbs"] == "NORM":
-            blocks.append("OTR<8+NORM")
+        # OTR<8+NORM removed as hard block — kept as soft penalty via OTR factor
         if 18 <= r["bage"] <= 24 and r["e20d"] < 15:
             blocks.append("STALE+E20")
 
@@ -223,200 +210,214 @@ class V3HybridScorer:
 
         s = 0
 
-        # === LAYER 1: SINGLE FACTOR BASE (17 factors) ===
+        # === LAYER 1: SINGLE FACTOR BASE (17 factors — decompressed) ===
 
-        # Entry hour
+        # Entry hour — decompressed, NY not killed
         h = r["hour"]
-        if h < 8: p = 13
+        if h < 8: p = 10
         elif h < 12: p = 2
-        elif h < 16: p = -8
-        elif h < 20: p = -4
+        elif h < 16: p = -3
+        elif h < 18: p = -1
+        elif h < 20: p = -3
         else: p = -7
         s += p; bd["hr"] = p
 
-        # Box age
+        # Box age — decompressed, stale less crushing
         a = r["bage"]
-        if a < 8: p = 13
-        elif a < 12: p = 6
+        if a < 8: p = 9
+        elif a < 12: p = 5
         elif a < 18: p = 0
-        elif a < 24: p = -12
+        elif a < 24: p = -7
         else: p = -4
         s += p; bd["age"] = p
 
         # Natural stop
         ns = r["ns"]
-        if 4 <= ns <= 6: p = 9
+        if 4 <= ns <= 6: p = 8
         elif 6 < ns <= 8: p = 3
-        elif ns < 4: p = -4
+        elif ns < 4: p = -3
         else: p = -2
         s += p; bd["stp"] = p
 
         # Volume ratio
         v = r["vr"]
-        if 0.9 <= v <= 1.1: p = 9
+        if 0.9 <= v <= 1.1: p = 8
         elif 1.1 < v <= 1.3: p = 2
-        elif 0.7 <= v < 0.9: p = -4
+        elif 0.7 <= v < 0.9: p = -3
         elif v > 1.3: p = -3
-        else: p = 0
+        else: p = -1
         s += p; bd["vol"] = p
 
         # Momentum candles
         m = r["mom"]
-        if 2 <= m <= 3: p = 8
-        elif m == 1: p = 2
-        elif m == 0: p = -5
-        elif m >= 4: p = 3
+        if 2 <= m <= 3: p = 6
+        elif m == 1: p = 1
+        elif m == 0: p = -4
+        elif m >= 4: p = 2
         else: p = 0
         s += p; bd["mom"] = p
 
-        # Directional candles
+        # Directional candles — strongest soft factor
         dc = r["dc"]
-        if dc >= 4: p = 7
-        elif 2 <= dc <= 3: p = 3
+        if dc >= 4: p = 10
+        elif 2 <= dc <= 3: p = 4
         elif dc == 1: p = 0
-        else: p = -6
+        else: p = -8
         s += p; bd["dc"] = p
 
         # Z-score magnitude
         az = abs(r["zs"])
-        if 0.5 <= az < 1.0: p = 6
-        elif 1.0 <= az < 1.5: p = 5
+        if 0.5 <= az < 1.0: p = 5
+        elif 1.0 <= az < 1.5: p = 4
         elif az >= 1.5: p = 2
-        else: p = -9
+        else: p = -7
         s += p; bd["z"] = p
 
-        # BB position
+        # BB position — reduced, weak factor
         bb = r["bbp"]
-        if 0.65 <= bb <= 0.85: p = 5
+        if 0.65 <= bb <= 0.85: p = 3
         elif 0.50 <= bb < 0.65: p = 1
-        elif 0.35 <= bb < 0.50: p = -3
-        elif bb > 0.85: p = -4
-        else: p = -2
+        elif 0.35 <= bb < 0.50: p = -2
+        elif bb > 0.85: p = -2
+        else: p = -1
         s += p; bd["bb"] = p
 
-        # EMA50 distance
-        if r["e50d"] >= 60: p = 5
-        elif r["e50d"] < 20: p = -10
+        # EMA50 distance — keep strong
+        if r["e50d"] >= 60: p = 4
+        elif r["e50d"] < 20: p = -8
         else: p = 0
         s += p; bd["e50"] = p
 
-        # EMA20 distance
-        if 15 <= r["e20d"] <= 30: p = 3
+        # EMA20 distance — keep strong
+        if 15 <= r["e20d"] <= 30: p = 4
         elif r["e20d"] >= 30: p = 1
-        elif r["e20d"] < 15: p = -7
+        elif r["e20d"] < 15: p = -6
         else: p = 0
         s += p; bd["e20"] = p
 
-        # OTR (INVERTED — low is BAD)
+        # OTR — reduced, weak factor
         o = r["otr"]
-        if 8 <= o <= 18: p = 4
-        elif o < 8: p = -11
-        elif o > 30: p = -2
+        if 8 <= o <= 18: p = 2
+        elif o < 8: p = -4
+        elif o > 30: p = -1
         else: p = 0
         s += p; bd["otr"] = p
 
-        # ADR consumed
-        if r["adr"] < 0.8: p = 4
-        elif 0.8 <= r["adr"] <= 1.2: p = -3
+        # ADR consumed — token-sized, barely matters
+        if r["adr"] < 0.8: p = 2
+        elif 0.8 <= r["adr"] <= 1.2: p = -1
         else: p = -1
         s += p; bd["adr"] = p
 
-        # Duration (at entry: defaults to 60min = +6)
+        # Duration
         d = r["dur"]
-        if 30 <= d <= 120: p = 6
+        if 30 <= d <= 120: p = 5
         elif 120 < d <= 360: p = 2
         elif d < 30: p = -2
-        elif 360 < d <= 720: p = -5
+        elif 360 < d <= 720: p = -4
         else: p = 0
         s += p; bd["dur"] = p
 
-        # Wall proximity
+        # Wall proximity — reduced, inconsistent
         wp = r["wp"]
-        if wp < 0.15: p = 2
-        elif 0.15 <= wp < 0.30: p = -9
+        if wp < 0.15: p = 1
+        elif 0.15 <= wp < 0.30: p = -3
         elif 0.30 <= wp < 0.50: p = 1
-        else: p = -2
+        else: p = -1
         s += p; bd["wal"] = p
 
         # Body %
         bp = r["bp"]
-        if bp < 0.25: p = 2
+        if bp < 0.25: p = 1
         elif 0.25 <= bp < 0.45: p = 0
-        elif 0.45 <= bp <= 0.65: p = -8
-        else: p = -2
+        elif 0.45 <= bp <= 0.65: p = -4
+        else: p = -1
         s += p; bd["bdy"] = p
 
         # BB state
         bbs = r["bbs"]
-        if bbs == "NORM": p = 3
-        elif bbs in ("REJ_L", "REJ_S"): p = 2
-        elif bbs in ("BRK_UP", "BRK_DN"): p = -1
-        elif bbs == "STR_DN": p = -3
+        if bbs == "NORM": p = 2
+        elif bbs in ("REJ_L", "REJ_S"): p = 3
+        elif bbs in ("BRK_UP", "BRK_DN"): p = -2
+        elif bbs == "STR_DN": p = -2
         else: p = 0
         s += p; bd["bbs"] = p
 
-        # RSI (outside neutral block)
+        # RSI
         rsi = r["rsi"]
-        if rsi < 30: p = 7
-        elif 30 <= rsi < 45: p = 3
-        elif 55 <= rsi < 70: p = -2
-        elif rsi >= 70: p = -3
+        if rsi < 30: p = 5
+        elif 30 <= rsi < 45: p = 2
+        elif 55 <= rsi < 70: p = -3
+        elif rsi >= 70: p = -4
         else: p = 0
         s += p; bd["rsi"] = p
 
-        # === LAYER 2: PAIRED ASPECT BONUSES ===
+        # === CORRELATED-NEGATIVE CAPS ===
+        # Prevent hour+age from triple-dipping with session thresholds
+        hr_age_total = bd["hr"] + bd["age"]
+        if hr_age_total < _MAX_HOUR_PLUS_AGE:
+            cap_adj = _MAX_HOUR_PLUS_AGE - hr_age_total
+            s += cap_adj
+            bd["hr_age_cap"] = cap_adj
+
+        # === LAYER 2: PAIRED ASPECT BONUSES (halved magnitudes) ===
         pairs = 0
 
         # Positive pairs
         if r["hour"] < 8 and bbs == "NORM":
-            pairs += 14; bd["p_hr_norm"] = 14
-        if r["hour"] < 8 and r["mom"] == 0:
-            pairs += 13; bd["p_hr_mom0"] = 13
+            pairs += 8; bd["p_hr_norm"] = 8
         if r["hour"] < 8 and 0.5 <= az < 1.0:
-            pairs += 13; bd["p_hr_z"] = 13
-        if r["hour"] < 8 and 4 <= ns <= 6:
-            pairs += 11; bd["p_hr_ns"] = 11
-        if r["hour"] < 8 and r["bage"] < 8:
-            pairs += 11; bd["p_hr_age"] = 11
+            pairs += 6; bd["p_hr_z"] = 6
+        if r["bage"] < 12 and rsi < 45:
+            pairs += 6; bd["p_age_rsi"] = 6
+        if r["bage"] < 12 and bbs == "NORM":
+            pairs += 5; bd["p_age_norm"] = 5
+        if r["bage"] < 12 and 8 <= r["otr"] <= 18:
+            pairs += 4; bd["p_age_otr"] = 4
+        if r["e50d"] >= 60 and dc >= 4:
+            pairs += 5; bd["p_e50_dc"] = 5
+        if 4 <= ns <= 6 and dc >= 4:
+            pairs += 5; bd["p_ns_dc"] = 5
         if 1.0 <= az < 1.5 and bbs == "NORM":
-            pairs += 11; bd["p_z_norm"] = 11
-        if r["hour"] < 8 and r["e50d"] >= 60:
-            pairs += 11; bd["p_hr_e50"] = 11
-        if r["bage"] < 8 and rsi < 45:
-            pairs += 9; bd["p_age_rsi"] = 9
-        if r["bage"] < 8 and 8 <= r["otr"] <= 18:
-            pairs += 9; bd["p_age_otr"] = 9
-        if r["bage"] < 8 and bbs == "NORM":
-            pairs += 9; bd["p_age_norm"] = 9
+            pairs += 5; bd["p_z_norm"] = 5
 
         # Negative pairs
         if 12 <= r["hour"] < 16 and 0.8 <= r["adr"] <= 1.2:
-            pairs -= 13; bd["n_hr_adr"] = -13
+            pairs -= 6; bd["n_hr_adr"] = -6
         if 12 <= r["hour"] < 16 and dc == 0:
-            pairs -= 11; bd["n_hr_dc0"] = -11
-        if az < 0.5 and 0.8 <= r["adr"] <= 1.2:
-            pairs -= 9; bd["n_z_adr"] = -9
-        if az < 0.5 and 0.45 <= bp <= 0.65:
-            pairs -= 9; bd["n_z_bdy"] = -9
-        if r["mom"] == 0 and bb > 0.85:
-            pairs -= 9; bd["n_mom_bb"] = -9
-        if ns < 4 and 0.7 <= v < 0.9:
-            pairs -= 9; bd["n_ns_vr"] = -9
-        if dc == 0 and r["otr"] < 8:
-            pairs -= 9; bd["n_dc_otr"] = -9
+            pairs -= 6; bd["n_hr_dc0"] = -6
         if az < 0.5 and bbs == "NORM":
-            pairs -= 9; bd["n_z_norm"] = -9
+            pairs -= 6; bd["n_z_norm"] = -6
+        if az < 0.5 and 0.8 <= r["adr"] <= 1.2:
+            pairs -= 5; bd["n_z_adr"] = -5
+        if r["mom"] == 0 and bb > 0.85:
+            pairs -= 5; bd["n_mom_bb"] = -5
+        if ns < 4 and 0.7 <= v < 0.9:
+            pairs -= 4; bd["n_ns_vr"] = -4
+        if dc == 0 and r["otr"] < 8:
+            pairs -= 4; bd["n_dc_otr"] = -4
+
+        # Neutral cluster cap
+        neutral_pairs = sum(v for k, v in bd.items() if k.startswith("n_z_"))
+        if neutral_pairs < _MAX_NEUTRAL_CLUSTER:
+            cap_adj = _MAX_NEUTRAL_CLUSTER - neutral_pairs
+            pairs += cap_adj
+            bd["neutral_cap"] = cap_adj
 
         # === SESSION-AWARE PAIR CAPPING ===
         h = r["hour"]
-        if h >= 20 or h < 0:
-            session = "late"
+        if h >= 20:
+            session = "dead_late"
+        elif h >= 18:
+            session = "late_ny"
         elif h >= 12:
-            session = "afternoon"
+            session = "ny_active"
+        elif h >= 8:
+            session = "london"
         else:
-            session = "prime"
+            session = "asia_london_open"
 
-        base_min, final_min, pair_cap = _SESSION_RULES[session]
+        base_floor, final_min_b, final_min_a, pair_cap = _SESSION_RULES[session]
 
         # Cap positive pair bonuses (negative pairs always apply in full)
         positive_pairs = max(0, pairs)
@@ -426,26 +427,26 @@ class V3HybridScorer:
             positive_pairs = pair_cap
         capped_pairs = positive_pairs + negative_pairs
 
-        base_score = s  # Layer 1 only
+        base_score = s
         final_score = s + capped_pairs
         bd["pairs_total"] = capped_pairs
         bd["base_score"] = base_score
 
         # === SESSION-AWARE DECISION ===
-        # Pair bonuses are CONFIRMATION, not RESCUE.
-        # Base score must clear a floor before pairs can push over threshold.
-        if base_score < base_min:
+        if base_score < base_floor:
             tier = "REJECT"
-        elif final_score >= final_min:
-            tier = "A" if final_score >= 75 else "B"
+        elif final_score >= final_min_a:
+            tier = "A"
+        elif final_score >= final_min_b:
+            tier = "B"
         else:
             tier = "REJECT"
 
         log.info(
-            "[V3_SCORER] base=%d final=%d tier=%s session=%s (base_min=%d final_min=%d pair_cap=%d) pairs_raw=%+d capped=%+d | %s",
-            base_score, final_score, tier, session, base_min, final_min, pair_cap,
+            "[V3_SCORER] base=%d final=%d tier=%s session=%s (floor=%d b=%d a=%d cap=%d) pairs_raw=%+d capped=%+d | %s",
+            base_score, final_score, tier, session, base_floor, final_min_b, final_min_a, pair_cap,
             pairs, capped_pairs,
-            " ".join(f"{k}={v:+d}" for k, v in bd.items() if k not in ("pairs_total", "base_score", "pair_cap_applied")),
+            " ".join(f"{k}={v:+d}" for k, v in bd.items() if k not in ("pairs_total", "base_score", "pair_cap_applied", "hr_age_cap", "neutral_cap")),
         )
 
         return ScorerResult(score=final_score, base_score=base_score, blocks=[], breakdown=bd, tier=tier, pairs_total=capped_pairs)
