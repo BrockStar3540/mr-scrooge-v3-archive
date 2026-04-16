@@ -137,6 +137,24 @@ class V3HybridScorer:
 
         dur = 60.0
 
+        # Raw audit values — box-derived inputs for score verification
+        ema20_raw = ema_feat.values.get("ema20", 0.0) if ema_feat else 0.0
+        ema50_raw = ema_feat.values.get("ema50", 0.0) if ema_feat else 0.0
+        box_range = 0.0
+        pdh = pdl = 0.0
+        if zd_feat and zd_feat.values.get("zone_map"):
+            zm = zd_feat.values["zone_map"]
+            sr = getattr(zm, "session_range", None)
+            if sr:
+                pdh = getattr(sr, "PDH", 0.0)
+                pdl = getattr(sr, "PDL", 0.0)
+                box_range = pdh - pdl
+            elif isinstance(zm, dict) and "session_range" in zm:
+                sr = zm["session_range"]
+                pdh = sr.get("PDH", 0.0) if isinstance(sr, dict) else 0.0
+                pdl = sr.get("PDL", 0.0) if isinstance(sr, dict) else 0.0
+                box_range = pdh - pdl
+
         return {
             "hour": now.hour,
             "bage": box_age,
@@ -155,6 +173,15 @@ class V3HybridScorer:
             "bp": bp,
             "bbs": bbs,
             "rsi": rsi,
+            # Raw audit inputs (not scored, just for verification)
+            "_price": ctx.snapshot.mid,
+            "_ema20": ema20_raw,
+            "_ema50": ema50_raw,
+            "_box_range": box_range,
+            "_pdh": pdh,
+            "_pdl": pdl,
+            "_box_age_h": box_age,
+            "_spread": ctx.snapshot.spread,
         }
 
     def _candle_features(self, ctx: SymbolContext, direction: TradeDirection = TradeDirection.LONG) -> tuple[float, float, float]:
@@ -480,11 +507,17 @@ class V3HybridScorer:
         else:
             tier = "REJECT"
 
+        # Build raw audit string for verifiability
+        raw_audit = ""
+        if r.get("_price"):
+            raw_audit = f" || px={r['_price']:.5f} ema20={r['_ema20']:.5f} ema50={r['_ema50']:.5f} box={r['_box_range']:.5f} age={r['_box_age_h']:.1f}h"
+
         log.info(
-            "[V3_SCORER] base=%d final=%d tier=%s fam=%s session=%s (floor=%d b=%d a=%d cap=%d) pairs_raw=%+d capped=%+d | %s",
+            "[V3_SCORER] base=%d final=%d tier=%s fam=%s session=%s (floor=%d b=%d a=%d cap=%d) pairs_raw=%+d capped=%+d | %s%s",
             base_score, final_score, tier, family or "default", session, base_floor, final_min_b, final_min_a, pair_cap,
             pairs, capped_pairs,
             " ".join(f"{k}={v:+d}" for k, v in bd.items() if k not in ("pairs_total", "base_score", "pair_cap_applied", "hr_age_cap", "neutral_cap")),
+            raw_audit,
         )
 
         return ScorerResult(score=final_score, base_score=base_score, blocks=[], breakdown=bd, tier=tier, pairs_total=capped_pairs)
