@@ -44,6 +44,16 @@ class Runtime:
         self._shutdown_requested = False
         self.dashboard: Any = None
 
+    @property
+    def event_bus(self):
+        """Access event_bus — delegates to ctx after boot, temporary before."""
+        if self.ctx:
+            return self.ctx.event_bus
+        if not hasattr(self, '_pre_boot_event_bus'):
+            from .events import EventBus
+            self._pre_boot_event_bus = EventBus()
+        return self._pre_boot_event_bus
+
     def boot(self) -> bool:
         """Initialize all engines via bootstrap."""
         log.info("[RUNTIME] Booting V3...")
@@ -67,6 +77,11 @@ class Runtime:
         if self.live_state:
             from scrooge_v3.services.dashboard_bridge import DashboardBridge
             self.dashboard = DashboardBridge(self.live_state)
+
+        # Transfer pre-boot event subscribers (e.g. EventRecorder from __main__)
+        if hasattr(self, '_pre_boot_event_bus'):
+            for h in self._pre_boot_event_bus._global_handlers:
+                self.ctx.event_bus.subscribe_all(h)
 
         log.info("[RUNTIME] Boot complete")
         return True
