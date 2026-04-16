@@ -30,3 +30,8 @@
 **Source:** DAILY_NOTES_2026-03-11.md
 **Type:** bug
 **Detail:** Positions loaded from OANDA on restart have atr_at_entry = 0.0 because OANDA doesn't store this value. Hybrid trail's ATR component falls back to candle-only trail for these positions. V3 must persist atr_at_entry in its own state file (not rely on broker).
+
+### [2026-04-16] [V3] — validate_stop() can loosen stops — caller must guard
+**Source:** Ratchet bypass bug investigation
+**Type:** lesson
+**Detail:** validate_stop() adjusts proposed stops for trigger-side safety and no-man's-zone. The adjusted value depends on live bid/ask/spread, which change every tick. This means validate_stop() can return a value that is WORSE than current_stop. The stop planner itself doesn't know what current_stop is — it only validates a proposed value. Callers (runtime.py position management loop) must compare the validated output against current_stop and reject loosening moves. This is now enforced in runtime.py with a final guard after validate_stop().

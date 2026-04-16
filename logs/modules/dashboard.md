@@ -50,3 +50,13 @@
 **Source:** debugging-workflow.md (vault)
 **Type:** rule
 **Detail:** V2 dashboard reads from data/status.json written by coordinator every cycle. This is the contract between the bot and the dashboard. V3: define a clear API contract — either status.json or a proper REST endpoint. Widget data should flow through one channel, not scattered file reads.
+
+### [2026-04-16] [V3] — Added BALANCE metric, renamed REALIZED P/L → UNREALIZED P/L
+**Source:** Brock request
+**Type:** feature
+**Detail:** Dashboard metrics bar was showing EQUITY, DAILY PNL, REALIZED P/L. The realized_pl field was actually displaying unrealized_pl data (runtime.py passed acct.unrealized_pl into the realized_pl field). Fixed: renamed field to unrealized_pl throughout live_state.py, runtime.py, and templates/index.html. Added BALANCE as the first metric in the status bar. Balance comes from broker acct.balance, already available in the snapshot.
+
+### [2026-04-16] [V3] — V1 dashboard decommissioned
+**Source:** V1 removal
+**Type:** cleanup
+**Detail:** V1 dashboard (mr-scrooge-dashboard.service, port 8081) stopped, disabled, and service file removed. The old dashboard.html in the V3 dashboard directory is a V1 leftover — only templates/index.html is served by the V3 Flask app via /api/data.

@@ -59,7 +59,7 @@ class LiveState:
     equity: float = 0.0
     balance: float = 0.0
     daily_pnl: float = 0.0
-    realized_pl: float = 0.0
+    unrealized_pl: float = 0.0
     margin_used_pct: float = 0.0
     position_count: int = 0
 
@@ -118,7 +118,7 @@ class LiveState:
                     "equity": round(self.equity, 2),
                     "balance": round(self.balance, 2),
                     "daily_pnl": round(self.daily_pnl, 2),
-                    "realized_pl": round(self.realized_pl, 2),
+                    "unrealized_pl": round(self.unrealized_pl, 2),
                     "margin_used_pct": round(self.margin_used_pct, 1),
                     "position_count": self.position_count,
                     "daily_loss_exceeded": self.daily_loss_exceeded,

@@ -487,6 +487,17 @@ class Runtime:
                 )
 
                 if reason == "valid" or "adjusted" in reason:
+                    # Final guard: never loosen the stop after spread adjustment
+                    if direction == TradeDirection.LONG and validated < tracked.current_stop:
+                        log.info("[RUNTIME] SL %s SKIPPED (spread adjustment would loosen): "
+                                 "%s proposed=%.5f validated=%.5f current=%.5f",
+                                 action.action, tracked.trade_id, new_stop, validated, tracked.current_stop)
+                        continue
+                    if direction == TradeDirection.SHORT and validated > tracked.current_stop:
+                        log.info("[RUNTIME] SL %s SKIPPED (spread adjustment would loosen): "
+                                 "%s proposed=%.5f validated=%.5f current=%.5f",
+                                 action.action, tracked.trade_id, new_stop, validated, tracked.current_stop)
+                        continue
                     success = self.broker.modify_stop_loss(tracked.trade_id, validated)
                     if success:
                         self.tracker.update_stop(tracked.trade_id, validated)
@@ -559,7 +570,7 @@ class Runtime:
                 cycle_count=self.state.cycle_count,
                 equity=acct.equity if acct else 0,
                 balance=acct.balance if acct else 0,
-                realized_pl=acct.unrealized_pl if acct else 0,
+                unrealized_pl=acct.unrealized_pl if acct else 0,
                 daily_pnl=self.broker.get_realized_pl_today() if acct else 0,
                 position_count=self.state.position_count,
                 pairs_scanned=len(reports),

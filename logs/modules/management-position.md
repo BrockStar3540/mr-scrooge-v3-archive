@@ -85,3 +85,18 @@
 **Source:** Dropbox: 2026-03-11_d66ae964.md
 **Type:** bug
 **Detail:** Setting TP1 limits reactively after BE achieved — price may have already passed. FOK (fill-or-kill) order rejected with "would trigger immediately." Fix: place TP1 as standing GTC limit at entry time, not reactively after breakeven. Never use FOK for TP orders.
+
+### [2026-04-16] [V3] — Ratchet bypass bug: spread adjustment loosened stops
+**Source:** Live trade observation — trade went green then back to red
+**Type:** bug
+**Detail:** Trail/ratchet correctly proposed a tighter stop, and should_trail() confirmed it was tighter. But validate_stop() then adjusted it for spread safety (no-man's-zone guard), computing min_safe = ask + spread + pip*2. This value fluctuates every tick and could be LOOSER than current_stop. The loosened value was submitted to OANDA, defeating the ratchet. Fix: added final guard in runtime.py after validate_stop() — if the validated stop would loosen the position (lower for longs, higher for shorts vs current_stop), the update is skipped and native SL stays. Confirmed working via logs showing "SL trail SKIPPED (spread adjustment would loosen)" entries.
+
+### [2026-04-16] [V3] — Stop persistence bug: update_stop() didn't persist to disk
+**Source:** Code review during ratchet investigation
+**Type:** bug
+**Detail:** PositionTracker.update_stop() updated pos.current_stop in memory but never called self.persist(). On restart, positions.json had the old stop value. Bot would trail from the stale (worse) stop, potentially re-loosening. Fix: added self.persist() to update_stop(). Now every SL change is immediately written to positions.json.
+
+### [2026-04-16] [V3] — Ratchet and BE thresholds tuned
+**Source:** Brock request
+**Type:** config
+**Detail:** Old defaults: ratchet_min_profit_pips=10, be_trigger_pips=15. Problems: (1) BE at 15 was higher than ratchet at 10, so BE never fired (ratchet already moved SL past entry by then). (2) At +5 pips profit, nothing protected the gain — trade could slide all the way back to original SL. New config (in config/default.json management section): ratchet_min_profit_pips=6, be_trigger_pips=5, be_offset_pips=1. Sequence: at +5 pips BE moves SL to entry+1pip. At +6 pips ratchet locks 50% (SL to entry+3). Continues locking 50% as profit grows, keeping half the room open for the trade to run.

@@ -112,3 +112,10 @@
 ### Phase F: Replay Harness (2026-04-15)
 - `[2026-04-15] [telemetry/replay]` — EventRecorder (subscribe_all → JSONL), EventReplayer (load, filter, extract candidates/rejections/approvals), replay_through_scorer for decision comparison, build_trade_timeline per symbol, session summary stats.
 - `[2026-04-15] [tests/replay/test_replay]` — 7 tests: recording to JSONL, stop prevents further recording, load events, filter by type, summary stats, trade timeline, full round-trip record-then-replay.
+
+### Session: 2026-04-16 — Dashboard, Ratchet Fix, Stop Persistence
+- `[2026-04-16] [dashboard/templates]` — Added BALANCE metric to dashboard status bar (first position), renamed REALIZED P/L → UNREALIZED P/L. Updated live_state.py field from realized_pl to unrealized_pl. Updated runtime.py to pass unrealized_pl.
+- `[2026-04-16] [management/position]` — Fixed ratchet bypass bug: validate_stop() spread adjustment could loosen the stop past current_stop, defeating the ratchet's "never loosen" guarantee. Added final guard in runtime.py: after validate_stop(), reject any adjusted stop that would move backwards (lower for longs, higher for shorts).
+- `[2026-04-16] [execution/position_tracker]` — Fixed stop persistence bug: update_stop() updated in-memory state but never called persist(). SL changes were lost on restart, reverting to the original stop from positions.json. Added self.persist() call.
+- `[2026-04-16] [management/position]` — Tuned ratchet and break-even thresholds via config/default.json: ratchet_min_profit_pips 10→6 (locks 50% at +6 pips), be_trigger_pips 15→5 (breakeven at +5 pips). Old defaults left a gap where green trades could revert to red.
+- `[2026-04-16] [infrastructure]` — Decommissioned Mr. Scrooge V1: stopped and disabled 3 systemd services (mr-scrooge, mr-scrooge-dashboard, mr-scrooge-harvester), removed service files, deleted ~/.openclaw/workspace/agents/mr-scrooge/. OANDA live credentials preserved in Obsidian vault. V3 is now the only active Scrooge version.

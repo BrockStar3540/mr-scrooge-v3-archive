@@ -75,9 +75,10 @@ function renderHeader(d) {
 function renderMetrics(d) {
   const a = d.account, s = d.scan, sys = d.system;
   document.getElementById('metrics-bar').innerHTML = `
+    <div class="m"><label>BALANCE</label><span class="v">$${a.balance.toLocaleString('en',{minimumFractionDigits:2})}</span></div>
     <div class="m"><label>EQUITY</label><span class="v">$${a.equity.toLocaleString('en',{minimumFractionDigits:2})}</span></div>
     <div class="m"><label>DAILY PNL</label><span class="v ${a.daily_pnl>=0?'pos':'neg'}">${a.daily_pnl>=0?'+':''}$${a.daily_pnl.toFixed(2)}</span></div>
-    <div class="m"><label>REALIZED P/L</label><span class="v ${a.realized_pl>=0?'pos':'neg'}">$${a.realized_pl.toFixed(2)}</span></div>
+    <div class="m"><label>UNREALIZED P/L</label><span class="v ${a.unrealized_pl>=0?'pos':'neg'}">$${a.unrealized_pl.toFixed(2)}</span></div>
     <div class="m"><label>POSITIONS</label><span class="v">${a.position_count}</span></div>
     <div class="m"><label>SCANNED</label><span class="v">${s.pairs_scanned}</span></div>
     <div class="m"><label>VIABLE</label><span class="v">${s.pairs_viable}</span></div>

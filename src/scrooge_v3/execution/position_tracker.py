@@ -91,6 +91,7 @@ class PositionTracker:
         pos = self._positions.get(trade_id)
         if pos:
             pos.current_stop = new_stop
+            self.persist()
 
     def mark_tp1_taken(self, trade_id: str) -> None:
         pos = self._positions.get(trade_id)
