@@ -157,3 +157,11 @@
 - `[2026-04-16] [core/position_pipeline]` — Reads management_profile from position metadata. trend_runner gets early_hold_r=0.6 (more patience), min_sl_step=4.0 (wider). reversal_core uses default params.
 - `[2026-04-16] [config/default.json]` — Old trend disabled, regime_floor fixed to -4 (was -1 in config but -4 in runtime), trend_min_rr set to 1.10.
 - `[2026-04-16] [docs/PLATFORM_DOCTRINE]` — Updated routing table, management profiles, family-aware scoring section.
+
+### Session: 2026-04-16 — Truth Convergence
+- `[2026-04-16] [config/default.json]` — Pruned dead gate config: 9 gates → 3 live gates. Removed spread, otr, rr, exhaustion, nat_stop_validity, spread_vs_stop (all handled by V3 scorer). Added _note and _removed_gates keys for transparency.
+- `[2026-04-16] [core/strategy_router]` — Fixed stale comments: "trend + direct" → "dbb_trend + direct" in TREND/BREAKOUT/STRETCH_DOWN routes.
+- `[2026-04-16] [docs/LIVE_SYSTEM_SPEC]` — New: current executable truth document. Strategies, router, gates, scorer, management profiles, runtime architecture, dashboard, telemetry.
+- `[2026-04-16] [docs/IMPLEMENTATION_GAP_MATRIX]` — New: tracks doctrine vs code reality. 12 rows covering routing, scoring, management, dashboard, recovery, replay.
+- `[2026-04-16] [docs/THEORY_TO_CODE]` — Updated: added dbb_trend, marked old trend DISABLED, added runtime extraction modules table, added family-aware scoring section.
+- `[2026-04-16] [docs/BLUEPRINT]` — Updated appendix: full current architecture with module breakdown, strategy family table, reference doc links.

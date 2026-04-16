@@ -21,7 +21,8 @@
 | BB States | 7.3 | `classifiers/` | `bb_classifier` | `ClassifierModule` | `classifiers.bb_state` |
 | Regime | 13 | `classifiers/` | `regime_classifier` | `ClassifierModule` | `classifiers.regime` |
 | Reversal Engine | 8.1 | `strategies/` | `reversal_engine` | `StrategyModule` | `strategies.reversal` |
-| Trend Engine | 8.2 | `strategies/` | `trend_engine` | `StrategyModule` | `strategies.trend` |
+| Trend Engine (old) | 8.2 | `strategies/` | `trend_engine` | `StrategyModule` | `strategies.trend` | **DISABLED** |
+| DBB Trend Engine | 8.2 | `strategies/` | `dbb_trend_engine` | `StrategyModule` | `strategies.dbb_trend` | **ACTIVE** — breakout/pullback continuation |
 | Gap Engine | 8.3 | `strategies/` | `gap_engine` | `StrategyModule` | `strategies.gap` |
 | Measured Move | 8.3 | `strategies/` | `measured_move_engine` | `StrategyModule` | `strategies.measured_move` |
 | Vol Compression | 8.3 | `strategies/` | `vol_breakout_engine` | `StrategyModule` | `strategies.vol_breakout` |
@@ -107,11 +108,13 @@ Market Data
   |
   v
 [strategies/*]  ->  TradeCandidate | None
-  - reversal_engine
-  - trend_engine
-  - gap_engine
-  - measured_move_engine
-  - vol_breakout_engine
+  - reversal_engine (ACTIVE)
+  - dbb_trend_engine (ACTIVE — replaces trend_engine)
+  - direct_entry (ACTIVE — fallback)
+  - trend_engine (DISABLED)
+  - gap_engine (DISABLED)
+  - measured_move_engine (DISABLED)
+  - vol_breakout_engine (DISABLED)
   |
   v
 [gates/*]  ->  GateResult per gate (ordered pipeline)
@@ -228,3 +231,32 @@ Market Data
 - [ ] `advisors/ml_regime.py`
 - [ ] `advisors/ml_trade_scorer.py`
 - [ ] `advisors/llm_analyst.py`
+
+
+---
+
+## Runtime Extraction (2026-04-16)
+
+The V2 coordinator split (`ScanPipeline`, `PositionPipeline`, `StateController`) has been
+further extracted into dedicated modules:
+
+| Module | Responsibility | Lines |
+|--------|---------------|-------|
+| `core/runtime.py` | Conductor — boot, loop, shutdown | 232 |
+| `core/bootstrap.py` | Module registration, config, broker init | 262 |
+| `core/runtime_context.py` | Typed dependency container | 43 |
+| `core/scan_coordinator.py` | Market data, scan pipeline, candidate filtering | 125 |
+| `core/execution_coordinator.py` | Sizing, SL validation, order placement | 131 |
+| `core/position_coordinator.py` | Management pipeline, SL physics, harvest/exit | 185 |
+| `services/dashboard_bridge.py` | Dashboard live_state publishing | 97 |
+| `services/config_watcher.py` | Hot-reload handling | 53 |
+| `services/state_recovery.py` | Vanished trades, pending orders, harvest limits | 155 |
+
+## Strategy-Family-Aware Scoring (2026-04-16)
+
+| Concept | Module | Config Path |
+|---------|--------|-------------|
+| Family overlays (trend/reversal) | `strategies/v3_scorer.py` | `scoring` |
+| Family-aware RR gate | `gates/risk_reward.py` | `gates.rr.trend_min_rr` |
+| Management profiles | `core/position_pipeline.py` | `management.exit_manager` |
+| Candidate family helper | `gates/risk_reward.py::_candidate_family()` | — |

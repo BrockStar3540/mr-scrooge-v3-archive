@@ -51,8 +51,8 @@ def test_config_loads():
     # Key values
     assert cfg["risk"]["max_daily_loss_pct"] > 0
     assert cfg["risk"]["max_open_positions"] > 0
-    assert cfg["gates"]["rr"]["reversal_min_rr"] == 1.0
-    assert cfg["gates"]["spread"]["spread_pct_of_half"] == 0.10
+    assert "regime_floor" in cfg["gates"]
+    assert cfg["gates"]["regime_floor"]["min_score"] == -4
 
 
 def test_scorer_deterministic():

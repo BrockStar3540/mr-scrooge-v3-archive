@@ -549,15 +549,48 @@ Every decision is replayable.
 
 ---
 
-## Appendix: Platform Doctrine (2026-04-16)
+## Appendix A: Platform Doctrine (2026-04-16)
 
-See [PLATFORM_DOCTRINE.md](PLATFORM_DOCTRINE.md) for the governing rules:
+See [PLATFORM_DOCTRINE.md](PLATFORM_DOCTRINE.md) for the three sacred rules:
 
 1. **No strategy may self-activate outside router permission**
 2. **No strategy may own a private management loop**
 3. **Every strategy must declare a management profile**
 
-Key evolution: Mr. Scrooge is now defined as a **regime-aware trading platform**
-with strategy-specific entry and system-wide management. Box reversal remains a
-first-class strategy but is no longer the only lens through which markets are
-evaluated. Multiple strategy families coexist under one shared execution kernel.
+---
+
+## Appendix B: Current Architecture (2026-04-16, post-extraction)
+
+### Runtime Shape
+
+```
+runtime.py (232 lines) — thin conductor
+├── core/bootstrap.py (262) — all module registration + broker init
+├── core/runtime_context.py (43) — typed RuntimeContext dataclass
+├── core/scan_coordinator.py (125) — market data + scan pipeline
+├── core/execution_coordinator.py (131) — sizing + SL validation + orders
+├── core/position_coordinator.py (185) — management pipeline + SL physics
+├── services/dashboard_bridge.py (97) — UI state publishing
+├── services/config_watcher.py (53) — hot-reload handling
+└── services/state_recovery.py (155) — trade reconciliation
+```
+
+### Strategy Families
+
+| Family | Strategy | BB States | Profile |
+|--------|----------|-----------|---------|
+| Reversal | `reversal` | EXTREME, REJECTION | `reversal_core` |
+| Trend | `dbb_trend` | TREND, BREAKOUT, STRETCH_DOWN | `trend_runner` |
+| Direct | `direct` | All routed states | `default` |
+
+### Scoring
+
+V3.1 scorer with strategy-family-aware overlays. Trend candidates get
+separate session thresholds (lower floors) and structural bonuses.
+Reversal path is unchanged.
+
+### Reference Docs
+
+- [LIVE_SYSTEM_SPEC.md](LIVE_SYSTEM_SPEC.md) — current executable truth
+- [PLATFORM_DOCTRINE.md](PLATFORM_DOCTRINE.md) — governing rules
+- [IMPLEMENTATION_GAP_MATRIX.md](IMPLEMENTATION_GAP_MATRIX.md) — gap tracker
