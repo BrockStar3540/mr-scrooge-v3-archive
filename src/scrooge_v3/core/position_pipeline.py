@@ -5,6 +5,9 @@ Replaces V2 coordinator's position management logic (lines 358-427,
 
 Orchestrates: stop updates, trailing, partial harvest, break-even,
 ratchet, favorable exit, emergency close.
+
+Profit-phase aware: trades progress through EARLY_HOLD → LOCK → HARVEST
+phases based on profit-R, controlling when trailing/ratchet activate.
 """
 
 from __future__ import annotations
@@ -38,14 +41,19 @@ class ManagementAction:
 class PositionPipeline:
     """Orchestrates all position management logic.
 
-    For each open position, runs through the management chain:
-      1. Emergency close check
-      2. Partial harvest check (TP1)
-      3. Break-even check
-      4. Ratchet check
-      5. Trailing stop check
-      6. Favorable exit check
-      7. Stop validation (trigger-side, no-man's-zone)
+    Profit-phase chain:
+      0. Compute profit_r (profit / initial risk)
+      1. Emergency close check (always runs)
+      2. Partial harvest check (always runs)
+      3. Break-even check (always runs)
+      4. Profit phase gate:
+         - EARLY_HOLD (< 0.5R): skip ratchet/trail
+         - LOCK (0.5-0.8R): normal ratchet/trail
+         - HARVEST (>= 0.8R): aggressive ratchet/trail
+      5. Spread guard on ratchet (same as trail)
+      6. Min-step filter (prevents thrashing)
+      7. Trailing stop check
+      8. Stop validation (trigger-side, no-man's-zone)
     """
 
     def __init__(
@@ -58,6 +66,7 @@ class PositionPipeline:
         emergency_manager: Any = None,
         stop_planner: Any = None,
         event_bus: EventBus | None = None,
+        exit_config: dict | None = None,
     ):
         self.trail = trail_manager
         self.ratchet = ratchet_manager
@@ -67,6 +76,12 @@ class PositionPipeline:
         self.emergency = emergency_manager
         self.stop_planner = stop_planner
         self.event_bus = event_bus
+
+        # Exit manager config
+        cfg = exit_config or {}
+        self.early_hold_r = cfg.get("early_hold_threshold_r", 0.5)
+        self.lock_r = cfg.get("lock_threshold_r", 0.8)
+        self.min_sl_step_pips = cfg.get("min_sl_step_pips", 3.0)
 
     def manage_position(
         self,
@@ -83,14 +98,34 @@ class PositionPipeline:
 
         Returns the highest-priority action to take.
         """
-        pos_id = getattr(position, "position_id", str(id(position)))
+        pos_id = getattr(position, "position_id", None) or getattr(position, "trade_id", str(id(position)))
         direction = TradeDirection(getattr(position, "direction", "long"))
         entry_price = getattr(position, "entry_price", 0.0)
         current_stop = getattr(position, "current_stop", 0.0)
 
-        # 1. Partial harvest
+        # --- Compute profit-R for phase selection ---
+        risk_distance = abs(entry_price - current_stop) if current_stop else 0.0
+        if direction == TradeDirection.LONG:
+            profit_distance = current_price - entry_price
+        else:
+            profit_distance = entry_price - current_price
+
+        profit_r = profit_distance / risk_distance if risk_distance > 0 else 0.0
+
+        # Determine phase
+        if profit_r < self.early_hold_r:
+            phase = "EARLY_HOLD"
+        elif profit_r < self.lock_r:
+            phase = "LOCK"
+        else:
+            phase = "HARVEST"
+
+        # Build details dict with phase info for audit
+        phase_info = {"phase": phase, "profit_r": round(profit_r, 3)}
+
+        # 1. Partial harvest (always checked — TP1 is structural, not phase-dependent)
         if self.harvest:
-            tp1 = getattr(position, "tp1_price", None) or position.metadata.get("tp1", 0) if hasattr(position, "metadata") else 0
+            tp1 = getattr(position, "tp1_price", None) or (position.metadata.get("tp1", 0) if hasattr(position, "metadata") else 0)
             tp1_taken = getattr(position, "tp1_taken", False)
             if tp1:
                 harvest_action = self.harvest.check_harvest(
@@ -100,10 +135,14 @@ class PositionPipeline:
                     return ManagementAction(
                         position_id=pos_id,
                         action="harvest",
-                        details={"fraction": harvest_action.close_fraction, "target": harvest_action.target_label},
+                        details={
+                            "fraction": harvest_action.close_fraction,
+                            "target": harvest_action.target_label,
+                            **phase_info,
+                        },
                     )
 
-        # 2. Break-even check
+        # 2. Break-even check (always runs — risk removal is never gated)
         if self.be:
             partial_taken = getattr(position, "tp1_taken", False)
             be_plan = self.be.should_move_to_be(
@@ -115,22 +154,54 @@ class PositionPipeline:
                 return ManagementAction(
                     position_id=pos_id,
                     action="break_even",
-                    details={"new_stop": be_plan.new_stop},
+                    details={"new_stop": be_plan.new_stop, **phase_info},
                 )
 
-        # 3. Ratchet check
+        # 3. Phase gate — EARLY_HOLD skips ratchet and trail
+        if phase == "EARLY_HOLD":
+            return ManagementAction(
+                position_id=pos_id,
+                action="hold",
+                details={"reason": "early_hold", **phase_info},
+            )
+
+        # 4. Ratchet check (with spread guard + min-step filter)
         if self.ratchet:
             ratchet_plan = self.ratchet.compute_ratchet_stop(
                 direction, entry_price, current_price, current_stop, pip_size,
             )
             if ratchet_plan:
+                new_stop = ratchet_plan.new_stop
+
+                # Spread guard — same logic as trail
+                if self.stop_planner:
+                    should, reason = self.stop_planner.should_trail(
+                        direction, current_stop, new_stop, spread, mean_spread,
+                    )
+                    if not should:
+                        self._emit(STOP_UPDATE_BLOCKED, position_id=pos_id, reason=f"ratchet_{reason}")
+                        return ManagementAction(
+                            position_id=pos_id,
+                            action="hold",
+                            details={"reason": f"ratchet_blocked_{reason}", **phase_info},
+                        )
+
+                # Min-step filter — prevent thrashing
+                step_pips = abs(new_stop - current_stop) / pip_size
+                if step_pips < self.min_sl_step_pips:
+                    return ManagementAction(
+                        position_id=pos_id,
+                        action="hold",
+                        details={"reason": "step_too_small", "step_pips": round(step_pips, 1), **phase_info},
+                    )
+
                 return ManagementAction(
                     position_id=pos_id,
                     action="ratchet",
-                    details={"new_stop": ratchet_plan.new_stop},
+                    details={"new_stop": new_stop, **phase_info},
                 )
 
-        # 4. Trailing stop
+        # 5. Trailing stop (already has spread guard via should_trail + min-step filter)
         if self.trail and hourly_bars is not None:
             trail_plan = self.trail.compute_trail_stop(
                 direction, current_stop, hourly_bars, pip_size,
@@ -140,16 +211,31 @@ class PositionPipeline:
                     direction, current_stop, trail_plan.new_stop, spread, mean_spread,
                 )
                 if should:
+                    new_stop = trail_plan.new_stop
+
+                    # Min-step filter
+                    step_pips = abs(new_stop - current_stop) / pip_size
+                    if step_pips < self.min_sl_step_pips:
+                        return ManagementAction(
+                            position_id=pos_id,
+                            action="hold",
+                            details={"reason": "trail_step_too_small", "step_pips": round(step_pips, 1), **phase_info},
+                        )
+
                     return ManagementAction(
                         position_id=pos_id,
                         action="trail",
-                        details={"new_stop": trail_plan.new_stop},
+                        details={"new_stop": new_stop, **phase_info},
                     )
                 else:
                     self._emit(STOP_UPDATE_BLOCKED, position_id=pos_id, reason=reason)
 
-        # 5. Default: hold
-        return ManagementAction(position_id=pos_id, action="hold")
+        # 6. Default: hold
+        return ManagementAction(
+            position_id=pos_id,
+            action="hold",
+            details=phase_info,
+        )
 
     def manage_all(
         self,

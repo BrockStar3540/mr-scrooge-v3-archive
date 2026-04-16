@@ -159,8 +159,11 @@ class Runtime:
         from scrooge_v3.management.partial_harvest import PartialHarvestManager
         from scrooge_v3.management.emergency_close import EmergencyCloseManager
         from scrooge_v3.execution.stop_planner import StopPlanner
+        from scrooge_v3.telemetry.execution_audit import ExecutionAudit
 
         mgmt_cfg = self.config.section("management") if self.config.get("management") else {}
+        exit_cfg = mgmt_cfg.get("exit_manager", {})
+        self.execution_audit = ExecutionAudit(filepath="data/execution-audit.jsonl")
         self.position_pipeline = PositionPipeline(
             trail_manager=TrailManager(mgmt_cfg.get("trail", {})),
             ratchet_manager=RatchetManager(mgmt_cfg.get("ratchet", {})),
@@ -169,8 +172,9 @@ class Runtime:
             emergency_manager=EmergencyCloseManager(mgmt_cfg.get("emergency", {})),
             stop_planner=StopPlanner(self.config.section("execution")),
             event_bus=self.event_bus,
+            exit_config=exit_cfg,
         )
-        log.info("[RUNTIME] Position pipeline initialized (trail, ratchet, BE, harvest, emergency)")
+        log.info("[RUNTIME] Position pipeline initialized (trail, ratchet, BE, harvest, emergency, exit_manager)")
 
         # --- Position tracker (per-trade state across cycles) ---
         from pathlib import Path as _Path
@@ -437,7 +441,13 @@ class Runtime:
 
         # Run management pipeline on each tracked position
         from scrooge_v3.execution.stop_planner import StopPlanner
+        from scrooge_v3.telemetry.execution_audit import AuditEvent
         sp = StopPlanner(self.config.section("execution"))
+        audit = getattr(self, "execution_audit", None)
+
+        def _audit(etype, reason, **kw):
+            if audit:
+                audit.record(AuditEvent(type=etype, reason=reason, **kw))
 
         for tracked in self.tracker.all_positions():
             # Get live price for execution physics
@@ -461,13 +471,23 @@ class Runtime:
                 pip_size=pip,
             )
 
+            details = action.details or {}
+            profit_r = details.get("profit_r", 0.0)
+            phase = details.get("phase", "")
+            audit_base = dict(
+                trade_id=tracked.trade_id, symbol=tracked.symbol,
+                direction=tracked.direction, profit_r=profit_r,
+                spread=quote.spread, action=action.action,
+            )
+
             if action.action == "hold":
+                hold_reason = details.get("reason", "no_action")
+                _audit("hold", hold_reason, **audit_base)
                 continue
 
-            details = action.details or {}
             new_stop = details.get("new_stop")
-            log.info("[RUNTIME] Position %s: action=%s details=%s",
-                     tracked.trade_id, action.action, details)
+            log.info("[RUNTIME] Position %s: action=%s phase=%s profit_r=%.3f details=%s",
+                     tracked.trade_id, action.action, phase, profit_r, details)
 
             if action.action in ("trail", "ratchet", "break_even") and new_stop:
                 # === EXECUTION PHYSICS: 4 guards before any SL submission ===
@@ -479,6 +499,8 @@ class Runtime:
                 if not trail_ok:
                     log.warning("[RUNTIME] SL %s BLOCKED (%s): %s spread=%.5f — native SL stays",
                                 action.action, trail_reason, tracked.trade_id, quote.spread)
+                    _audit("sl_blocked", trail_reason, old_sl=tracked.current_stop,
+                           new_sl=new_stop, **audit_base)
                     continue
 
                 # 2-4. Trigger-side, no-man's-zone, buffer
@@ -492,24 +514,35 @@ class Runtime:
                         log.info("[RUNTIME] SL %s SKIPPED (spread adjustment would loosen): "
                                  "%s proposed=%.5f validated=%.5f current=%.5f",
                                  action.action, tracked.trade_id, new_stop, validated, tracked.current_stop)
+                        _audit("sl_blocked", "would_loosen", old_sl=tracked.current_stop,
+                               new_sl=validated, **audit_base)
                         continue
                     if direction == TradeDirection.SHORT and validated > tracked.current_stop:
                         log.info("[RUNTIME] SL %s SKIPPED (spread adjustment would loosen): "
                                  "%s proposed=%.5f validated=%.5f current=%.5f",
                                  action.action, tracked.trade_id, new_stop, validated, tracked.current_stop)
+                        _audit("sl_blocked", "would_loosen", old_sl=tracked.current_stop,
+                               new_sl=validated, **audit_base)
                         continue
                     success = self.broker.modify_stop_loss(tracked.trade_id, validated)
                     if success:
+                        old_sl = tracked.current_stop
                         self.tracker.update_stop(tracked.trade_id, validated)
                         if action.action == "break_even":
                             self.tracker.mark_break_even(tracked.trade_id)
                         log.info("[RUNTIME] SL %s: %s %.5f → %.5f (%s)",
-                                 action.action, tracked.trade_id, tracked.current_stop, validated, reason)
+                                 action.action, tracked.trade_id, old_sl, validated, reason)
+                        _audit("sl_moved", f"{action.action}_{reason}", old_sl=old_sl,
+                               new_sl=validated, **audit_base)
                     else:
                         log.error("[RUNTIME] SL modify failed: %s", tracked.trade_id)
+                        _audit("sl_blocked", "broker_reject", old_sl=tracked.current_stop,
+                               new_sl=validated, **audit_base)
                 else:
                     log.warning("[RUNTIME] SL %s BLOCKED (%s): %s — native SL stays",
                                 action.action, reason, tracked.trade_id)
+                    _audit("sl_blocked", reason, old_sl=tracked.current_stop,
+                           new_sl=new_stop, **audit_base)
 
             elif action.action == "harvest":
                 fraction = details.get("fraction", 0.5)
@@ -520,38 +553,47 @@ class Runtime:
                         self.tracker.mark_tp1_taken(tracked.trade_id)
                         log.info("[RUNTIME] HARVEST: %s closed %d units @ %.5f",
                                  tracked.trade_id, close_units, result.fill_price)
+                        _audit("harvest", "tp1_taken", **audit_base)
 
-                elif action.action == "favorable_exit":
-                    # Green exit — limit order for better fill, market fallback
-                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
-                    if trade:
-                        method = details.get("method", "market")
-                        if method == "limit":
-                            limit_price = details.get("limit_price", 0)
-                            log.info("[RUNTIME] FAVORABLE EXIT (limit): %s @ %.5f",
-                                     trade.trade_id, limit_price)
-                            # Close via limit for better fill
-                            result = self.broker.close_trade(trade.trade_id)
-                            if result.success:
-                                log.info("[RUNTIME] FAVORABLE EXIT FILLED: %s @ %.5f",
-                                         trade.trade_id, result.fill_price)
-                        else:
-                            log.info("[RUNTIME] FAVORABLE EXIT (market): %s reason=%s",
-                                     trade.trade_id, details.get("reason", ""))
-                            result = self.broker.close_trade(trade.trade_id)
-                            if result.success:
-                                log.info("[RUNTIME] FAVORABLE EXIT FILLED: %s @ %.5f",
-                                         trade.trade_id, result.fill_price)
-
-                elif action.action == "emergency_close":
-                    trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
-                    if trade:
+            elif action.action == "favorable_exit":
+                trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
+                if trade:
+                    method = details.get("method", "market")
+                    if method == "limit":
+                        limit_price = details.get("limit_price", 0)
+                        log.info("[RUNTIME] FAVORABLE EXIT (limit): %s @ %.5f",
+                                 trade.trade_id, limit_price)
                         result = self.broker.close_trade(trade.trade_id)
                         if result.success:
-                            self.state.record_loss(abs(result.realized_pl) if result.realized_pl < 0 else 0)
-                            log.warning("[RUNTIME] EMERGENCY CLOSE: %s @ %.5f pl=%.2f reason=%s",
-                                        trade.trade_id, result.fill_price,
-                                        result.realized_pl, details.get("reason", ""))
+                            log.info("[RUNTIME] FAVORABLE EXIT FILLED: %s @ %.5f",
+                                     trade.trade_id, result.fill_price)
+                            _audit("favorable_exit", f"limit_{details.get('reason', '')}", **audit_base)
+                    else:
+                        log.info("[RUNTIME] FAVORABLE EXIT (market): %s reason=%s",
+                                 trade.trade_id, details.get("reason", ""))
+                        result = self.broker.close_trade(trade.trade_id)
+                        if result.success:
+                            log.info("[RUNTIME] FAVORABLE EXIT FILLED: %s @ %.5f",
+                                     trade.trade_id, result.fill_price)
+                            _audit("favorable_exit", f"market_{details.get('reason', '')}", **audit_base)
+
+            elif action.action == "emergency_close":
+                trade = next((t for t in open_trades if t.trade_id == action.position_id), None)
+                if trade:
+                    result = self.broker.close_trade(trade.trade_id)
+                    if result.success:
+                        self.state.record_loss(abs(result.realized_pl) if result.realized_pl < 0 else 0)
+                        log.warning("[RUNTIME] EMERGENCY CLOSE: %s @ %.5f pl=%.2f reason=%s",
+                                    trade.trade_id, result.fill_price,
+                                    result.realized_pl, details.get("reason", ""))
+                        _audit("emergency_close", details.get("reason", "unknown"), **audit_base)
+
+        # --- Push execution audit to dashboard ---
+        if audit and self.live_state:
+            self.live_state.update(
+                execution_summary=audit.summary(),
+                execution_events=audit.recent_events(50),
+            )
 
         # --- Daily P&L check ---
         daily_pl = self.broker.get_realized_pl_today()

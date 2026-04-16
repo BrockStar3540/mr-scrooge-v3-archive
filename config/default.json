@@ -154,6 +154,11 @@
     "break_even": {
       "be_trigger_pips": 5.0,
       "be_offset_pips": 1.0
+    },
+    "exit_manager": {
+      "early_hold_threshold_r": 0.5,
+      "lock_threshold_r": 0.8,
+      "min_sl_step_pips": 3.0
     }
   }
 }

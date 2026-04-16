@@ -64,6 +64,12 @@ def create_app(
     def api_data():
         return jsonify(_live_state.snapshot())
 
+    @app.route("/api/execution")
+    @requires_auth
+    def api_execution():
+        snap = _live_state.snapshot()
+        return jsonify(snap.get("execution", {}))
+
     return app
 
 

@@ -96,6 +96,10 @@ class LiveState:
     # Daily loss
     daily_loss_exceeded: bool = False
 
+    # Execution audit (populated by runtime from ExecutionAudit)
+    execution_summary: dict[str, Any] = field(default_factory=dict)
+    execution_events: list[dict[str, Any]] = field(default_factory=list)
+
     def update(self, **kwargs: Any) -> None:
         """Thread-safe update of multiple fields."""
         with self._lock:
@@ -145,6 +149,10 @@ class LiveState:
                 },
                 "recent_entries": self.recent_entries[-10:],
                 "recent_closes": self.recent_closes[-10:],
+                "execution": {
+                    "summary": self.execution_summary,
+                    "events": self.execution_events[-50:],
+                },
             }
 
     @staticmethod

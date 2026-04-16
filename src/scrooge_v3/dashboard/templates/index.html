@@ -21,9 +21,11 @@
 
 <nav class="tab-bar">
   <button class="tab active" data-tab="signals">Signals</button>
+  <button class="tab" data-tab="execution">Execution</button>
 </nav>
 
 <section id="signals-grid" class="signals-grid"></section>
+<section id="execution-panel" class="execution-panel" style="display:none"></section>
 
 <footer>Mr. Scrooge V3 &mdash; Plug-in Trading Platform</footer>
 
@@ -60,6 +62,7 @@ function render(d) {
   renderMetrics(d);
   renderInfo(d);
   renderSignals(d.signals || []);
+  renderExecution(d.execution || {});
 }
 
 function renderHeader(d) {
@@ -217,10 +220,93 @@ function renderPairCard(sig) {
   </div>`;
 }
 
+function renderExecution(ex) {
+  const el = document.getElementById('execution-panel');
+  const s = ex.summary || {};
+  const events = ex.events || [];
+  if (!s.total && !events.length) {
+    el.innerHTML = '<div class="empty">No execution data yet</div>';
+    return;
+  }
+
+  const moves = s.moves || 0;
+  const blocks = s.blocks || 0;
+  const holds = s.holds || 0;
+  const harvests = s.harvests || 0;
+  const exits = s.exits || 0;
+  const eff = s.sl_efficiency_pct || 0;
+  const blockReasons = s.block_reasons || {};
+
+  // Health lights
+  const slHealth = eff >= 70 ? 'hl-green' : eff >= 50 ? 'hl-yellow' : 'hl-red';
+  const slLabel = eff >= 70 ? 'HEALTHY' : eff >= 50 ? 'DEGRADED' : 'POOR';
+  const spreadRisk = blocks > moves ? 'hl-red' : blocks > moves * 0.3 ? 'hl-yellow' : 'hl-green';
+  const spreadLabel = blocks > moves ? 'HIGH' : blocks > moves * 0.3 ? 'ELEVATED' : 'NORMAL';
+  const stepBlocks = blockReasons['step_too_small'] || 0;
+  const ratchetEff = stepBlocks > moves * 0.5 ? 'hl-red' : stepBlocks > moves * 0.2 ? 'hl-yellow' : 'hl-green';
+  const ratchetLabel = stepBlocks > moves * 0.5 ? 'THRASHING' : stepBlocks > moves * 0.2 ? 'NOISY' : 'EFFICIENT';
+
+  // Health row
+  let html = `<div class="ex-health">
+    <div class="ex-hl"><div class="hl-dot ${slHealth}"></div><div class="hl-info"><span class="hl-title">SL ENGINE</span><span class="hl-val">${slLabel} (${eff}%)</span></div></div>
+    <div class="ex-hl"><div class="hl-dot ${spreadRisk}"></div><div class="hl-info"><span class="hl-title">SPREAD RISK</span><span class="hl-val">${spreadLabel}</span></div></div>
+    <div class="ex-hl"><div class="hl-dot ${ratchetEff}"></div><div class="hl-info"><span class="hl-title">RATCHET</span><span class="hl-val">${ratchetLabel}</span></div></div>
+  </div>`;
+
+  // Metrics row
+  html += `<div class="ex-metrics">
+    <div class="m"><label>SL MOVES</label><span class="v pos">${moves}</span></div>
+    <div class="m"><label>SL BLOCKED</label><span class="v neg">${blocks}</span></div>
+    <div class="m"><label>HOLDS</label><span class="v">${holds}</span></div>
+    <div class="m"><label>HARVESTS</label><span class="v pos">${harvests}</span></div>
+    <div class="m"><label>EXITS</label><span class="v">${exits}</span></div>
+    <div class="m"><label>AVG SPREAD (BLOCK)</label><span class="v">${(s.avg_spread_at_block||0).toFixed(5)}</span></div>
+    <div class="m"><label>AVG SPREAD (MOVE)</label><span class="v">${(s.avg_spread_at_move||0).toFixed(5)}</span></div>
+  </div>`;
+
+  // Block reasons
+  const brKeys = Object.keys(blockReasons);
+  if (brKeys.length) {
+    html += '<div class="ex-block-reasons"><h3>BLOCK REASONS</h3><div class="br-grid">';
+    brKeys.sort((a,b) => blockReasons[b] - blockReasons[a]);
+    for (const k of brKeys) {
+      html += `<div class="br-row"><span class="br-name">${k}</span><span class="br-count">${blockReasons[k]}</span></div>`;
+    }
+    html += '</div></div>';
+  }
+
+  // Event timeline
+  html += '<div class="ex-timeline"><h3>EVENT TIMELINE</h3><div class="tl-scroll">';
+  const reversed = [...events].reverse();
+  for (const e of reversed) {
+    const ts = e.timestamp ? new Date(e.timestamp * 1000).toLocaleTimeString() : '';
+    let icon = '', cls = '';
+    if (e.type === 'sl_moved') { icon = '+'; cls = 'tl-move'; }
+    else if (e.type === 'sl_blocked') { icon = 'x'; cls = 'tl-block'; }
+    else if (e.type === 'harvest') { icon = '$'; cls = 'tl-harvest'; }
+    else if (e.type === 'hold') { icon = '-'; cls = 'tl-hold'; }
+    else if (e.type === 'favorable_exit' || e.type === 'emergency_close') { icon = '!'; cls = 'tl-exit'; }
+    else { icon = '?'; cls = 'tl-hold'; }
+
+    const sym = e.symbol ? e.symbol.replace('_','/') : '';
+    const pr = e.profit_r ? ` R:${e.profit_r.toFixed(2)}` : '';
+    const detail = e.type === 'sl_moved' ? ` ${(e.old_sl||0).toFixed(5)} -> ${(e.new_sl||0).toFixed(5)}` :
+                   e.type === 'sl_blocked' ? ` spread:${(e.spread||0).toFixed(5)}` : '';
+
+    html += `<div class="tl-row ${cls}"><span class="tl-icon">${icon}</span><span class="tl-ts">${ts}</span><span class="tl-sym">${sym}</span><span class="tl-type">${e.type}</span><span class="tl-reason">${e.reason||''}${pr}${detail}</span></div>`;
+  }
+  html += '</div></div>';
+
+  el.innerHTML = html;
+}
+
 document.querySelector('.tab-bar').addEventListener('click', e => {
   if (e.target.classList.contains('tab')) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     e.target.classList.add('active');
+    const tab = e.target.dataset.tab;
+    document.getElementById('signals-grid').style.display = tab === 'signals' ? '' : 'none';
+    document.getElementById('execution-panel').style.display = tab === 'execution' ? '' : 'none';
   }
 });
 
