@@ -71,6 +71,16 @@
     "measured_move": {
       "enabled": false,
       "mode": "disabled"
+    },
+    "dbb_trend": {
+      "enabled": true,
+      "mode": "active",
+      "lookback_bars": 12,
+      "pullback_max_retrace_pct": 0.55,
+      "min_breakout_body_pct": 0.55,
+      "min_rr": 1.1,
+      "stop_buffer_pips": 2,
+      "fixed_score": 32
     }
   },
   "gates": {
