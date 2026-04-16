@@ -1,5 +1,9 @@
 # V3 Scoring System — Live Implementation Guide
 
+> **V3.1 UPDATE (2026-04-16):** Scorer rebalanced. 5 session buckets, decompressed
+> hour/age, stronger dc, halved pair layer, correlated-negative caps.
+> See logs/DEVLOG.md for full changelog. Old V3.0 weights archived below.
+
 > This document explains the scoring formula running on V1 and V2.
 > All data, formulas, and analysis scripts are in the V3 repo:
 > `github.com/BrockStar3540/mr-scrooge-v3`

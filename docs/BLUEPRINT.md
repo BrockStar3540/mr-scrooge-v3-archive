@@ -546,3 +546,18 @@ Every contract has health.
 Every health state is visible.
 Every decision is replayable.
 ```
+
+---
+
+## Appendix: Platform Doctrine (2026-04-16)
+
+See [PLATFORM_DOCTRINE.md](PLATFORM_DOCTRINE.md) for the governing rules:
+
+1. **No strategy may self-activate outside router permission**
+2. **No strategy may own a private management loop**
+3. **Every strategy must declare a management profile**
+
+Key evolution: Mr. Scrooge is now defined as a **regime-aware trading platform**
+with strategy-specific entry and system-wide management. Box reversal remains a
+first-class strategy but is no longer the only lens through which markets are
+evaluated. Multiple strategy families coexist under one shared execution kernel.
