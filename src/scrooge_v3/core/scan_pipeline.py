@@ -305,6 +305,14 @@ class ScanPipeline:
             except Exception:
                 pass
 
+        # Track all candidates by strategy for transparency
+        report["candidates_by_strategy"] = [
+            {"strategy": c.strategy, "direction": c.direction.value if hasattr(c.direction, 'value') else str(c.direction),
+             "entry": c.entry_price, "stop": c.stop_price, "rr": round(c.risk_reward, 2),
+             "family": (c.metadata or {}).get("strategy_family", "")}
+            for c in candidates
+        ]
+
         if not candidates:
             report["verdict"] = "NO_CANDIDATE"
             if self.scorer:
@@ -316,42 +324,72 @@ class ScanPipeline:
                     pass
             return report
 
-        # 5. Gates
-        best_candidate = candidates[0]
-        if self.gate_pipeline:
-            gate_result = self.gate_pipeline.run(best_candidate, ctx)
-            if hasattr(gate_result, "results"):
-                for gr in gate_result.results:
-                    report["gates"][gr.gate_name] = {"passed": gr.passed, "reason": gr.reason, "metrics": gr.metrics}
-            if not gate_result.all_passed:
-                report["verdict"] = "GATE_REJECTED"
-                report["gates"]["_rejection"] = gate_result.rejection_reason
-                # Still run scorer for display
-                if self.scorer:
-                    try:
-                        sr = self.scorer.score(ctx, best_candidate)
+        # 5. Gates — run on ALL candidates (mirrors live scan_symbol path)
+        gate_approved = []
+        gate_rejected = []
+        for candidate in candidates:
+            if self.gate_pipeline:
+                gate_result = self.gate_pipeline.run(candidate, ctx)
+                # Record gate results for first candidate (display)
+                if not report["gates"] and hasattr(gate_result, "results"):
+                    for gr in gate_result.results:
+                        report["gates"][gr.gate_name] = {"passed": gr.passed, "reason": gr.reason, "metrics": gr.metrics}
+                if gate_result.all_passed:
+                    gate_approved.append(candidate)
+                else:
+                    gate_rejected.append({"strategy": candidate.strategy, "reason": gate_result.rejection_reason})
+            else:
+                gate_approved.append(candidate)
+
+        if not gate_approved:
+            report["verdict"] = "GATE_REJECTED"
+            report["gates"]["_rejection"] = gate_rejected[0]["reason"] if gate_rejected else "unknown"
+            # Still run scorer on first candidate for display
+            if self.scorer and candidates:
+                try:
+                    sr = self.scorer.score(ctx, candidates[0])
+                    report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
+                except Exception:
+                    pass
+            return report
+
+        # 6. Scorer — score ALL gate-approved candidates, pick best
+        if self.scorer:
+            scored = []
+            best_score_result = None
+            for candidate in gate_approved:
+                try:
+                    sr = self.scorer.score(ctx, candidate)
+                    # Track scorer result for the best candidate (for report display)
+                    if best_score_result is None or sr.score > best_score_result.score:
+                        best_score_result = sr
                         report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
-                    except Exception:
-                        pass
+                    if sr.tier in ("A", "B"):
+                        candidate.score = float(sr.score)
+                        candidate.metadata["v3_tier"] = sr.tier
+                        candidate.metadata["v3_breakdown"] = sr.breakdown
+                        scored.append(candidate)
+                except Exception:
+                    pass
+
+            if not scored:
+                # All candidates blocked/rejected by scorer
+                if best_score_result:
+                    if best_score_result.tier == "BLOCKED":
+                        report["verdict"] = "V3_BLOCKED"
+                    else:
+                        report["verdict"] = "V3_REJECT"
                 return report
 
-        # 6. Scorer
-        if self.scorer:
-            try:
-                sr = self.scorer.score(ctx, best_candidate)
-                report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
-                if sr.tier == "BLOCKED":
-                    report["verdict"] = f"V3_BLOCKED"
-                elif sr.tier == "REJECT":
-                    report["verdict"] = f"V3_REJECT"
-                elif sr.tier in ("A", "B"):
-                    report["verdict"] = f"TAKE_{sr.tier}"
-                    best_candidate.score = float(sr.score)
-                    best_candidate.metadata["v3_tier"] = sr.tier
-                    best_candidate.metadata["v3_breakdown"] = sr.breakdown
-                    report["candidate"] = best_candidate
-            except Exception:
-                pass
+            # Pick actual winner (same as live path)
+            winner = max(scored, key=lambda c: c.score)
+            report["verdict"] = f"TAKE_{winner.metadata.get('v3_tier', 'B')}"
+            report["candidate"] = winner
+        else:
+            # No scorer — pick by strategy score
+            winner = max(gate_approved, key=lambda c: c.score)
+            report["verdict"] = "TAKE_UNSCORED"
+            report["candidate"] = winner
 
         return report
 
