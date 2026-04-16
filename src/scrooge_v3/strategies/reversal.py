@@ -199,6 +199,8 @@ class ReversalStrategy:
                 "tp1": tp1,
                 "tp2": tp2,
                 "risk_points": risk,
+                "strategy_family": "reversal",
+                "management_profile": "reversal_core",
                 "reward_points": reward,
             },
             created_at=datetime.now(timezone.utc),

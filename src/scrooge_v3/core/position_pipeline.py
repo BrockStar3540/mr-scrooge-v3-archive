@@ -112,8 +112,23 @@ class PositionPipeline:
 
         profit_r = profit_distance / risk_distance if risk_distance > 0 else 0.0
 
-        # Determine phase
-        if profit_r < self.early_hold_r:
+        # --- Management profile branching ---
+        profile = "default"
+        if hasattr(position, "metadata") and isinstance(position.metadata, dict):
+            profile = position.metadata.get("management_profile", "default")
+
+        if profile == "trend_runner":
+            effective_early_hold_r = 0.6   # More patience before trailing
+            effective_min_sl_step = 4.0    # Wider steps, less thrashing
+        elif profile == "reversal_core":
+            effective_early_hold_r = self.early_hold_r
+            effective_min_sl_step = effective_min_sl_step
+        else:
+            effective_early_hold_r = self.early_hold_r
+            effective_min_sl_step = effective_min_sl_step
+
+        # Determine phase using profile-aware threshold
+        if profit_r < effective_early_hold_r:
             phase = "EARLY_HOLD"
         elif profit_r < self.lock_r:
             phase = "LOCK"
@@ -121,7 +136,7 @@ class PositionPipeline:
             phase = "HARVEST"
 
         # Build details dict with phase info for audit
-        phase_info = {"phase": phase, "profit_r": round(profit_r, 3)}
+        phase_info = {"phase": phase, "profit_r": round(profit_r, 3), "profile": profile}
 
         # 1. Partial harvest (skip if harvest limit order is live on OANDA)
         if self.harvest:
@@ -192,7 +207,7 @@ class PositionPipeline:
 
                 # Min-step filter — prevent thrashing
                 step_pips = abs(new_stop - current_stop) / pip_size
-                if step_pips < self.min_sl_step_pips:
+                if step_pips < effective_min_sl_step:
                     return ManagementAction(
                         position_id=pos_id,
                         action="hold",
@@ -219,7 +234,7 @@ class PositionPipeline:
 
                     # Min-step filter
                     step_pips = abs(new_stop - current_stop) / pip_size
-                    if step_pips < self.min_sl_step_pips:
+                    if step_pips < effective_min_sl_step:
                         return ManagementAction(
                             position_id=pos_id,
                             action="hold",

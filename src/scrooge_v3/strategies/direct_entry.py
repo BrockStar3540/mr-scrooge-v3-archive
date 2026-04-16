@@ -107,6 +107,8 @@ class DirectEntryStrategy:
             metadata={
                 "entry_type": "DIRECT",
                 "risk_points": risk,
+                "strategy_family": "direct",
+                "management_profile": "default",
                 "reward_points": reward,
                 "tp1": center,
                 "tp2": tp,

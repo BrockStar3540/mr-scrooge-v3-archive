@@ -146,3 +146,14 @@
 
 ### Platform Doctrine
 - `[2026-04-16] [docs/PLATFORM_DOCTRINE]` — New document: formalizes Mr. Scrooge as a regime-aware trading platform. Strategy-specific entry with system-wide management. Three sacred rules: no self-activation outside router, no private management loops, every strategy declares management profile. Defines strategy menu, routing table, and management profiles.
+
+### Session: 2026-04-16 — Family-Aware Scoring, Routing Cleanup, Management Profiles
+- `[2026-04-16] [strategies/v3_scorer]` — Scorer now strategy-family-aware: _compute_score receives candidate, applies trend overlays (+6 structure break, +4 pullback/breakout, +2 dc, +2 NY hour, +3 stale age, -5 chase penalty). Separate trend session thresholds (lower floors). Reversal path unchanged.
+- `[2026-04-16] [strategies/reversal]` — Added strategy_family="reversal" and management_profile="reversal_core" to candidate metadata.
+- `[2026-04-16] [strategies/direct_entry]` — Added strategy_family="direct" and management_profile="default" to candidate metadata.
+- `[2026-04-16] [strategies/trend]` — Disabled. DBB Trend owns the continuation lane exclusively.
+- `[2026-04-16] [core/strategy_router]` — Removed old "trend" from all routes. Clean split: reversal owns EXTREME/REJECTION, dbb_trend owns TREND/BREAKOUT/STRETCH_DOWN.
+- `[2026-04-16] [gates/risk_reward]` — Rewritten with candidate_family() helper. No more brittle prefix matching. Trend family uses 1.10 min RR.
+- `[2026-04-16] [core/position_pipeline]` — Reads management_profile from position metadata. trend_runner gets early_hold_r=0.6 (more patience), min_sl_step=4.0 (wider). reversal_core uses default params.
+- `[2026-04-16] [config/default.json]` — Old trend disabled, regime_floor fixed to -4 (was -1 in config but -4 in runtime), trend_min_rr set to 1.10.
+- `[2026-04-16] [docs/PLATFORM_DOCTRINE]` — Updated routing table, management profiles, family-aware scoring section.

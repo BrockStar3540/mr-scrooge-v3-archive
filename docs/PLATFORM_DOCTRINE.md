@@ -95,12 +95,15 @@ Current routing (from strategy_router.py + BB state):
 |----------|-------------------|
 | EXTREME_UP, EXTREME_DOWN | reversal, direct |
 | REJECTION_SHORT, REJECTION_LONG | reversal, direct |
-| TREND_UP, TREND_DOWN, TREND_FULL, TREND_STRETCH | trend, direct |
-| BREAKOUT_UP, BREAKOUT_DOWN | trend, direct |
+| TREND_UP, TREND_DOWN | dbb_trend, direct |
+| BREAKOUT_UP, BREAKOUT_DOWN | dbb_trend, direct |
 | NORMAL | direct |
 | COMPRESSION | direct |
 | STRETCH_UP | (none — hard blocked) |
-| STRETCH_DOWN | trend, direct |
+| STRETCH_DOWN | dbb_trend, direct |
+
+Old TrendStrategy (SMA20 pullback) disabled as of 2026-04-16. DBB Trend owns
+the continuation lane exclusively.
 
 Future: router should also incorporate regime state for strategy-regime
 compatibility (e.g., RESTRICTED regime + reversal = reject or heavy penalty).
@@ -138,6 +141,8 @@ management_profile: reversal_scalp
 management_profile: trend_runner
   harvest_fraction: 0.50
   harvest_at: tp1 (1R target)
+  early_hold_threshold_r: 0.6 (more patience than reversal)
+  min_sl_step_pips: 4.0 (wider steps, less thrashing)
   be_trigger_pips: 8
   ratchet_lock_pct: 0.40
   ratchet_min_pips: 10
@@ -170,6 +175,13 @@ Key V3.1 changes (2026-04-16):
 - OTR<8+NORM hard block removed (soft penalty only)
 
 See docs/SCORING_V3_LIVE.md for full formula specification.
+
+V3.1.1 addition: scorer is now **strategy-family-aware**:
+- Trend candidates get +6 structure break, +4 pullback/breakout mode, +2 dc conviction
+- Trend candidates get softened NY/stale penalties (+2 hr, +3 age for continuation)
+- Trend candidates get separate session thresholds (lower floors)
+- Exhausted chase penalty: -5 if z>=1.5 and ema20<15
+- Reversal candidates: unchanged (no family overlays applied)
 
 ---
 

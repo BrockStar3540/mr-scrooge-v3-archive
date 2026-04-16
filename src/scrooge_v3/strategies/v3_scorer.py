@@ -49,6 +49,15 @@ _SESSION_RULES = {
     "dead_late":        (46, 58, 68, 8),    # 20-23 UTC
 }
 
+# Trend-family session rules — slightly more permissive
+_SESSION_RULES_TREND = {
+    "asia_london_open": (34, 48, 58, 16),
+    "london":           (36, 48, 58, 12),
+    "ny_active":        (34, 46, 54, 12),
+    "late_ny":          (38, 48, 58, 10),
+    "dead_late":        (44, 56, 66, 8),
+}
+
 # Correlated-negative caps — prevent triple-dipping
 _MAX_HOUR_PLUS_AGE = -10
 _MAX_NEUTRAL_CLUSTER = -10
@@ -75,7 +84,7 @@ class V3HybridScorer:
     def score(self, ctx: SymbolContext, candidate: TradeCandidate) -> ScorerResult:
         """Score a trade candidate using V3.1 Hybrid formula."""
         f = self._extract_factors(ctx, candidate)
-        return self._compute_score(f)
+        return self._compute_score(f, candidate)
 
     # ------------------------------------------------------------------
     # Factor extraction
@@ -188,7 +197,7 @@ class V3HybridScorer:
     # Scoring engine — V3.1 rebalanced
     # ------------------------------------------------------------------
 
-    def _compute_score(self, r: dict[str, Any]) -> ScorerResult:
+    def _compute_score(self, r: dict[str, Any], candidate: TradeCandidate | None = None) -> ScorerResult:
         """Compute the V3.1 rebalanced score."""
         blocks: list[str] = []
         bd: dict[str, int] = {}
@@ -360,6 +369,31 @@ class V3HybridScorer:
             s += cap_adj
             bd["hr_age_cap"] = cap_adj
 
+        # === FAMILY OVERLAYS ===
+        family = ""
+        if candidate and hasattr(candidate, "metadata") and candidate.metadata:
+            family = candidate.metadata.get("strategy_family", "")
+
+        if family == "trend":
+            md = candidate.metadata or {}
+            if md.get("structure_break_confirmed"):
+                s += 6; bd["fam_struct"] = 6
+            em = md.get("entry_type", "")
+            if em == "DBB_PULLBACK" and md.get("pullback_depth_pct", 1.0) <= 0.55:
+                s += 4; bd["fam_pb"] = 4
+            elif em == "DBB_BREAKOUT":
+                s += 4; bd["fam_brk"] = 4
+            if dc >= 4:
+                s += 2; bd["fam_dc"] = 2
+            # Soften NY/stale for continuation trades
+            if 16 <= r["hour"] < 20:
+                s += 2; bd["fam_hr"] = 2
+            if 18 <= r["bage"] < 24:
+                s += 3; bd["fam_age"] = 3
+            # Penalize exhausted chases
+            if az >= 1.5 and r["e20d"] < 15:
+                s -= 5; bd["fam_chase"] = -5
+
         # === LAYER 2: PAIRED ASPECT BONUSES (halved magnitudes) ===
         pairs = 0
 
@@ -417,7 +451,11 @@ class V3HybridScorer:
         else:
             session = "asia_london_open"
 
-        base_floor, final_min_b, final_min_a, pair_cap = _SESSION_RULES[session]
+        # Family-aware session thresholds
+        if family == "trend":
+            base_floor, final_min_b, final_min_a, pair_cap = _SESSION_RULES_TREND[session]
+        else:
+            base_floor, final_min_b, final_min_a, pair_cap = _SESSION_RULES[session]
 
         # Cap positive pair bonuses (negative pairs always apply in full)
         positive_pairs = max(0, pairs)
@@ -443,8 +481,8 @@ class V3HybridScorer:
             tier = "REJECT"
 
         log.info(
-            "[V3_SCORER] base=%d final=%d tier=%s session=%s (floor=%d b=%d a=%d cap=%d) pairs_raw=%+d capped=%+d | %s",
-            base_score, final_score, tier, session, base_floor, final_min_b, final_min_a, pair_cap,
+            "[V3_SCORER] base=%d final=%d tier=%s fam=%s session=%s (floor=%d b=%d a=%d cap=%d) pairs_raw=%+d capped=%+d | %s",
+            base_score, final_score, tier, family or "default", session, base_floor, final_min_b, final_min_a, pair_cap,
             pairs, capped_pairs,
             " ".join(f"{k}={v:+d}" for k, v in bd.items() if k not in ("pairs_total", "base_score", "pair_cap_applied", "hr_age_cap", "neutral_cap")),
         )

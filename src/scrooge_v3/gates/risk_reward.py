@@ -1,4 +1,4 @@
-"""Risk-reward gate -- checks minimum RR ratio by strategy type."""
+"""Risk-reward gate -- checks minimum RR ratio by strategy family."""
 
 from __future__ import annotations
 
@@ -9,18 +9,27 @@ from scrooge_v3.core.types import GateMode, GateResult, SymbolContext, TradeCand
 from .base import BaseGate
 
 
+def _candidate_family(candidate: TradeCandidate) -> str:
+    """Extract strategy family from candidate metadata or strategy name."""
+    md = getattr(candidate, "metadata", {}) or {}
+    fam = md.get("strategy_family")
+    if fam:
+        return str(fam)
+    strat = (candidate.strategy or "").lower()
+    if strat in ("dbb_trend", "trend", "trend_full", "trend_stretch"):
+        return "trend"
+    if strat in ("reversal", "box_reversal"):
+        return "reversal"
+    return "default"
+
+
 class RiskRewardGate(BaseGate):
-    # R:R doesn't separate W from L (same ratio for both). Threshold 1.0 = reward must exceed risk.
     """Checks that the candidate meets minimum risk-reward ratio.
 
-    Both reversal and trend strategies use 1.0 minimum -- raw data shows
-    R:R does not differentiate winners from losers.
+    Uses strategy family to select the correct RR threshold.
     """
 
     name = "risk_reward"
-
-    # Strategy prefixes that map to trend thresholds
-    TREND_STRATEGIES = ("trend_full", "trend_stretch", "sma20_pullback")
 
     def __init__(
         self,
@@ -28,58 +37,35 @@ class RiskRewardGate(BaseGate):
         mode: GateMode = GateMode.HARD,
     ) -> None:
         super().__init__(config, mode)
-        self.reversal_min_rr: float = self.config.get(
-            "reversal_min_rr", 1.0
-        )
-        self.trend_min_rr: float = self.config.get("trend_min_rr", 1.0)
+        self.reversal_min_rr: float = self.config.get("reversal_min_rr", 1.0)
+        self.trend_min_rr: float = self.config.get("trend_min_rr", 1.10)
+        self.default_min_rr: float = self.config.get("default_min_rr", 1.0)
 
     def evaluate(
         self, candidate: TradeCandidate, ctx: SymbolContext
     ) -> GateResult:
         rr = candidate.risk_reward
-        strategy = candidate.strategy.lower() if candidate.strategy else ""
+        family = _candidate_family(candidate)
 
-        is_trend = any(
-            strategy.startswith(prefix) for prefix in self.TREND_STRATEGIES
-        )
-        min_rr = self.trend_min_rr if is_trend else self.reversal_min_rr
-        strategy_label = "trend" if is_trend else "reversal"
+        if family == "trend":
+            min_rr = self.trend_min_rr
+        elif family == "reversal":
+            min_rr = self.reversal_min_rr
+        else:
+            min_rr = self.default_min_rr
 
         if rr < min_rr:
-            reason = (
-                f"RR {rr:.2f} below {strategy_label}"
-                f" minimum {min_rr:.2f}"
-            )
-            self._log.debug(
-                "[GATE:%s] FAILED symbol=%s reason=%s",
-                self.name, candidate.symbol, reason,
-            )
+            reason = f"RR {rr:.2f} below {family} minimum {min_rr:.2f}"
             return GateResult(
                 gate_name=self.name,
                 passed=False,
                 reason=reason,
-                metrics={
-                    "risk_reward": rr,
-                    "min_rr": min_rr,
-                    "strategy_type": strategy_label,
-                },
+                metrics={"risk_reward": rr, "min_rr": min_rr, "strategy_family": family},
             )
 
-        self._log.debug(
-            "[GATE:%s] PASSED symbol=%s reason=RR %.2f >= %.2f (%s)",
-            self.name, candidate.symbol, rr, min_rr, strategy_label,
-        )
         return GateResult(
             gate_name=self.name,
             passed=True,
-            reason=(
-                f"RR {rr:.2f} meets {strategy_label}"
-                f" minimum {min_rr:.2f}"
-            ),
-            metrics={
-                "score": min(1.0, rr / 2.0),
-                "risk_reward": rr,
-                "min_rr": min_rr,
-                "strategy_type": strategy_label,
-            },
+            reason=f"RR {rr:.2f} meets {family} minimum {min_rr:.2f}",
+            metrics={"score": min(1.0, rr / 2.0), "risk_reward": rr, "min_rr": min_rr, "strategy_family": family},
         )

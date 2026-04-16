@@ -21,15 +21,15 @@ _DEFAULT_ROUTES: dict[str, list[str]] = {
     "REJECTION_SHORT": ["reversal", "direct"],
     "REJECTION_LONG": ["reversal", "direct"],
     # Trend states → trend + direct
-    "TREND_UP": ["trend", "dbb_trend", "direct"],
-    "TREND_DOWN": ["trend", "dbb_trend", "direct"],
+    "TREND_UP": ["dbb_trend", "direct"],
+    "TREND_DOWN": ["dbb_trend", "direct"],
     # STRETCH_UP = 0% WR on V1 live data — hard block, no strategies allowed
     "STRETCH_UP": [],
     # STRETCH_DOWN = -3 pts in V3 scorer, allow trend but scorer penalizes
-    "STRETCH_DOWN": ["trend", "dbb_trend", "direct"],
+    "STRETCH_DOWN": ["dbb_trend", "direct"],
     # Breakout → trend + direct
-    "BREAKOUT_UP": ["trend", "dbb_trend", "direct"],
-    "BREAKOUT_DOWN": ["trend", "dbb_trend", "direct"],
+    "BREAKOUT_UP": ["dbb_trend", "direct"],
+    "BREAKOUT_DOWN": ["dbb_trend", "direct"],
     # Normal/range → direct entry only (V3 scorer decides quality)
     "NORMAL": ["direct"],
     # Compression → direct only

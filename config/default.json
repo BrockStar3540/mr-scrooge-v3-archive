@@ -59,8 +59,8 @@
       "mode": "active"
     },
     "trend": {
-      "enabled": true,
-      "mode": "active",
+      "enabled": false,
+      "mode": "disabled",
       "size_full": 0.5,
       "size_stretch": 0.3
     },
@@ -99,7 +99,7 @@
       "enabled": true,
       "mode": "hard",
       "reversal_min_rr": 1.0,
-      "trend_min_rr": 1.0
+      "trend_min_rr": 1.1
     },
     "debounce": {
       "enabled": true,
@@ -112,7 +112,7 @@
     "regime_floor": {
       "enabled": true,
       "mode": "hard",
-      "min_score": -1
+      "min_score": -4
     },
     "exhaustion": {
       "enabled": true,
