@@ -165,3 +165,16 @@
 - `[2026-04-16] [docs/IMPLEMENTATION_GAP_MATRIX]` — New: tracks doctrine vs code reality. 12 rows covering routing, scoring, management, dashboard, recovery, replay.
 - `[2026-04-16] [docs/THEORY_TO_CODE]` — Updated: added dbb_trend, marked old trend DISABLED, added runtime extraction modules table, added family-aware scoring section.
 - `[2026-04-16] [docs/BLUEPRINT]` — Updated appendix: full current architecture with module breakdown, strategy family table, reference doc links.
+
+### Session: 2026-04-16 — Scorer Recalibration (CRITICAL)
+- `[2026-04-16] [strategies/v3_scorer]` — Scorer audit payload: every log line now includes raw box-derived inputs (px, ema20, ema50, box_range, box_age) after "||" separator. Enables full score verification from logs alone.
+- `[2026-04-16] [strategies/v3_scorer]` — CRITICAL: discovered 50-trade backtest showed 24/29 winners blocked. Loser max base=+3, floors were 36-46 — 33+ pt gap. Thresholds were mis-scaled against actual loser distribution.
+- `[2026-04-16] [strategies/v3_scorer]` — Scorer recalibration V3.1.1:
+  - RSI_NEUT hard block → soft penalty (-5 pts). Was blocking 6 winners including $17.48 trade.
+  - All session floors lowered by 6 (default: 30/32/30/34/40, trend: 28/30/28/32/38).
+  - EMA20 < 15% penalty: -6 → -3 (biggest drag on blocked winners, -42 total).
+  - Box age 18-24h penalty: -7 → -4.
+  - Backtest result: 9W/0L/$144 vs baseline 5W/0L/$85 (80% more P&L).
+  - Still 27+ pts above highest loser at new floors.
+- `[2026-04-16] [core/scan_pipeline]` — Fixed dashboard winner-path bug: scan_symbol_full() was taking candidates[0] instead of scoring all candidates and picking best. Now mirrors live scan_symbol() path — gates all candidates, scores all gate-approved, picks max(score).
+- `[2026-04-16] [CALIBRATION WARNING]` — 50-trade dataset is survivor-biased (only executed trades). Full calibration requires candidate-level replay dataset with all candidates, not just historical trades. Current recalibration is a live hypothesis under validation.
