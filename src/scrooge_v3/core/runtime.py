@@ -86,6 +86,8 @@ class Runtime:
         # Create services
         from scrooge_v3.services.config_watcher import ConfigWatcher
         from scrooge_v3.services.state_recovery import StateRecovery
+        from scrooge_v3.core.scan_coordinator import ScanCoordinator
+        self.scanner = ScanCoordinator(self.ctx)
         self.config_watcher = ConfigWatcher(self.ctx)
         self.recovery = StateRecovery(self.ctx)
 
@@ -157,59 +159,20 @@ class Runtime:
         # --- Vanished trade detection ---
         self.recovery.detect_vanished_trades()
 
-        # Get active pairs
-        from scrooge_v3.market.screener import get_session_pairs
-        pairs = get_session_pairs(now.hour)
-        if not pairs:
-            log.debug("[RUNTIME] No active pairs this session")
-            return
+        # --- Scan cycle ---
+        scan = self.scanner.scan_cycle(now)
+        reports = scan.reports
+        candidates = scan.candidates
 
-        # Fetch market snapshots
-        prices = ctx.broker.get_prices(pairs)
-        snapshots: dict[str, MarketSnapshot] = {}
-        for symbol, quote in prices.items():
-            candles = {}
-            for oanda_tf, internal_key in (("D", "D"), ("H1", "1H"), ("M5", "5M")):
-                df = ctx.broker.get_candles(symbol, oanda_tf)
-                if df is not None:
-                    candles[internal_key] = df
-            snapshots[symbol] = MarketSnapshot(
-                symbol=symbol, bid=quote.bid, ask=quote.ask,
-                mid=quote.mid, spread=quote.spread,
-                timestamp=quote.timestamp or now, candles=candles,
+        if scan.spread_skip and self.live_state:
+            self.live_state.update(
+                spread_skips=self.live_state.spread_skips + 1,
+                last_spread_skip=f"{scan.spread_skip_symbol} ({scan.spread_skip_ratio:.1f}x)",
             )
-            ctx.spread_monitor.record(symbol, quote.spread)
-
-        # Run scan pipeline
-        candidates, reports = ctx.scan_pipeline.scan_universe(pairs, snapshots)
-
-        # Filter held/pending symbols
-        held_symbols = {pos.symbol for pos in ctx.tracker.all_positions()}
-        pending_symbols = set(ctx.tracker.all_pending_entries().keys())
-        candidates = [c for c in candidates if c.symbol not in held_symbols and c.symbol not in pending_symbols]
 
         # --- Entry logic ---
-        if candidates and ctx.state.position_count < ctx.state.max_positions:
-            best = candidates[0]
-            log.info("[RUNTIME] Best candidate: %s %s score=%.0f",
-                     best.symbol, best.strategy, best.score)
-
-            # Spread quality gate
-            spread_stats = ctx.spread_monitor.get_stats(best.symbol)
-            if spread_stats["mean"] > 0:
-                spread_ratio = spread_stats["current"] / spread_stats["mean"]
-                if spread_ratio > 1.5:
-                    log.warning("[RUNTIME] ENTRY SKIPPED: %s spread elevated (%.1fx mean)",
-                                best.symbol, spread_ratio)
-                    if self.live_state:
-                        self.live_state.update(
-                            spread_skips=self.live_state.spread_skips + 1,
-                            last_spread_skip=f"{best.symbol} ({spread_ratio:.1f}x)",
-                        )
-                    candidates = []
-
-            if candidates:
-                self._try_entry(best)
+        if scan.best_candidate:
+            self._try_entry(scan.best_candidate)
 
         # --- Reconcile pending orders ---
         self.recovery.reconcile_pending_orders()
