@@ -26,21 +26,24 @@ scorer = V3HybridScorer()
 # =====================================================================
 
 class TestHardBlocks:
-    def test_rsi_neutral_block(self):
+    def test_rsi_neutral_soft_penalty(self):
+        """V3.1.1: RSI neutral is now a -5 soft penalty, not a hard block."""
         r = make_factors(rsi=50)
         result = scorer._compute_score(r)
-        assert result.tier == "BLOCKED"
-        assert "RSI_NEUT" in result.blocks
+        assert "RSI_NEUT" not in result.blocks
+        assert result.breakdown["rsi"] == -5
 
-    def test_rsi_at_boundary_45_blocks(self):
+    def test_rsi_at_boundary_45_soft_penalty(self):
         r = make_factors(rsi=45)
         result = scorer._compute_score(r)
-        assert "RSI_NEUT" in result.blocks
+        assert "RSI_NEUT" not in result.blocks
+        assert result.breakdown["rsi"] == -5
 
-    def test_rsi_at_boundary_55_blocks(self):
+    def test_rsi_at_boundary_55_soft_penalty(self):
         r = make_factors(rsi=55)
         result = scorer._compute_score(r)
-        assert "RSI_NEUT" in result.blocks
+        assert "RSI_NEUT" not in result.blocks
+        assert result.breakdown["rsi"] == -5
 
     def test_rsi_44_passes(self):
         r = make_factors(rsi=44)
@@ -124,10 +127,10 @@ class TestSingleFactors:
         assert result.breakdown["age"] == 9
 
     def test_box_age_stale_negative(self):
-        """V3.1: 18-24h is -7 (was -12)."""
+        """V3.1.1: 18-24h is -4 (was -7, was -12)."""
         r = make_factors(bage=20)
         result = scorer._compute_score(r)
-        assert result.breakdown["age"] == -7
+        assert result.breakdown["age"] == -4
 
     def test_natural_stop_sweet_spot(self):
         r = make_factors(ns=5)
@@ -156,9 +159,10 @@ class TestSingleFactors:
         assert result.breakdown["e50"] == -8
 
     def test_ema20_too_close(self):
+        """V3.1.1: e20<15 is -3 (was -6)."""
         r = make_factors(e20d=10)
         result = scorer._compute_score(r)
-        assert result.breakdown["e20"] == -6
+        assert result.breakdown["e20"] == -3
 
     def test_z_score_neutral_trap(self):
         r = make_factors(zs=0.3)
@@ -321,7 +325,8 @@ class TestTierClassification:
         assert result.tier == "REJECT"
 
     def test_blocked_tier(self):
-        r = make_factors(rsi=50)
+        """STR_UP is still a hard block."""
+        r = make_factors(bbs="STR_UP")
         result = scorer._compute_score(r)
         assert result.tier == "BLOCKED"
         assert result.score == 0

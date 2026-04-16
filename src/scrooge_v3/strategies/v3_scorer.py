@@ -40,22 +40,27 @@ class ScorerResult:
 
 
 # Session-aware thresholds — 5 sessions instead of 3
+# Session thresholds recalibrated 2026-04-16.
+# Loser max base score = +3 on 50-trade dataset.
+# Old floors (36-46) were 33+ pts above highest loser — mis-scaled.
+# New floors lowered by 6, still 27+ pts above loser max.
 _SESSION_RULES = {
     # session: (base_floor, final_min_b, final_min_a, pair_cap)
-    "asia_london_open": (36, 50, 60, 16),   # 0-7 UTC
-    "london":           (38, 50, 60, 12),   # 8-11 UTC
-    "ny_active":        (36, 48, 56, 12),   # 12-17 UTC
-    "late_ny":          (40, 50, 60, 10),   # 18-19 UTC
-    "dead_late":        (46, 58, 68, 8),    # 20-23 UTC
+    "asia_london_open": (30, 44, 54, 16),   # 0-7 UTC
+    "london":           (32, 44, 54, 12),   # 8-11 UTC
+    "ny_active":        (30, 42, 50, 12),   # 12-17 UTC
+    "late_ny":          (34, 44, 54, 10),   # 18-19 UTC
+    "dead_late":        (40, 52, 62, 8),    # 20-23 UTC
 }
 
 # Trend-family session rules — slightly more permissive
+# Trend family thresholds (also lowered by 6)
 _SESSION_RULES_TREND = {
-    "asia_london_open": (34, 48, 58, 16),
-    "london":           (36, 48, 58, 12),
-    "ny_active":        (34, 46, 54, 12),
-    "late_ny":          (38, 48, 58, 10),
-    "dead_late":        (44, 56, 66, 8),
+    "asia_london_open": (28, 42, 52, 16),
+    "london":           (30, 42, 52, 12),
+    "ny_active":        (28, 40, 48, 12),
+    "late_ny":          (32, 42, 52, 10),
+    "dead_late":        (38, 50, 60, 8),
 }
 
 # Correlated-negative caps — prevent triple-dipping
@@ -230,8 +235,8 @@ class V3HybridScorer:
         bd: dict[str, int] = {}
 
         # === LAYER 0: HARD BLOCKS ===
-        if 45 <= r["rsi"] <= 55:
-            blocks.append("RSI_NEUT")
+        # RSI_NEUT moved to soft penalty (was hard block)
+        # Backtest: 6 winners were hard-blocked by RSI 45-55, including $17.48 winner
         if r["bbs"] == "STR_UP":
             blocks.append("STR_UP")
         if r["dur"] >= 720:
@@ -258,12 +263,12 @@ class V3HybridScorer:
         else: p = -7
         s += p; bd["hr"] = p
 
-        # Box age — decompressed, stale less crushing
+        # Box age (18-24h softened from -7 to -4, backtest-justified)
         a = r["bage"]
         if a < 8: p = 9
         elif a < 12: p = 5
         elif a < 18: p = 0
-        elif a < 24: p = -7
+        elif a < 24: p = -4
         else: p = -4
         s += p; bd["age"] = p
 
@@ -325,9 +330,10 @@ class V3HybridScorer:
         s += p; bd["e50"] = p
 
         # EMA20 distance — keep strong
+        # EMA20 distance (e20<15 softened from -6 to -3, backtest-justified)
         if 15 <= r["e20d"] <= 30: p = 4
         elif r["e20d"] >= 30: p = 1
-        elif r["e20d"] < 15: p = -6
+        elif r["e20d"] < 15: p = -3
         else: p = 0
         s += p; bd["e20"] = p
 
@@ -379,11 +385,12 @@ class V3HybridScorer:
         else: p = 0
         s += p; bd["bbs"] = p
 
-        # RSI
+        # RSI (neutral zone is now soft penalty, not hard block)
         rsi = r["rsi"]
         if rsi < 30: p = 5
         elif 30 <= rsi < 45: p = 2
-        elif 55 <= rsi < 70: p = -3
+        elif 45 <= rsi <= 55: p = -5  # Was hard block, now soft penalty
+        elif 55 < rsi < 70: p = -3
         elif rsi >= 70: p = -4
         else: p = 0
         s += p; bd["rsi"] = p
