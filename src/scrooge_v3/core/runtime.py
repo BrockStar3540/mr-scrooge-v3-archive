@@ -83,6 +83,12 @@ class Runtime:
             for h in self._pre_boot_event_bus._global_handlers:
                 self.ctx.event_bus.subscribe_all(h)
 
+        # Create services
+        from scrooge_v3.services.config_watcher import ConfigWatcher
+        from scrooge_v3.services.state_recovery import StateRecovery
+        self.config_watcher = ConfigWatcher(self.ctx)
+        self.recovery = StateRecovery(self.ctx)
+
         log.info("[RUNTIME] Boot complete")
         return True
 
@@ -149,15 +155,7 @@ class Runtime:
             return
 
         # --- Vanished trade detection ---
-        current_trades = ctx.broker.get_open_trades()
-        current_ids = {t.trade_id for t in current_trades}
-        vanished = ctx.known_trade_ids - current_ids
-        if vanished:
-            for tid in vanished:
-                log.warning("[RUNTIME] Trade vanished (closed externally): %s", tid)
-                ctx.state.decrement_positions()
-        ctx.known_trade_ids = current_ids
-        ctx.state.position_count = len(current_trades)
+        self.recovery.detect_vanished_trades()
 
         # Get active pairs
         from scrooge_v3.market.screener import get_session_pairs
@@ -214,7 +212,7 @@ class Runtime:
                 self._try_entry(best)
 
         # --- Reconcile pending orders ---
-        self._reconcile_pending_orders()
+        self.recovery.reconcile_pending_orders()
 
         # --- Manage open positions ---
         self._manage_positions()
@@ -313,7 +311,7 @@ class Runtime:
             ctx.state.record_zone_entry(best.symbol, f"{validated_sl:.5f}")
             log.info("[RUNTIME] LIMIT FILLED IMMEDIATELY: %s %s %d units @ %.5f",
                      result.trade_id, best.symbol, signed_units, result.fill_price)
-            self._place_harvest_limit(ctx.tracker.get(result.trade_id))
+            self.recovery._place_harvest_limit(ctx.tracker.get(result.trade_id))
         elif result.success and result.order_id:
             ctx.tracker.register_pending_entry(best.symbol, result.order_id)
             ctx.pending_entry_meta[best.symbol] = {
@@ -341,17 +339,7 @@ class Runtime:
         from scrooge_v3.execution.stop_planner import StopPlanner
         from scrooge_v3.telemetry.execution_audit import AuditEvent
 
-        open_trades = ctx.broker.get_open_trades()
-        broker_ids = {t.trade_id for t in open_trades}
-        vanished = ctx.tracker.reconcile_with_broker(broker_ids)
-        for tid in vanished:
-            tracked = ctx.tracker.get(tid)
-            if tracked and tracked.harvest_order_id:
-                ctx.broker.cancel_order(tracked.harvest_order_id)
-                log.info("[RUNTIME] Cancelled harvest limit %s for vanished trade %s",
-                         tracked.harvest_order_id, tid)
-            ctx.state.decrement_positions()
-        ctx.state.position_count = len(open_trades)
+        open_trades = self.recovery.reconcile_tracker()
 
         sp = StopPlanner(self.config.section("execution"))
         audit = ctx.execution_audit
@@ -474,8 +462,7 @@ class Runtime:
                                     result.realized_pl, details.get("reason", ""))
                         _audit("emergency_close", details.get("reason", "unknown"), **audit_base)
 
-    # ------------------------------------------------------------------
-    # Pending order reconciliation
+
     # ------------------------------------------------------------------
 
     def _reconcile_pending_orders(self) -> None:
@@ -538,8 +525,7 @@ class Runtime:
                 log.info("[RUNTIME] HARVEST LIMIT CANCELLED: %s order=%s",
                          tracked.trade_id, tracked.harvest_order_id)
 
-    # ------------------------------------------------------------------
-    # Harvest limit placement
+
     # ------------------------------------------------------------------
 
     def _place_harvest_limit(self, tracked) -> None:
@@ -595,26 +581,9 @@ class Runtime:
         self.shutdown()
 
     def _handle_config_change(self, change: dict) -> None:
-        """Handle config hot-reload changes."""
-        from .events import CONFIG_CHANGED, Event
-        path = change.get("path", "")
-        new_val = change.get("new")
-
-        parts = path.split(".")
-        if len(parts) >= 3 and parts[2] == "mode":
-            category = parts[0]
-            module_name = parts[1]
-            new_mode = str(new_val)
-            log.info("[RUNTIME] Config change: %s.%s mode → %s", category, module_name, new_mode)
-            if self.ctx:
-                self.ctx.registry.set_mode(category, module_name, new_mode)
-
-        if path == "runtime.scan_interval_seconds" and isinstance(new_val, (int, float)) and self.ctx:
-            self.ctx.scan_interval = int(new_val)
-            log.info("[RUNTIME] Scan interval changed to %ds", self.ctx.scan_interval)
-
-        if self.ctx:
-            self.ctx.event_bus.emit(Event(type=CONFIG_CHANGED, payload=change))
+        """Delegate config changes to ConfigWatcher service."""
+        if hasattr(self, 'config_watcher'):
+            self.config_watcher.handle_change(change)
 
     def _interruptible_sleep(self, seconds: float) -> None:
         """Sleep that can be interrupted by shutdown."""
