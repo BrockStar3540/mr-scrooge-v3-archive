@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from scrooge_v3.core.types import SymbolContext, TradeCandidate
+from scrooge_v3.core.types import SymbolContext, TradeCandidate, TradeDirection
 
 log = logging.getLogger("scrooge_v3.strategies.v3_scorer")
 
@@ -132,7 +132,7 @@ class V3HybridScorer:
         ns = risk_points / pip if pip > 0 else 0.0
 
         # Momentum and directional candles from 5m bars
-        mom, dc, bp = self._candle_features(ctx)
+        mom, dc, bp = self._candle_features(ctx, candidate.direction)
 
         # Duration not known at entry — set to midpoint (scoring exits only)
         dur = 60.0
@@ -157,8 +157,13 @@ class V3HybridScorer:
             "rsi": rsi,
         }
 
-    def _candle_features(self, ctx: SymbolContext) -> tuple[float, float, float]:
-        """Extract momentum candles, directional candles, and body% from 5m bars."""
+    def _candle_features(self, ctx: SymbolContext, direction: TradeDirection = TradeDirection.LONG) -> tuple[float, float, float]:
+        """Extract momentum candles, directional candles, and body% from 5m bars.
+
+        dc_count is trade-direction-relative:
+          - LONG: counts bullish (green) candles as aligned
+          - SHORT: counts bearish (red) candles as aligned
+        """
         bars = ctx.snapshot.candles.get("5M") if ctx.snapshot.candles else None
         if bars is None or len(bars) < 6:
             return 0.0, 0.0, 0.3
@@ -176,9 +181,13 @@ class V3HybridScorer:
             body = abs(closes[i] - opens[i])
             if candle_range > 0 and body / candle_range > 0.6:
                 mom_count += 1
-            # Directional: same direction as trade
-            if closes[i] > opens[i]:
-                dc_count += 1  # green candle
+            # Directional: count candles aligned with trade direction
+            if direction == TradeDirection.LONG:
+                if closes[i] > opens[i]:
+                    dc_count += 1
+            else:
+                if closes[i] < opens[i]:
+                    dc_count += 1
 
         # Body % of entry candle
         entry_range = highs[-1] - lows[-1]
