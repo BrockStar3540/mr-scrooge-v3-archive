@@ -22,10 +22,12 @@
 <nav class="tab-bar">
   <button class="tab active" data-tab="signals">Signals</button>
   <button class="tab" data-tab="execution">Execution</button>
+  <button class="tab" data-tab="dbb">DBB Trend</button>
 </nav>
 
 <section id="signals-grid" class="signals-grid"></section>
 <section id="execution-panel" class="execution-panel" style="display:none"></section>
+<section id="dbb-panel" class="execution-panel" style="display:none"></section>
 
 <footer>Mr. Scrooge V3 &mdash; Plug-in Trading Platform</footer>
 
@@ -63,6 +65,7 @@ function render(d) {
   renderInfo(d);
   renderSignals(d.signals || []);
   renderExecution(d.execution || {});
+  renderDBB(d.dbb || {});
 }
 
 function renderHeader(d) {
@@ -222,6 +225,73 @@ function renderPairCard(sig) {
   </div>`;
 }
 
+function renderDBB(dbb) {
+  const el = document.getElementById('dbb-panel');
+  const s = dbb.summary || {};
+  const candidates = dbb.candidates || [];
+  if (!s.total && !candidates.length) {
+    el.innerHTML = '<div class="empty">No DBB candidates yet — collecting data</div>';
+    return;
+  }
+
+  let html = '<div class="ex-health">';
+  html += `<div class="ex-hl"><div class="hl-dot ${s.approved > 0 ? 'hl-green' : 'hl-yellow'}"></div><div class="hl-info"><span class="hl-title">APPROVED</span><span class="hl-val">${s.approved || 0}</span></div></div>`;
+  html += `<div class="ex-hl"><div class="hl-dot hl-yellow"></div><div class="hl-info"><span class="hl-title">REJECTED</span><span class="hl-val">${s.rejected || 0}</span></div></div>`;
+  html += `<div class="ex-hl"><div class="hl-dot hl-red"></div><div class="hl-info"><span class="hl-title">BLOCKED</span><span class="hl-val">${s.blocked || 0}</span></div></div>`;
+  html += '</div>';
+
+  html += '<div class="ex-metrics">';
+  html += `<div class="m"><label>TOTAL</label><span class="v">${s.total || 0}</span></div>`;
+  html += `<div class="m"><label>BREAKOUTS</label><span class="v">${s.breakouts || 0}</span></div>`;
+  html += `<div class="m"><label>PULLBACKS</label><span class="v">${s.pullbacks || 0}</span></div>`;
+  html += `<div class="m"><label>AVG BASE</label><span class="v">${s.avg_base_score || 0}</span></div>`;
+  html += `<div class="m"><label>AVG FINAL</label><span class="v">${s.avg_final_score || 0}</span></div>`;
+  html += '</div>';
+
+  // Session breakdown
+  const sess = s.by_session || {};
+  const sessKeys = Object.keys(sess);
+  if (sessKeys.length) {
+    html += '<div class="ex-block-reasons"><h3>BY SESSION</h3><div class="br-grid">';
+    for (const k of sessKeys) html += `<div class="br-row"><span class="br-name">${k}</span><span class="br-count">${sess[k]}</span></div>`;
+    html += '</div></div>';
+  }
+
+  // Age breakdown
+  const age = s.by_age || {};
+  const ageKeys = Object.keys(age);
+  if (ageKeys.length) {
+    html += '<div class="ex-block-reasons"><h3>BY BOX AGE</h3><div class="br-grid">';
+    for (const k of ageKeys) html += `<div class="br-row"><span class="br-name">${k}</span><span class="br-count">${age[k]}</span></div>`;
+    html += '</div></div>';
+  }
+
+  // Candidate table
+  html += '<div class="ex-timeline"><h3>DBB CANDIDATES</h3><div class="tl-scroll"><table style="width:100%;font-size:11px;border-collapse:collapse">';
+  html += '<tr style="color:#556"><th>Time</th><th>Pair</th><th>Dir</th><th>Mode</th><th>BB</th><th>Base</th><th>Final</th><th>Tier</th><th>R:R</th><th>Session</th></tr>';
+
+  const reversed = [...candidates].reverse();
+  for (const c of reversed) {
+    const ts = c.timestamp ? new Date(c.timestamp * 1000).toLocaleTimeString() : '';
+    const tierCls = c.tier === 'A' || c.tier === 'B' ? 'pos' : c.tier === 'BLOCKED' ? 'neg' : '';
+    html += `<tr style="border-bottom:1px solid #1a2030">`;
+    html += `<td style="color:#556;font-family:monospace">${ts}</td>`;
+    html += `<td style="color:#aab;font-weight:600">${(c.symbol||'').replace('_','/')}</td>`;
+    html += `<td>${c.direction||''}</td>`;
+    html += `<td>${(c.entry_type||'').replace('DBB_','')}</td>`;
+    html += `<td style="font-size:10px">${c.bb_state||''}</td>`;
+    html += `<td>${c.base_score||0}</td>`;
+    html += `<td>${c.final_score||0}</td>`;
+    html += `<td class="${tierCls}">${c.tier||''}</td>`;
+    html += `<td>${c.rr||0}</td>`;
+    html += `<td style="font-size:10px">${c.session||''}</td>`;
+    html += `</tr>`;
+  }
+  html += '</table></div></div>';
+
+  el.innerHTML = html;
+}
+
 function renderExecution(ex) {
   const el = document.getElementById('execution-panel');
   const s = ex.summary || {};
@@ -309,6 +379,7 @@ document.querySelector('.tab-bar').addEventListener('click', e => {
     const tab = e.target.dataset.tab;
     document.getElementById('signals-grid').style.display = tab === 'signals' ? '' : 'none';
     document.getElementById('execution-panel').style.display = tab === 'execution' ? '' : 'none';
+    document.getElementById('dbb-panel').style.display = tab === 'dbb' ? '' : 'none';
   }
 });
 

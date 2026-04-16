@@ -161,10 +161,26 @@ class Runtime:
         from scrooge_v3.management.emergency_close import EmergencyCloseManager
         from scrooge_v3.execution.stop_planner import StopPlanner
         from scrooge_v3.telemetry.execution_audit import ExecutionAudit
+        from scrooge_v3.telemetry.dbb_candidate_audit import DBBCandidateAudit
 
         mgmt_cfg = self.config.section("management") if self.config.get("management") else {}
         exit_cfg = mgmt_cfg.get("exit_manager", {})
         self.execution_audit = ExecutionAudit(filepath="data/execution-audit.jsonl")
+        self.dbb_audit = DBBCandidateAudit(filepath="data/dbb-candidate-audit.jsonl")
+
+        # Subscribe to DBB candidate events for audit
+        def _on_dbb_scored(event):
+            from datetime import datetime, timezone
+            p = event.payload
+            h = datetime.now(timezone.utc).hour
+            if h >= 20: session = 'dead_late'
+            elif h >= 18: session = 'late_ny'
+            elif h >= 12: session = 'ny_active'
+            elif h >= 8: session = 'london'
+            else: session = 'asia_london_open'
+            p['session'] = session
+            self.dbb_audit.record(p)
+        self.event_bus.subscribe('DBBCandidateScored', _on_dbb_scored)
         self.position_pipeline = PositionPipeline(
             trail_manager=TrailManager(mgmt_cfg.get("trail", {})),
             ratchet_manager=RatchetManager(mgmt_cfg.get("ratchet", {})),
@@ -659,6 +675,14 @@ class Runtime:
             self.live_state.update(
                 execution_summary=audit.summary(),
                 execution_events=audit.recent_events(50),
+            )
+
+        # --- Push DBB candidate audit to dashboard ---
+        dbb = getattr(self, 'dbb_audit', None)
+        if dbb and self.live_state:
+            self.live_state.update(
+                dbb_summary=dbb.summary(),
+                dbb_candidates=dbb.recent(30),
             )
 
         # --- Daily P&L check ---

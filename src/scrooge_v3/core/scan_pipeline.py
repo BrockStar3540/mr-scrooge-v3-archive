@@ -192,6 +192,24 @@ class ScanPipeline:
                 candidate.metadata["v3_breakdown"] = result.breakdown
                 candidate.metadata["v3_pairs"] = result.pairs_total
                 scored.append(candidate)
+
+                # DBB candidate audit — log every dbb_trend candidate for calibration
+                if candidate.strategy == "dbb_trend":
+                    self._emit(
+                        "DBBCandidateScored",
+                        symbol=symbol,
+                        strategy=candidate.strategy,
+                        direction=candidate.direction.value if hasattr(candidate.direction, 'value') else str(candidate.direction),
+                        entry_type=candidate.metadata.get("entry_type", ""),
+                        bb_state=candidate.metadata.get("bb_state", ""),
+                        base_score=result.base_score,
+                        final_score=result.score,
+                        tier=result.tier,
+                        breakout_level=candidate.metadata.get("breakout_level", 0),
+                        pullback_depth_pct=candidate.metadata.get("pullback_depth_pct", 0),
+                        rr=round(candidate.risk_reward, 2),
+                        management_profile=candidate.metadata.get("management_profile", ""),
+                    )
             approved = scored
 
         if not approved:

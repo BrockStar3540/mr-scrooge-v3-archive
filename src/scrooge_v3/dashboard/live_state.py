@@ -103,6 +103,10 @@ class LiveState:
     execution_summary: dict[str, Any] = field(default_factory=dict)
     execution_events: list[dict[str, Any]] = field(default_factory=list)
 
+    # DBB candidate audit
+    dbb_summary: dict[str, Any] = field(default_factory=dict)
+    dbb_candidates: list[dict[str, Any]] = field(default_factory=list)
+
     def update(self, **kwargs: Any) -> None:
         """Thread-safe update of multiple fields."""
         with self._lock:
@@ -158,6 +162,10 @@ class LiveState:
                 "execution": {
                     "summary": self.execution_summary,
                     "events": self.execution_events[-50:],
+                },
+                "dbb": {
+                    "summary": self.dbb_summary,
+                    "candidates": self.dbb_candidates[-30:],
                 },
             }
 
