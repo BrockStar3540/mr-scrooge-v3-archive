@@ -17,6 +17,7 @@ from .broker import (
     AccountInfo,
     InstrumentInfo,
     OrderResult,
+    PendingOrderInfo,
     PriceQuote,
     TradeInfo,
 )
@@ -39,6 +40,7 @@ class DryRunAdapter:
         self._virtual_trades: dict[str, TradeInfo] = {}
         self._next_trade_id = 1
         self._realized_pl_today = 0.0
+        self._pending_orders: dict[str, dict] = {}
 
     # --- Delegate market data to OANDA ---
 
@@ -149,6 +151,58 @@ class DryRunAdapter:
 
         log.info("[DRY_RUN] CLOSED %s @ %.5f (%.1f pips)", trade_id, exit_price, pl_pips)
         return OrderResult(success=True, trade_id=trade_id, fill_price=exit_price, realized_pl=pl_pips)
+
+    def place_limit_order(
+        self,
+        symbol: str,
+        units: int,
+        price: float,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+        gtd_time: str | None = None,
+        position_fill: str = "DEFAULT",
+    ) -> OrderResult:
+        quote = self._oanda.get_price(symbol)
+        if not quote:
+            return OrderResult(success=False, error="No price available")
+
+        # Check if limit would fill immediately (at-or-better)
+        if units > 0 and quote.ask <= price:
+            # Buy limit at or above ask = immediate fill
+            return self.place_market_order(symbol, units, stop_loss, take_profit)
+        if units < 0 and quote.bid >= price:
+            # Sell limit at or below bid = immediate fill
+            return self.place_market_order(symbol, units, stop_loss, take_profit)
+
+        # Pending — store for later
+        order_id = f"DRY-ORD-{self._next_trade_id}"
+        self._next_trade_id += 1
+        self._pending_orders[order_id] = {
+            "symbol": symbol, "units": units, "price": price,
+            "stop_loss": stop_loss, "take_profit": take_profit,
+            "gtd_time": gtd_time, "position_fill": position_fill,
+        }
+        log.info("[DRY_RUN] LIMIT ORDER PLACED %s %s %d units @ %.5f",
+                 order_id, symbol, units, price)
+        return OrderResult(success=True, order_id=order_id)
+
+    def get_pending_orders(self, symbol: str | None = None) -> list[PendingOrderInfo]:
+        orders = []
+        for oid, o in list(self._pending_orders.items()):
+            if symbol and o["symbol"] != symbol:
+                continue
+            orders.append(PendingOrderInfo(
+                order_id=oid, symbol=o["symbol"], order_type="LIMIT",
+                units=abs(o["units"]), price=o["price"], state="PENDING",
+            ))
+        return orders
+
+    def cancel_order(self, order_id: str) -> bool:
+        if order_id in self._pending_orders:
+            del self._pending_orders[order_id]
+            log.info("[DRY_RUN] Cancelled order %s", order_id)
+            return True
+        return False
 
     # --- Transactions ---
 

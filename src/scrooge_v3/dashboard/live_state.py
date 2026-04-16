@@ -95,6 +95,9 @@ class LiveState:
 
     # Daily loss
     daily_loss_exceeded: bool = False
+    spread_skips: int = 0
+    pending_limit_orders: int = 0
+    last_spread_skip: str = ""
 
     # Execution audit (populated by runtime from ExecutionAudit)
     execution_summary: dict[str, Any] = field(default_factory=dict)
@@ -126,6 +129,9 @@ class LiveState:
                     "margin_used_pct": round(self.margin_used_pct, 1),
                     "position_count": self.position_count,
                     "daily_loss_exceeded": self.daily_loss_exceeded,
+                    "spread_skips": self.spread_skips,
+                    "pending_limit_orders": self.pending_limit_orders,
+                    "last_spread_skip": self.last_spread_skip,
                 },
                 "scan": {
                     "pairs_scanned": self.pairs_scanned,

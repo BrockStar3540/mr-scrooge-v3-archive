@@ -176,6 +176,13 @@ class Runtime:
         )
         log.info("[RUNTIME] Position pipeline initialized (trail, ratchet, BE, harvest, emergency, exit_manager)")
 
+        # Pending entry metadata (stored in memory for fill reconciliation)
+        self._pending_entry_meta: dict[str, dict] = {}
+
+        # --- Spread monitor (rolling mean for hostile spread detection) ---
+        from scrooge_v3.market.spread_monitor import SpreadMonitor
+        self.spread_monitor = SpreadMonitor()
+
         # --- Position tracker (per-trade state across cycles) ---
         from pathlib import Path as _Path
         from scrooge_v3.execution.position_tracker import PositionTracker
@@ -353,15 +360,36 @@ class Runtime:
                 mid=quote.mid, spread=quote.spread,
                 timestamp=quote.timestamp or now, candles=candles,
             )
+            self.spread_monitor.record(symbol, quote.spread)
 
         # Run scan pipeline — returns candidates + full per-pair reports
         candidates, reports = self.scan_pipeline.scan_universe(pairs, snapshots)
 
         # Fire best candidate if not at max positions
+        # Filter out symbols we already have a position in or pending entry for
+        held_symbols = {pos.symbol for pos in self.tracker.all_positions()}
+        pending_symbols = set(self.tracker.all_pending_entries().keys())
+        candidates = [c for c in candidates if c.symbol not in held_symbols and c.symbol not in pending_symbols]
+
         if candidates and self.state.position_count < self.state.max_positions:
             best = candidates[0]
             log.info("[RUNTIME] Best candidate: %s %s score=%.0f",
                      best.symbol, best.strategy, best.score)
+
+            # --- Spread quality gate: skip entry if spread is elevated ---
+            spread_stats = self.spread_monitor.get_stats(best.symbol)
+            if spread_stats["mean"] > 0:
+                spread_ratio = spread_stats["current"] / spread_stats["mean"]
+                if spread_ratio > 1.5:
+                    log.warning("[RUNTIME] ENTRY SKIPPED: %s spread elevated (%.1fx mean: "
+                                "current=%.5f mean=%.5f) — waiting for tighter spread",
+                                best.symbol, spread_ratio,
+                                spread_stats["current"], spread_stats["mean"])
+                    self.live_state.update(
+                        spread_skips=self.live_state.spread_skips + 1,
+                        last_spread_skip=f"{best.symbol} ({spread_ratio:.1f}x)",
+                    )
+                    candidates = []  # clear so we don't try the next candidate either
 
             from scrooge_v3.execution.sizing import SizingCalculator
             from scrooge_v3.execution.stop_planner import StopPlanner
@@ -388,7 +416,7 @@ class Runtime:
                     # Check if trailing is safe (spread kill switch)
                     trail_ok, trail_reason = stop_planner.should_trail(
                         best.direction, best.stop_price, validated_sl,
-                        quote.spread, quote.spread,  # mean_spread = current (first cycle)
+                        quote.spread, self.spread_monitor.get_stats(best.symbol).get('mean', quote.spread),
                     )
                     if not trail_ok and "hostile_spread" in trail_reason:
                         log.warning("[RUNTIME] ENTRY SKIPPED: %s spread kill — %s",
@@ -396,16 +424,28 @@ class Runtime:
                     else:
                         # Sign units: positive for LONG, negative for SHORT
                         signed_units = units if best.direction.value == "long" else -units
-                        log.info("[RUNTIME] Placing order: %s %s %d units SL=%.5f TP=%.5f",
-                                 best.symbol, best.direction.value, signed_units,
-                                 validated_sl, best.take_profit or 0)
-                        result = self.broker.place_market_order(
-                            symbol=best.symbol, units=signed_units,
-                            stop_loss=validated_sl, take_profit=best.take_profit,
+
+                        # Compute limit price: bid for longs (maker), ask for shorts (maker)
+                        limit_price = quote.bid if best.direction.value == "long" else quote.ask
+
+                        # GTD: expire after one cycle
+                        from datetime import timedelta
+                        gtd_time = (datetime.now(timezone.utc) + timedelta(minutes=5)).strftime(
+                            "%Y-%m-%dT%H:%M:%S.000000000Z"
                         )
-                        if result.success:
+
+                        log.info("[RUNTIME] Placing LIMIT order: %s %s %d units @ %.5f SL=%.5f TP=%.5f GTD=%s",
+                                 best.symbol, best.direction.value, signed_units,
+                                 limit_price, validated_sl, best.take_profit or 0, gtd_time)
+                        result = self.broker.place_limit_order(
+                            symbol=best.symbol, units=signed_units,
+                            price=limit_price,
+                            stop_loss=validated_sl, take_profit=best.take_profit,
+                            gtd_time=gtd_time,
+                        )
+                        if result.success and result.trade_id:
+                            # Immediate fill (limit at-or-better than market)
                             self.state.position_count += 1
-                            # Register with tracker for management
                             self.tracker.register_entry(
                                 trade_id=result.trade_id,
                                 symbol=best.symbol,
@@ -420,15 +460,34 @@ class Runtime:
                                 v3_score=int(best.score),
                                 metadata=best.metadata,
                             )
-                            # Record zone entry for debounce/cap
                             self.state.record_zone_entry(best.symbol, f"{validated_sl:.5f}")
-                            log.info("[RUNTIME] ORDER FILLED: %s %s %d units @ %.5f",
+                            log.info("[RUNTIME] LIMIT FILLED IMMEDIATELY: %s %s %d units @ %.5f",
                                      result.trade_id, best.symbol, signed_units, result.fill_price)
+                            # Place harvest limit at TP1
+                            self._place_harvest_limit(self.tracker.get(result.trade_id))
+                        elif result.success and result.order_id:
+                            # Pending — limit order placed, waiting for fill
+                            self.tracker.register_pending_entry(best.symbol, result.order_id)
+                            # Store entry metadata for when the fill comes
+                            self._pending_entry_meta[best.symbol] = {
+                                "direction": best.direction.value,
+                                "stop_loss": validated_sl,
+                                "take_profit": best.take_profit or 0,
+                                "tp1_price": best.metadata.get("tp1", 0),
+                                "strategy": best.strategy,
+                                "v3_score": int(best.score),
+                                "metadata": best.metadata,
+                            }
+                            log.info("[RUNTIME] LIMIT ENTRY PLACED: %s %s order=%s @ %.5f",
+                                     best.symbol, best.direction.value, result.order_id, limit_price)
                         else:
-                            log.error("[RUNTIME] ORDER FAILED: %s %s error=%s",
+                            log.error("[RUNTIME] LIMIT ORDER FAILED: %s %s error=%s",
                                       best.symbol, best.direction.value, result.error)
                 else:
                     log.error("[RUNTIME] Cannot get price for %s — skipping entry", best.symbol)
+
+        # --- Reconcile pending orders ---
+        self._reconcile_pending_orders()
 
         # --- Manage open positions ---
         # Reconcile tracker with broker (detect vanished trades)
@@ -436,6 +495,12 @@ class Runtime:
         broker_ids = {t.trade_id for t in open_trades}
         vanished = self.tracker.reconcile_with_broker(broker_ids)
         for tid in vanished:
+            # Cancel orphaned harvest limits for vanished trades
+            tracked = self.tracker.get(tid)
+            if tracked and tracked.harvest_order_id:
+                self.broker.cancel_order(tracked.harvest_order_id)
+                log.info("[RUNTIME] Cancelled harvest limit %s for vanished trade %s",
+                         tracked.harvest_order_id, tid)
             self.state.decrement_positions()
         self.state.position_count = len(open_trades)
 
@@ -466,7 +531,7 @@ class Runtime:
                 bid=quote.bid,
                 ask=quote.ask,
                 spread=quote.spread,
-                mean_spread=quote.spread,
+                mean_spread=self.spread_monitor.get_stats(tracked.symbol).get('mean', quote.spread),
                 hourly_bars=h1,
                 pip_size=pip,
             )
@@ -625,6 +690,11 @@ class Runtime:
                 daily_loss_exceeded=self.state.is_daily_loss_exceeded(),
             )
 
+        # Update pending orders count for dashboard
+        self.live_state.update(
+            pending_limit_orders=len(self.tracker.all_pending_entries()) + len(self.tracker.get_positions_with_harvest_orders()),
+        )
+
         log.debug("[RUNTIME] Cycle %d complete — positions=%d, candidates=%d",
                   self.state.cycle_count, self.state.position_count, len(candidates))
 
@@ -672,3 +742,111 @@ class Runtime:
         end = time.monotonic() + seconds
         while time.monotonic() < end and not self._shutdown_requested:
             time.sleep(min(1.0, end - time.monotonic()))
+
+    def _reconcile_pending_orders(self) -> None:
+        """Reconcile pending entry and harvest limit orders with OANDA."""
+        pending_on_broker = {o.order_id for o in self.broker.get_pending_orders()}
+
+        # Check pending entries
+        for symbol, order_id in list(self.tracker.all_pending_entries().items()):
+            if order_id in pending_on_broker:
+                continue  # Still pending, wait
+
+            # Order gone — check if it filled (new trade appeared)
+            open_trades = self.broker.get_open_trades()
+            new_trade = None
+            for t in open_trades:
+                if t.symbol == symbol and not self.tracker.get(t.trade_id):
+                    new_trade = t
+                    break
+
+            if new_trade:
+                meta = self._pending_entry_meta.pop(symbol, {})
+                self.tracker.register_entry(
+                    trade_id=new_trade.trade_id,
+                    symbol=new_trade.symbol,
+                    direction=new_trade.direction,
+                    units=new_trade.units,
+                    entry_price=new_trade.entry_price,
+                    stop_price=new_trade.current_stop,
+                    tp_price=new_trade.current_tp,
+                    tp1_price=meta.get("tp1_price", 0),
+                    tp2_price=new_trade.current_tp,
+                    strategy=meta.get("strategy", "limit_fill"),
+                    v3_score=meta.get("v3_score", 0),
+                    metadata=meta.get("metadata", {}),
+                )
+                self.state.position_count += 1
+                self.state.record_zone_entry(symbol, f"{new_trade.current_stop:.5f}")
+                log.info("[RUNTIME] LIMIT ENTRY FILLED: %s %s @ %.5f (order %s)",
+                         new_trade.trade_id, symbol, new_trade.entry_price, order_id)
+                self.tracker.clear_pending_entry(symbol)
+                # Place harvest limit for the new trade
+                self._place_harvest_limit(self.tracker.get(new_trade.trade_id))
+            else:
+                # Order expired or was cancelled
+                self._pending_entry_meta.pop(symbol, None)
+                self.tracker.clear_pending_entry(symbol)
+                log.info("[RUNTIME] LIMIT ENTRY EXPIRED: %s order=%s", symbol, order_id)
+
+        # Check harvest orders
+        for tracked in self.tracker.get_positions_with_harvest_orders():
+            if tracked.harvest_order_id in pending_on_broker:
+                continue  # Still pending
+
+            # Harvest order gone — check if trade units decreased (filled)
+            broker_trade = next(
+                (t for t in self.broker.get_open_trades() if t.trade_id == tracked.trade_id),
+                None,
+            )
+            if broker_trade and broker_trade.units < tracked.units:
+                # Harvest filled — units decreased
+                self.tracker.mark_tp1_taken(tracked.trade_id)
+                self.tracker.clear_harvest_order(tracked.trade_id)
+                log.info("[RUNTIME] HARVEST LIMIT FILLED: %s units %.0f → %.0f",
+                         tracked.trade_id, tracked.units, broker_trade.units)
+            else:
+                # Harvest cancelled or expired without fill
+                self.tracker.clear_harvest_order(tracked.trade_id)
+                log.info("[RUNTIME] HARVEST LIMIT CANCELLED: %s order=%s",
+                         tracked.trade_id, tracked.harvest_order_id)
+
+    def _place_harvest_limit(self, tracked) -> None:
+        """Pre-place a REDUCE_ONLY limit order at TP1 for partial harvest."""
+        if not tracked or not tracked.tp1_price or tracked.tp1_taken:
+            return
+        if tracked.harvest_order_id:
+            return  # Already have one
+
+        harvest_units = int(tracked.units * 0.5)
+        if harvest_units <= 0:
+            return
+
+        # Opposite sign: sell to reduce long, buy to reduce short
+        if tracked.direction == "long":
+            signed_units = -harvest_units
+        else:
+            signed_units = harvest_units
+
+        result = self.broker.place_limit_order(
+            symbol=tracked.symbol,
+            units=signed_units,
+            price=tracked.tp1_price,
+            stop_loss=None,
+            take_profit=None,
+            gtd_time=None,  # GTC
+            position_fill="REDUCE_ONLY",
+        )
+
+        if result.success and result.order_id:
+            self.tracker.set_harvest_order(tracked.trade_id, result.order_id)
+            log.info("[RUNTIME] HARVEST LIMIT PLACED: %s order=%s @ %.5f (%d units)",
+                     tracked.trade_id, result.order_id, tracked.tp1_price, harvest_units)
+        elif result.success and result.trade_id:
+            # Immediate fill — TP1 already reached
+            self.tracker.mark_tp1_taken(tracked.trade_id)
+            log.info("[RUNTIME] HARVEST LIMIT FILLED IMMEDIATELY: %s @ %.5f",
+                     tracked.trade_id, tracked.tp1_price)
+        else:
+            log.warning("[RUNTIME] HARVEST LIMIT FAILED: %s error=%s",
+                        tracked.trade_id, result.error)

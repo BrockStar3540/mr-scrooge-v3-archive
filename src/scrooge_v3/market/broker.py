@@ -49,11 +49,24 @@ class PriceQuote:
 class OrderResult:
     success: bool
     trade_id: str = ""
+    order_id: str = ""  # for pending limit orders
     fill_price: float = 0.0
     units: float = 0.0
     realized_pl: float = 0.0
     error: str = ""
     raw: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class PendingOrderInfo:
+    order_id: str
+    symbol: str
+    order_type: str  # "LIMIT", "STOP", etc.
+    units: float
+    price: float
+    state: str  # "PENDING"
+    time_in_force: str = "GTC"
+    gtd_time: str = ""
 
 
 @dataclass
@@ -120,6 +133,21 @@ class BrokerAdapter(Protocol):
     def modify_take_profit(self, trade_id: str, new_tp: float) -> bool: ...
 
     def close_trade(self, trade_id: str, units: int | None = None) -> OrderResult: ...
+
+    def place_limit_order(
+        self,
+        symbol: str,
+        units: int,
+        price: float,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+        gtd_time: str | None = None,
+        position_fill: str = "DEFAULT",
+    ) -> OrderResult: ...
+
+    def get_pending_orders(self, symbol: str | None = None) -> list[PendingOrderInfo]: ...
+
+    def cancel_order(self, order_id: str) -> bool: ...
 
     # --- Transactions ---
 

@@ -36,6 +36,7 @@ class TrackedPosition:
     opened_at: str = ""
     strategy: str = ""
     v3_score: int = 0
+    harvest_order_id: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -127,7 +128,10 @@ class PositionTracker:
         if not self._persist_path:
             return
         self._persist_path.parent.mkdir(parents=True, exist_ok=True)
-        data = {tid: asdict(pos) for tid, pos in self._positions.items()}
+        data = {
+            "_positions": {tid: asdict(pos) for tid, pos in self._positions.items()},
+            "_pending_entries": self._pending_entries,
+        }
         with open(self._persist_path, "w") as f:
             json.dump(data, f, indent=2, default=str)
 
@@ -136,9 +140,52 @@ class PositionTracker:
             return 0
         with open(self._persist_path) as f:
             data = json.load(f)
-        for tid, d in data.items():
+        # Handle both old format (flat dict of positions) and new format
+        if "_positions" in data:
+            positions = data["_positions"]
+            self._pending_entries = data.get("_pending_entries", {})
+        else:
+            positions = data  # old format: entire dict is positions
+            self._pending_entries = {}
+        for tid, d in positions.items():
             self._positions[tid] = TrackedPosition(**{
                 k: v for k, v in d.items() if k in TrackedPosition.__dataclass_fields__
             })
-        log.info("[TRACKER] Restored %d positions from disk", len(self._positions))
+        log.info("[TRACKER] Restored %d positions, %d pending entries from disk",
+                 len(self._positions), len(self._pending_entries))
         return len(self._positions)
+
+    # --- Pending entries (limit orders waiting to fill) ---
+
+    _pending_entries: dict[str, str] = {}  # symbol -> order_id
+
+    def register_pending_entry(self, symbol: str, order_id: str) -> None:
+        self._pending_entries[symbol] = order_id
+        self.persist()
+
+    def get_pending_entry(self, symbol: str) -> str | None:
+        return self._pending_entries.get(symbol)
+
+    def clear_pending_entry(self, symbol: str) -> None:
+        self._pending_entries.pop(symbol, None)
+        self.persist()
+
+    def all_pending_entries(self) -> dict[str, str]:
+        return dict(self._pending_entries)
+
+    # --- Harvest limit orders ---
+
+    def set_harvest_order(self, trade_id: str, order_id: str) -> None:
+        pos = self._positions.get(trade_id)
+        if pos:
+            pos.harvest_order_id = order_id
+            self.persist()
+
+    def clear_harvest_order(self, trade_id: str) -> None:
+        pos = self._positions.get(trade_id)
+        if pos:
+            pos.harvest_order_id = ""
+            self.persist()
+
+    def get_positions_with_harvest_orders(self) -> list[TrackedPosition]:
+        return [p for p in self._positions.values() if p.harvest_order_id]

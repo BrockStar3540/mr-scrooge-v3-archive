@@ -86,7 +86,9 @@ function renderMetrics(d) {
     <div class="m"><label>SCANNED</label><span class="v">${s.pairs_scanned}</span></div>
     <div class="m"><label>VIABLE</label><span class="v">${s.pairs_viable}</span></div>
     <div class="m"><label>CYCLE</label><span class="v">${sys.cycle_count}</span></div>
-    <div class="m"><label>UPDATED</label><span class="v">${sys.last_update}</span></div>`;
+    <div class="m"><label>UPDATED</label><span class="v">${sys.last_update}</span></div>
+    ${a.spread_skips ? '<div class="m"><label>SPREAD SKIPS</label><span class="v neg">' + a.spread_skips + ' (' + (a.last_spread_skip||'') + ')</span></div>' : ''}
+    ${a.pending_limit_orders ? '<div class="m"><label>PENDING LIMITS</label><span class="v">' + a.pending_limit_orders + '</span></div>' : ''}`;
 }
 
 function renderInfo(d) {

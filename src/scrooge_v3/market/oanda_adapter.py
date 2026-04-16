@@ -26,6 +26,7 @@ from .broker import (
     BrokerAdapter,
     InstrumentInfo,
     OrderResult,
+    PendingOrderInfo,
     PriceQuote,
     TradeInfo,
 )
@@ -380,6 +381,101 @@ class OANDAAdapter:
                 raw=result,
             )
         return OrderResult(success=False, error="No fill transaction", raw=result)
+
+    def place_limit_order(
+        self,
+        symbol: str,
+        units: int,
+        price: float,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+        gtd_time: str | None = None,
+        position_fill: str = "DEFAULT",
+    ) -> OrderResult:
+        prec = 3 if "JPY" in symbol else 5
+        order: dict[str, Any] = {
+            "type": "LIMIT",
+            "instrument": symbol,
+            "units": str(units),
+            "price": f"{price:.{prec}f}",
+            "positionFill": position_fill,
+        }
+        if gtd_time:
+            order["timeInForce"] = "GTD"
+            order["gtdTime"] = gtd_time
+        else:
+            order["timeInForce"] = "GTC"
+
+        if stop_loss is not None:
+            order["stopLossOnFill"] = {
+                "price": f"{stop_loss:.{prec}f}",
+                "timeInForce": "GTC",
+            }
+        if take_profit is not None:
+            order["takeProfitOnFill"] = {
+                "price": f"{take_profit:.{prec}f}",
+                "timeInForce": "GTC",
+            }
+
+        result = self._post(f"/v3/accounts/{self.account_id}/orders", {"order": order})
+        if not result:
+            return OrderResult(success=False, error="API call failed")
+
+        # Check for immediate fill (limit at-or-better than market)
+        fill = result.get("orderFillTransaction")
+        if fill:
+            trade_id = fill.get("tradeOpened", {}).get("tradeID", "")
+            return OrderResult(
+                success=True,
+                trade_id=trade_id,
+                fill_price=float(fill.get("price", 0)),
+                units=abs(float(fill.get("units", 0))),
+                raw=result,
+            )
+
+        # Check for pending order creation
+        create = result.get("orderCreateTransaction")
+        if create:
+            return OrderResult(
+                success=True,
+                order_id=create.get("id", ""),
+                raw=result,
+            )
+
+        # Check for rejection/cancel
+        cancel = result.get("orderCancelTransaction", {})
+        reject = result.get("orderRejectTransaction", {})
+        error = cancel.get("reason", "") or reject.get("rejectReason", "unknown")
+        return OrderResult(success=False, error=error, raw=result)
+
+    def get_pending_orders(self, symbol: str | None = None) -> list[PendingOrderInfo]:
+        data = self._get(f"/v3/accounts/{self.account_id}/pendingOrders")
+        if not data:
+            return []
+        orders = []
+        for o in data.get("orders", []):
+            order_symbol = o.get("instrument", "")
+            if symbol and order_symbol != symbol:
+                continue
+            orders.append(PendingOrderInfo(
+                order_id=o.get("id", ""),
+                symbol=order_symbol,
+                order_type=o.get("type", ""),
+                units=abs(float(o.get("units", 0))),
+                price=float(o.get("price", 0)),
+                state=o.get("state", "PENDING"),
+                time_in_force=o.get("timeInForce", ""),
+                gtd_time=o.get("gtdTime", ""),
+            ))
+        return orders
+
+    def cancel_order(self, order_id: str) -> bool:
+        result = self._put(f"/v3/accounts/{self.account_id}/orders/{order_id}/cancel", {})
+        if result:
+            log.info("[OANDA] Cancelled order %s", order_id)
+            return True
+        log.warning("[OANDA] Failed to cancel order %s", order_id)
+        return False
 
     # ------------------------------------------------------------------
     # Transactions

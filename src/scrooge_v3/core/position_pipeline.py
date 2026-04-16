@@ -123,24 +123,28 @@ class PositionPipeline:
         # Build details dict with phase info for audit
         phase_info = {"phase": phase, "profit_r": round(profit_r, 3)}
 
-        # 1. Partial harvest (always checked — TP1 is structural, not phase-dependent)
+        # 1. Partial harvest (skip if harvest limit order is live on OANDA)
         if self.harvest:
-            tp1 = getattr(position, "tp1_price", None) or (position.metadata.get("tp1", 0) if hasattr(position, "metadata") else 0)
-            tp1_taken = getattr(position, "tp1_taken", False)
-            if tp1:
-                harvest_action = self.harvest.check_harvest(
-                    pos_id, direction, current_price, tp1, tp1_taken,
-                )
-                if harvest_action:
-                    return ManagementAction(
-                        position_id=pos_id,
-                        action="harvest",
-                        details={
-                            "fraction": harvest_action.close_fraction,
-                            "target": harvest_action.target_label,
-                            **phase_info,
-                        },
+            harvest_order_id = getattr(position, "harvest_order_id", "")
+            if harvest_order_id:
+                pass  # Harvest limit order is live on OANDA — skip reactive check
+            else:
+                tp1 = getattr(position, "tp1_price", None) or (position.metadata.get("tp1", 0) if hasattr(position, "metadata") else 0)
+                tp1_taken = getattr(position, "tp1_taken", False)
+                if tp1:
+                    harvest_action = self.harvest.check_harvest(
+                        pos_id, direction, current_price, tp1, tp1_taken,
                     )
+                    if harvest_action:
+                        return ManagementAction(
+                            position_id=pos_id,
+                            action="harvest",
+                            details={
+                                "fraction": harvest_action.close_fraction,
+                                "target": harvest_action.target_label,
+                                **phase_info,
+                            },
+                        )
 
         # 2. Break-even check (always runs — risk removal is never gated)
         if self.be:
