@@ -122,10 +122,10 @@ class PositionPipeline:
             effective_min_sl_step = 4.0    # Wider steps, less thrashing
         elif profile == "reversal_core":
             effective_early_hold_r = self.early_hold_r
-            effective_min_sl_step = effective_min_sl_step
+            effective_min_sl_step = self.min_sl_step_pips
         else:
             effective_early_hold_r = self.early_hold_r
-            effective_min_sl_step = effective_min_sl_step
+            effective_min_sl_step = self.min_sl_step_pips
 
         # Determine phase using profile-aware threshold
         if profit_r < effective_early_hold_r:
