@@ -12,7 +12,7 @@
   "risk": {
     "max_open_positions": 5,
     "max_daily_loss_pct": 3.0,
-    "margin_utilization": 0.8
+    "margin_utilization": 0.4
   },
   "features": {
     "atr": {
