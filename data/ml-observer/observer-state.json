@@ -1,0 +1,9 @@
+{
+  "phase": 1,
+  "total_observations": 2813,
+  "total_outcomes": 0,
+  "last_train_outcomes": 0,
+  "cv_accuracy": 0.0,
+  "last_cycle_count": 1444,
+  "known_trade_ids": []
+}
