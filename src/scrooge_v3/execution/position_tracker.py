@@ -131,6 +131,7 @@ class PositionTracker:
         data = {
             "_positions": {tid: asdict(pos) for tid, pos in self._positions.items()},
             "_pending_entries": self._pending_entries,
+            "_pending_entry_meta": self._pending_entry_meta,
         }
         with open(self._persist_path, "w") as f:
             json.dump(data, f, indent=2, default=str)
@@ -144,9 +145,11 @@ class PositionTracker:
         if "_positions" in data:
             positions = data["_positions"]
             self._pending_entries = data.get("_pending_entries", {})
+            self._pending_entry_meta = data.get("_pending_entry_meta", {})
         else:
             positions = data  # old format: entire dict is positions
             self._pending_entries = {}
+            self._pending_entry_meta = {}
         for tid, d in positions.items():
             self._positions[tid] = TrackedPosition(**{
                 k: v for k, v in d.items() if k in TrackedPosition.__dataclass_fields__
@@ -158,6 +161,7 @@ class PositionTracker:
     # --- Pending entries (limit orders waiting to fill) ---
 
     _pending_entries: dict[str, str] = {}  # symbol -> order_id
+    _pending_entry_meta: dict[str, dict] = {}  # symbol -> entry metadata
 
     def register_pending_entry(self, symbol: str, order_id: str) -> None:
         self._pending_entries[symbol] = order_id
@@ -168,10 +172,23 @@ class PositionTracker:
 
     def clear_pending_entry(self, symbol: str) -> None:
         self._pending_entries.pop(symbol, None)
+        self._pending_entry_meta.pop(symbol, None)
         self.persist()
 
     def all_pending_entries(self) -> dict[str, str]:
         return dict(self._pending_entries)
+
+    def set_pending_entry_meta(self, symbol: str, meta: dict) -> None:
+        """Store metadata for a pending entry (survives restart)."""
+        self._pending_entry_meta[symbol] = meta
+        self.persist()
+
+    def get_pending_entry_meta(self, symbol: str) -> dict:
+        """Get stored metadata for a pending entry."""
+        return self._pending_entry_meta.get(symbol, {})
+
+    def clear_pending_entry_meta(self, symbol: str) -> None:
+        self._pending_entry_meta.pop(symbol, None)
 
     # --- Harvest limit orders ---
 

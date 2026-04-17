@@ -71,7 +71,7 @@ class StateRecovery:
                     break
 
             if new_trade:
-                meta = ctx.pending_entry_meta.pop(symbol, {})
+                meta = ctx.tracker.get_pending_entry_meta(symbol)
                 ctx.tracker.register_entry(
                     trade_id=new_trade.trade_id,
                     symbol=new_trade.symbol,
@@ -95,7 +95,7 @@ class StateRecovery:
                 self._place_harvest_limit(ctx.tracker.get(new_trade.trade_id))
             else:
                 # Order expired or was cancelled
-                ctx.pending_entry_meta.pop(symbol, None)
+                ctx.tracker.clear_pending_entry_meta(symbol)
                 ctx.tracker.clear_pending_entry(symbol)
                 log.info("[RECOVERY] LIMIT ENTRY EXPIRED: %s order=%s", symbol, order_id)
 

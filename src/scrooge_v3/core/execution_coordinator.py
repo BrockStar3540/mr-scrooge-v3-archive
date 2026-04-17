@@ -112,7 +112,7 @@ class ExecutionCoordinator:
         elif result.success and result.order_id:
             # Pending — limit order placed, waiting for fill
             ctx.tracker.register_pending_entry(best.symbol, result.order_id)
-            ctx.pending_entry_meta[best.symbol] = {
+            ctx.tracker.set_pending_entry_meta(best.symbol, {
                 "direction": best.direction.value,
                 "stop_loss": validated_sl,
                 "take_profit": best.take_profit or 0,
@@ -120,7 +120,7 @@ class ExecutionCoordinator:
                 "strategy": best.strategy,
                 "v3_score": int(best.score),
                 "metadata": best.metadata,
-            }
+            })
             log.info("[EXEC] LIMIT ENTRY PLACED: %s %s order=%s @ %.5f",
                      best.symbol, best.direction.value, result.order_id, limit_price)
             return True
