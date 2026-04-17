@@ -65,3 +65,29 @@
 **Source:** Dropbox: 2026-02-14_Building a forex trading agent with OAND.md
 **Type:** lesson
 **Detail:** OANDA primary servers in NYC/NJ. VPS in NYC: 1-3ms latency. San Francisco: 60-70ms. London: 70-80ms. Home WiFi: 30-50ms + jitter. For live trading with aggressive entries, NYC region deployment is critical. Affects fill quality and slippage on limit orders, especially harvester partials.
+
+## Runtime Extraction (2026-04-16)
+
+### Phase 1-4 Complete
+runtime.py went from **877 lines** (god-file) to **232 lines** (thin conductor).
+
+Eight modules extracted:
+
+| Module | Lines | Responsibility |
+|--------|-------|----------------|
+| `core/bootstrap.py` | 262 | All module registration, config, broker init |
+| `core/runtime_context.py` | 43 | Typed RuntimeContext dataclass |
+| `core/scan_coordinator.py` | 125 | Market data fetch, scan pipeline, candidate filter |
+| `core/execution_coordinator.py` | 131 | Sizing, SL validation, order placement |
+| `core/position_coordinator.py` | 185 | Management pipeline, SL physics, harvest/exit |
+| `services/dashboard_bridge.py` | 97 | Dashboard live_state publishing (crash-safe) |
+| `services/config_watcher.py` | 53 | Hot-reload handling |
+| `services/state_recovery.py` | 155 | Vanished trades, pending orders, harvest limits |
+
+### Conductor Pattern
+_run_cycle() is now pure orchestration:
+```
+detect_vanished → scan → execute → reconcile → manage → publish
+```
+Each step delegates to a dedicated module. No execution or management
+logic remains in runtime.py.

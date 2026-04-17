@@ -60,3 +60,30 @@
 **Source:** V1 removal
 **Type:** cleanup
 **Detail:** V1 dashboard (mr-scrooge-dashboard.service, port 8081) stopped, disabled, and service file removed. The old dashboard.html in the V3 dashboard directory is a V1 leftover — only templates/index.html is served by the V3 Flask app via /api/data.
+
+## Dashboard Updates (2026-04-16)
+
+### Execution Tab (new)
+- Health lights: SL engine health, spread risk, ratchet efficiency
+- Metrics: SL moves vs blocks, avg spread at block/move
+- Block reasons breakdown grid
+- Scrollable event timeline with color-coded entries
+
+### DBB Trend Tab (new)
+- Approved / rejected / blocked counts with health lights
+- Breakout vs pullback candidate counts
+- Average base and final scores
+- Breakdown by session bucket and box age
+- Scrollable candidate table
+
+### Winner-Path Fix (CRITICAL)
+scan_symbol_full() was taking candidates[0] — first registered strategy,
+not the actual V3 scorer winner. Fixed to mirror live scan_symbol() path:
+- Run gates on ALL candidates
+- Score ALL gate-approved candidates
+- Pick winner via max(score) — same as live
+- Report includes candidates_by_strategy for transparency
+
+### Scorer Audit Payload
+Every scored pair now shows raw box-derived inputs in the log:
+px, ema20, ema50, box_range, box_age — fully verifiable.

@@ -100,3 +100,34 @@
 **Source:** Brock request
 **Type:** config
 **Detail:** Old defaults: ratchet_min_profit_pips=10, be_trigger_pips=15. Problems: (1) BE at 15 was higher than ratchet at 10, so BE never fired (ratchet already moved SL past entry by then). (2) At +5 pips profit, nothing protected the gain — trade could slide all the way back to original SL. New config (in config/default.json management section): ratchet_min_profit_pips=6, be_trigger_pips=5, be_offset_pips=1. Sequence: at +5 pips BE moves SL to entry+1pip. At +6 pips ratchet locks 50% (SL to entry+3). Continues locking 50% as profit grows, keeping half the room open for the trade to run.
+
+## Exit Manager + Profit Phase Logic (2026-04-16)
+
+### Profit-Phase Gating
+Position pipeline now computes profit_r (profit / initial risk) each cycle
+and gates management actions by phase:
+
+- **EARLY_HOLD** (< threshold_r): skip ratchet/trail entirely
+- **LOCK** (threshold to lock_r): normal ratchet/trail
+- **HARVEST** (>= lock_r): prioritize partial TP
+
+### Management Profiles
+Pipeline reads `management_profile` from position metadata and branches:
+
+| Profile | early_hold_r | min_sl_step_pips | Used by |
+|---------|-------------|------------------|---------|
+| `trend_runner` | 0.6 | 4.0 | dbb_trend |
+| `reversal_core` | 0.5 | 3.0 | reversal |
+| `default` | 0.5 | 3.0 | direct |
+
+### Anti-Thrashing
+Min-step filter: skip SL move if |new_sl - current_sl| < min_sl_step_pips.
+Prevents the 1-2 minute Change Trade → Order Cancelled thrashing seen in OANDA logs.
+
+### Spread Guard on Ratchet
+should_trail() now blocks ratchet moves during hostile spread (was only on trail before).
+
+### Execution Audit
+Every SL move/block/hold/harvest logged to data/execution-audit.jsonl with:
+trade_id, symbol, direction, profit_r, spread, old_sl, new_sl, reason.
+Dashboard Execution tab shows health lights + event timeline.

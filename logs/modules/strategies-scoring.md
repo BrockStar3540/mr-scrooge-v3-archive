@@ -75,3 +75,65 @@
 **Source:** Raw OANDA candle analysis, docs/SCORING_V3_LIVE.md
 **Type:** correction
 **Detail:** Old scoring had +0.5 pt separation between W and L (useless). V3 Hybrid Scorer achieves +80.3 pt separation. Out-of-sample validated at 100% WR on 20-trade test set. Key changes: OTR scoring REMOVED (17% WR at low OTR), RR reduced from 0-15 to 0-3 pts, ATR consumed reduced from 0-20 to 0-4 pts. New factors added: box age (±13), entry hour (±13), volume ratio (±9), SMA20 distance (±8), EMA50 proximity (-10), EMA20 proximity (-7). Pair layer adds ±9 to ±14 for combined factor clusters.
+
+## V3.1.1 Recalibration (2026-04-16)
+
+### Score Scale Change
+V3.1.1 operates on a **lower score scale** than original V3.0. Do not compare
+live scores to the V3.0 documentation (SCORING_V3_LIVE.md is now marked legacy).
+
+### What Changed
+
+**RSI neutral: hard block → soft penalty (-5 pts)**
+- Backtest: 6/29 winners (21%) were hard-blocked by RSI 45-55
+- Including a $17.48 USD_CHF winner
+- Now scored like any other factor — the scorer decides, not a blind gate
+
+**Session floors lowered by 6 (all sessions, both families)**
+- Default: 30/32/30/34/40 (was 36/38/36/40/46)
+- Trend:   28/30/28/32/38 (was 34/36/34/38/44)
+- Loser max base score on calibration data: +3
+- New floors still 27+ pts above highest loser
+
+**EMA20 < 15% penalty: -6 → -3**
+- Was biggest single drag on blocked winners (-42 total across 7/18 rejected)
+- Factor diagnosis: hurts winners without clearly separating from losers
+
+**Box age 18-24h penalty: -7 → -4**
+- Combined with e20, these two factors suppressed more winners than any other class
+
+### Family-Aware Scoring (V3.1)
+Scorer now receives the candidate and branches on strategy_family:
+
+**Trend overlays** (applied when strategy_family = "trend"):
+- Structure break confirmed: +6
+- DBB_PULLBACK with depth ≤55%: +4
+- DBB_BREAKOUT: +4
+- Directional candles ≥4: +2
+- Hour 16-19 UTC softening: +2
+- Box age 18-24h softening: +3
+- Exhausted chase (z≥1.5 + ema20<15): -5
+
+**Reversal path: unchanged.** No family overlays applied.
+
+**Separate trend session thresholds** (lower than default):
+Trend family uses floors 2 pts lower than default at each session.
+
+### Backtest Results (50-trade calibration dataset)
+| Config | Winners Passed | Losers Passed | P&L |
+|--------|---------------|---------------|-----|
+| V3.0 original | 4 | 0 | $80.81 |
+| V3.1 (decompressed) | 5 | 0 | $85.28 |
+| V3.1.1 (recalibrated) | 9 | 0 | $144.14 |
+
+### Calibration Warning
+Thresholds calibrated on 50-trade executed-trade dataset (survivor-biased).
+Full calibration requires candidate-level replay dataset. Current thresholds
+are a live hypothesis under forward validation.
+
+### Scorer Audit Payload
+Every log line now includes raw box-derived inputs after "||":
+```
+base=21 final=29 ... | hr=-7 age=+9 ... || px=1.21585 ema20=1.21566 ema50=1.21365 box=0.00122 age=1.7h
+```
+Enables full score verification: e20d = |px - ema20| / box * 100.
