@@ -52,25 +52,37 @@ Only 3 gates are registered in runtime:
 - Family overlays: trend candidates get +6/+4/+2/+2/+3/-5 adjustments
 - Session-aware thresholds: 5 sessions × 2 families
 
-### Session Rules (default family)
+### Score Scale Warning
+
+V3.1.1 uses a **lower operating score scale** than the original V3.0 documented
+in SCORING_V3_LIVE.md. Scores like 42, 50, 56 are meaningful under the current
+system. Do NOT compare live scores to the old V3.0 documentation which used
+floors of 40-50 and final thresholds of 60-75.
+
+**Calibration status:** Current thresholds were calibrated on a 50-trade
+executed-trade dataset (survivor-biased). Full calibration requires a
+candidate-level replay dataset. Current thresholds are a live hypothesis
+under forward validation, not a proven optimum.
+
+### Session Rules (default family) — V3.1.1 recalibrated
 
 | Session | Hours UTC | Base Floor | B Tier | A Tier | Pair Cap |
 |---------|-----------|-----------|--------|--------|----------|
-| Asia/London Open | 0-7 | 36 | 50 | 60 | 16 |
-| London | 8-11 | 38 | 50 | 60 | 12 |
-| NY Active | 12-17 | 36 | 48 | 56 | 12 |
-| Late NY | 18-19 | 40 | 50 | 60 | 10 |
-| Dead Late | 20-23 | 46 | 58 | 68 | 8 |
+| Asia/London Open | 0-7 | 30 | 44 | 54 | 16 |
+| London | 8-11 | 32 | 44 | 54 | 12 |
+| NY Active | 12-17 | 30 | 42 | 50 | 12 |
+| Late NY | 18-19 | 34 | 44 | 54 | 10 |
+| Dead Late | 20-23 | 40 | 52 | 62 | 8 |
 
 ### Trend Family Thresholds (lower)
 
 | Session | Base Floor | B Tier | A Tier | Pair Cap |
 |---------|-----------|--------|--------|----------|
-| Asia/London Open | 34 | 48 | 58 | 16 |
-| London | 36 | 48 | 58 | 12 |
-| NY Active | 34 | 46 | 54 | 12 |
-| Late NY | 38 | 48 | 58 | 10 |
-| Dead Late | 44 | 56 | 66 | 8 |
+| Asia/London Open | 28 | 42 | 52 | 16 |
+| London | 30 | 42 | 52 | 12 |
+| NY Active | 28 | 40 | 48 | 12 |
+| Late NY | 32 | 42 | 52 | 10 |
+| Dead Late | 38 | 50 | 60 | 8 |
 
 ### Trend Family Overlays
 - Structure break confirmed: +6

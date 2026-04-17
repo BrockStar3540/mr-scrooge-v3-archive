@@ -1,5 +1,10 @@
 # V3 Scoring System — Live Implementation Guide
 
+> **WARNING: LEGACY SCORE SCALE.** The thresholds and magnitudes described below
+> are from the original V3.0 deployment (2026-04-15). The live system now runs
+> V3.1.1 with a **lower operating score scale**. See LIVE_SYSTEM_SPEC.md for
+> current thresholds. Do NOT compare live dashboard scores to this document.
+>
 > **V3.1 UPDATE (2026-04-16):** Scorer rebalanced. 5 session buckets, decompressed
 > hour/age, stronger dc, halved pair layer, correlated-negative caps.
 > See logs/DEVLOG.md for full changelog. Old V3.0 weights archived below.
