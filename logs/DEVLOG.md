@@ -178,3 +178,11 @@
   - Still 27+ pts above highest loser at new floors.
 - `[2026-04-16] [core/scan_pipeline]` — Fixed dashboard winner-path bug: scan_symbol_full() was taking candidates[0] instead of scoring all candidates and picking best. Now mirrors live scan_symbol() path — gates all candidates, scores all gate-approved, picks max(score).
 - `[2026-04-16] [CALIBRATION WARNING]` — 50-trade dataset is survivor-biased (only executed trades). Full calibration requires candidate-level replay dataset with all candidates, not just historical trades. Current recalibration is a live hypothesis under validation.
+
+### Session: 2026-04-17 — Safety Fixes (post-London-open incident)
+- `[2026-04-17] [core/position_pipeline]` — Fixed UnboundLocalError: effective_min_sl_step was self-assigned in reversal_core/default branches. Position management was crashing every cycle on open positions. Fixed to self.min_sl_step_pips.
+- `[2026-04-17] [core/scan_coordinator]` — Added order throttles: max 2 pending entries, currency correlation gate (no stacking same base/quote currency). Bot was spraying 6 limit orders in 10 minutes at session open.
+- `[2026-04-17] [config/default.json]` — margin_utilization 0.80 → 0.40. Old sizing + multi-order = blow-up risk.
+- `[2026-04-17] [execution/position_tracker]` — Pending entry metadata now persists to positions.json. Limit orders filling after restart were losing strategy/family/profile/tp1 metadata, resulting in generic "limit_fill" positions with broken management.
+- `[2026-04-17] [core/execution_coordinator]` — Stores pending entry meta via tracker (disk) instead of RuntimeContext (memory).
+- `[2026-04-17] [services/state_recovery]` — Reads pending entry meta from tracker instead of RuntimeContext.

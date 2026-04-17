@@ -131,3 +131,13 @@ should_trail() now blocks ratchet moves during hostile spread (was only on trail
 Every SL move/block/hold/harvest logged to data/execution-audit.jsonl with:
 trade_id, symbol, direction, profit_r, spread, old_sl, new_sl, reason.
 Dashboard Execution tab shows health lights + event timeline.
+
+## Bug Fix: effective_min_sl_step (2026-04-17)
+
+UnboundLocalError in position_pipeline.py line 128:
+```
+effective_min_sl_step = effective_min_sl_step  # self-reference before definition
+```
+reversal_core and default profile branches were crashing manage_position() on every cycle.
+Fixed to `self.min_sl_step_pips`. Discovered because GBP/JPY trade 1206 was not being managed
+after fill — no ratchet, no BE, no trail for ~9 minutes.

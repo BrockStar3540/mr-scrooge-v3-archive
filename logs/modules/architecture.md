@@ -91,3 +91,18 @@ detect_vanished → scan → execute → reconcile → manage → publish
 ```
 Each step delegates to a dedicated module. No execution or management
 logic remains in runtime.py.
+
+## Safety Fixes (2026-04-17)
+
+### Order Throttles
+- Max 2 pending limit orders at a time
+- Currency correlation gate: no new trade if base or quote currency already in open/pending position
+- Prevents correlated burst at session open (was placing 6 JPY/AUD orders in 10 min)
+
+### Margin Cap
+- margin_utilization reduced from 0.80 to 0.40
+- Looser scorer + near-max sizing = blow-up risk
+
+### Metadata Persistence
+- Pending entry metadata (strategy, family, profile, tp1, v3_score) now persisted to positions.json
+- Survives restarts — no more generic "limit_fill" positions with empty metadata
