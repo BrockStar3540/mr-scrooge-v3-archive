@@ -73,6 +73,51 @@ class ScanCoordinator:
             result.candidates = candidates
             return result
 
+        # --- Throttle: max pending entries ---
+        pending_count = len(ctx.tracker.all_pending_entries())
+        max_pending = 2
+        if pending_count >= max_pending:
+            log.info("[SCAN] Throttled: %d pending entries >= max %d", pending_count, max_pending)
+            result.candidates = []
+            return result
+
+        # --- Throttle: currency correlation gate ---
+        # Don't stack trades on the same base or quote currency
+        open_currencies = set()
+        for pos in ctx.tracker.all_positions():
+            parts = pos.symbol.split("_")
+            if len(parts) == 2:
+                open_currencies.add(parts[0])
+                open_currencies.add(parts[1])
+        for sym in ctx.tracker.all_pending_entries().keys():
+            parts = sym.split("_")
+            if len(parts) == 2:
+                open_currencies.add(parts[0])
+                open_currencies.add(parts[1])
+
+        # Filter out candidates that share a currency with open/pending positions
+        uncorrelated = []
+        for c in candidates:
+            parts = c.symbol.split("_")
+            if len(parts) == 2:
+                base, quote = parts
+                if base in open_currencies or quote in open_currencies:
+                    log.debug("[SCAN] Correlation filter: %s blocked (overlap with %s)",
+                              c.symbol, open_currencies & {base, quote})
+                    continue
+            uncorrelated.append(c)
+
+        if uncorrelated:
+            candidates = uncorrelated
+        else:
+            # All candidates correlate — allow best one if no open positions at all
+            if not ctx.tracker.all_positions() and not ctx.tracker.all_pending_entries():
+                pass  # First trade of the session, allow it
+            else:
+                log.info("[SCAN] All candidates correlated with open/pending — skipping")
+                result.candidates = []
+                return result
+
         best = candidates[0]
         log.info("[SCAN] Best candidate: %s %s score=%.0f",
                  best.symbol, best.strategy, best.score)
