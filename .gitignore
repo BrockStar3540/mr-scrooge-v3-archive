@@ -22,3 +22,13 @@ state/*.json
 !state/.gitkeep
 _v2_source/
 .DS_Store
+
+# Runtime data (generated live — not versioned)
+data/execution-audit.jsonl
+data/positions.json
+data/state.json
+data/replay/
+
+# Rotated logs and lock files
+logs/*.log.*
+logs/*.lock
