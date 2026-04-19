@@ -32,3 +32,8 @@ data/replay/
 # Rotated logs and lock files
 logs/*.log.*
 logs/*.lock
+
+# ML observer runtime state (observer.py writes these live)
+data/ml-observer/observations.jsonl
+data/ml-observer/observations-v1v2-archive.jsonl
+data/ml-observer/observer-state.json
