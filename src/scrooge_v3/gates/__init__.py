@@ -19,6 +19,11 @@ from .debounce import DebounceGate
 from .regime_floor import RegimeFloorGate
 from .exhaustion_filter import ExhaustionFilterGate
 
+# Phase 4 Signal Discipline
+from .cooldown import CooldownGate
+from .expiry_backoff import ExpiryBackoffGate
+from .daily_circuit import DailyCircuitGate
+
 __all__ = [
     # Base
     "BaseGate",
@@ -38,4 +43,8 @@ __all__ = [
     "DebounceGate",
     "RegimeFloorGate",
     "ExhaustionFilterGate",
+    # Phase 4
+    "CooldownGate",
+    "ExpiryBackoffGate",
+    "DailyCircuitGate",
 ]
