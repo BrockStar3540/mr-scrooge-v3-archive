@@ -121,8 +121,8 @@ def extract_features(signal: dict, timestamp: Optional[str] = None) -> dict:
         "v3_tier": sc.get("tier", ""),
         "v3_blocks": sc.get("blocks", []),
         "spread": signal.get("spread", 0),
-        "bb_state": _safe_get(cls, "bb_state", "label", default=""),
-        "regime_state": _safe_get(cls, "regime", "label", default=""),
+        "bb_state": (cls.get("bb_state") or {}).get("label", "") if isinstance(cls, dict) else "",
+        "regime_state": (cls.get("regime") or {}).get("label", "") if isinstance(cls, dict) else "",
     }
 
     return {"features": features, "metadata": metadata}
