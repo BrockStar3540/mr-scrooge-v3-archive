@@ -107,11 +107,13 @@ class PositionTracker:
         if pos:
             pos.tp1_taken = True
             log.info("[TRACKER] TP1 taken: %s", trade_id)
+            self.persist()
 
     def mark_break_even(self, trade_id: str) -> None:
         pos = self._positions.get(trade_id)
         if pos:
             pos.break_even_achieved = True
+            self.persist()
 
     def remove(self, trade_id: str) -> TrackedPosition | None:
         pos = self._positions.pop(trade_id, None)
