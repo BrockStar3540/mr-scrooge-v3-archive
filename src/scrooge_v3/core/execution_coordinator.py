@@ -33,14 +33,32 @@ class ExecutionCoordinator:
         from scrooge_v3.execution.sizing import SizingCalculator
         from scrooge_v3.execution.stop_planner import StopPlanner
 
-        sizer = SizingCalculator()
+        risk_cfg = ctx.config.section("risk") if hasattr(ctx, "config") else {}
+        sizer = SizingCalculator(config=risk_cfg)
         stop_planner = StopPlanner()
         acct = ctx.broker.get_account()
         equity = acct.equity if acct else 10000.0
         inst = ctx.broker.get_instruments().get(best.symbol, {})
         inst_info = {"pipLocation": inst.pip_location, "marginRate": inst.margin_rate} if hasattr(inst, "pip_location") else {}
         free_margin = acct.margin_available if acct else equity
-        units = sizer.calculate(best.symbol, best.entry_price, equity, inst_info, free_margin=free_margin)
+
+        # Cross-pair USD conversion lookup — returns base_ccy -> USD rate, or None.
+        def _usd_conversion(ccy: str) -> float | None:
+            if ccy == "USD":
+                return 1.0
+            q = ctx.broker.get_price(f"{ccy}_USD")
+            if q and q.mid > 0:
+                return q.mid
+            q = ctx.broker.get_price(f"USD_{ccy}")
+            if q and q.mid > 0:
+                return 1.0 / q.mid
+            return None
+
+        units = sizer.calculate(
+            best.symbol, best.entry_price, equity, inst_info,
+            free_margin=free_margin,
+            usd_conversion_lookup=_usd_conversion,
+        )
 
         if not units or units <= 0:
             return False
