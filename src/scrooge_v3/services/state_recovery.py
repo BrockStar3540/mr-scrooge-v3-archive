@@ -10,8 +10,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from scrooge_v3.core.trade_geometry import compute_tp1
-
 log = logging.getLogger("scrooge_v3.services.state_recovery")
 
 
@@ -41,18 +39,92 @@ class StateRecovery:
         ctx = self.ctx
         open_trades = ctx.broker.get_open_trades()
         broker_ids = {t.trade_id for t in open_trades}
+
+        # Phase 4: snapshot tracked positions BEFORE reconcile strips
+        # them, so signal-discipline can inspect entry/stop/direction.
+        pre_snapshot: dict[str, Any] = {}
+        try:
+            for _tid, _pos in ctx.tracker._positions.items():
+                pre_snapshot[_tid] = _pos
+        except Exception:
+            pre_snapshot = {}
+
         vanished = ctx.tracker.reconcile_with_broker(broker_ids)
 
         for tid in vanished:
-            tracked = ctx.tracker.get(tid)
+            tracked = pre_snapshot.get(tid) or ctx.tracker.get(tid)
             if tracked and hasattr(tracked, 'harvest_order_id') and tracked.harvest_order_id:
                 ctx.broker.cancel_order(tracked.harvest_order_id)
                 log.info("[RECOVERY] Cancelled harvest limit %s for vanished trade %s",
                          tracked.harvest_order_id, tid)
+
+            # Phase 4: classify vanish, book realized PnL, cooldown + blacklist.
+            try:
+                self._record_vanish_for_signal_discipline(tid, tracked)
+            except Exception:
+                log.exception("[RECOVERY] signal-discipline hook failed: %s", tid)
+
             ctx.state.decrement_positions()
 
         ctx.state.position_count = len(open_trades)
         return open_trades
+
+    def _record_vanish_for_signal_discipline(
+        self, trade_id: str, tracked: Any,
+    ) -> None:
+        """Record cooldown/blacklist and daily PnL on a vanished trade.
+
+        Heuristic for SL-hit: use the broker's realized-PnL-today delta
+        since the last sample. A non-positive delta classifies as a
+        stop-loss and records a cooldown + zone blacklist. All deltas
+        feed the daily circuit breaker.
+        """
+        ctx = self.ctx
+        tracker_obj = getattr(ctx, "cooldown_tracker", None)
+        if tracker_obj is None:
+            return
+
+        broker = ctx.broker
+        pnl_delta = 0.0
+        try:
+            total_today = 0.0
+            if hasattr(broker, "get_realized_pl_today"):
+                total_today = float(broker.get_realized_pl_today() or 0.0)
+            last = getattr(ctx, "_last_realized_pl_today", 0.0)
+            pnl_delta = total_today - last
+            ctx._last_realized_pl_today = total_today
+        except Exception:
+            log.exception("[RECOVERY] failed to read realized_pl_today")
+
+        acct = None
+        try:
+            acct = broker.get_account()
+        except Exception:
+            acct = None
+        equity_ref = getattr(acct, "equity", None) if acct else None
+        if pnl_delta != 0.0:
+            tracker_obj.record_realized_pnl(
+                pnl_delta, equity_start=equity_ref,
+            )
+
+        if tracked is None:
+            return
+        if pnl_delta <= 0:
+            symbol = getattr(tracked, "symbol", None)
+            direction = getattr(tracked, "direction", None)
+            entry_price = getattr(tracked, "entry_price", None)
+            if symbol and direction:
+                tracker_obj.record_stop(
+                    symbol=symbol,
+                    direction=direction,
+                    entry_price=entry_price,
+                    reason="stop_loss_or_close",
+                )
+                log.warning(
+                    "[RECOVERY] SL classification: %s %s %s pnl_delta=%.2f "
+                    "-> cooldown + blacklist",
+                    trade_id, symbol, direction, pnl_delta,
+                )
 
     def reconcile_pending_orders(self) -> None:
         """Reconcile pending entry and harvest limit orders with OANDA."""
@@ -74,14 +146,6 @@ class StateRecovery:
 
             if new_trade:
                 meta = ctx.tracker.get_pending_entry_meta(symbol)
-                # Phase 3 / Bug G: unified TP1 in R — compute from actual fill.
-                tp1_r = float(meta.get("tp1_r", 1.0))
-                tp1_unified = compute_tp1(
-                    new_trade.entry_price,
-                    new_trade.current_stop,
-                    new_trade.direction,
-                    tp1_r=tp1_r,
-                ) or meta.get("tp1_price", 0)
                 ctx.tracker.register_entry(
                     trade_id=new_trade.trade_id,
                     symbol=new_trade.symbol,
@@ -90,7 +154,7 @@ class StateRecovery:
                     entry_price=new_trade.entry_price,
                     stop_price=new_trade.current_stop,
                     tp_price=new_trade.current_tp,
-                    tp1_price=tp1_unified,
+                    tp1_price=meta.get("tp1_price", 0),
                     tp2_price=new_trade.current_tp,
                     strategy=meta.get("strategy", "limit_fill"),
                     v3_score=meta.get("v3_score", 0),
@@ -100,14 +164,40 @@ class StateRecovery:
                 ctx.state.record_zone_entry(symbol, f"{new_trade.current_stop:.5f}")
                 log.info("[RECOVERY] LIMIT ENTRY FILLED: %s %s @ %.5f (order %s)",
                          new_trade.trade_id, symbol, new_trade.entry_price, order_id)
+                # Phase 4: fill resets expiry counter.
+                tracker_obj = getattr(ctx, "cooldown_tracker", None)
+                if tracker_obj is not None:
+                    try:
+                        tracker_obj.record_fill(
+                            symbol, new_trade.direction, new_trade.entry_price,
+                        )
+                    except Exception:
+                        log.exception("[RECOVERY] expiry reset on fill failed")
                 ctx.tracker.clear_pending_entry(symbol)
                 # Place harvest limit for the new trade
                 self._place_harvest_limit(ctx.tracker.get(new_trade.trade_id))
             else:
                 # Order expired or was cancelled
+                meta = ctx.tracker.get_pending_entry_meta(symbol) or {}
                 ctx.tracker.clear_pending_entry_meta(symbol)
                 ctx.tracker.clear_pending_entry(symbol)
                 log.info("[RECOVERY] LIMIT ENTRY EXPIRED: %s order=%s", symbol, order_id)
+                # Phase 4: feed expiry tracker for anti-thrash.
+                tracker_obj = getattr(ctx, "cooldown_tracker", None)
+                if tracker_obj is not None:
+                    try:
+                        direction = meta.get("direction")
+                        anchor = (
+                            meta.get("entry_price")
+                            or meta.get("stop_loss")
+                            or 0.0
+                        )
+                        if direction and anchor:
+                            tracker_obj.record_expiry(
+                                symbol, direction, float(anchor),
+                            )
+                    except Exception:
+                        log.exception("[RECOVERY] expiry tracker hook failed")
 
         # Check harvest orders
         for tracked in ctx.tracker.get_positions_with_harvest_orders():
