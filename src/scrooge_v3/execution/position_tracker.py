@@ -51,6 +51,10 @@ class PositionTracker:
     def __init__(self, persist_path: Path | None = None):
         self._positions: dict[str, TrackedPosition] = {}
         self._persist_path = persist_path
+        # Pending entries (limit orders waiting to fill) — per-instance to
+        # avoid cross-instance pollution (was class-scoped before 2026-04-19).
+        self._pending_entries: dict[str, str] = {}
+        self._pending_entry_meta: dict[str, dict] = {}
 
     def register_entry(
         self,
@@ -169,9 +173,6 @@ class PositionTracker:
         return len(self._positions)
 
     # --- Pending entries (limit orders waiting to fill) ---
-
-    _pending_entries: dict[str, str] = {}  # symbol -> order_id
-    _pending_entry_meta: dict[str, dict] = {}  # symbol -> entry metadata
 
     def register_pending_entry(self, symbol: str, order_id: str) -> None:
         self._pending_entries[symbol] = order_id
