@@ -101,11 +101,10 @@ class PositionPipeline:
         Returns the highest-priority action to take.
 
         Args:
-            live_units: broker-authoritative unit count. If lower than
-                position.original_units, the pre-placed harvest limit has
-                already filled — pipeline must NOT emit a market harvest.
-            tracker: PositionTracker — when a broker-observed reduction is
-                detected, tp1_taken is marked here so subsequent cycles skip.
+            live_units: broker-authoritative unit count (if different from
+                position.units, the pre-placed harvest has already filled).
+            tracker: PositionTracker — used to mark tp1_taken when a
+                broker-observed reduction is detected.
         """
         pos_id = getattr(position, "position_id", None) or getattr(position, "trade_id", str(id(position)))
         direction = TradeDirection(getattr(position, "direction", "long"))
@@ -113,7 +112,15 @@ class PositionPipeline:
         current_stop = getattr(position, "current_stop", 0.0)
 
         # --- Compute profit-R for phase selection ---
-        risk_distance = abs(entry_price - current_stop) if current_stop else 0.0
+        # BUG FIX: use initial_risk_distance (snapshotted at entry), NOT the
+        # dynamic entry-to-current_stop distance. After BE, the latter shrinks
+        # to near-zero and profit_r balloons, triggering premature HARVEST phase.
+        initial_risk = getattr(position, "initial_risk_distance", 0.0)
+        if initial_risk <= 0:
+            # Fallback for positions registered before this field existed
+            initial_risk = abs(entry_price - current_stop) if current_stop else 0.0
+        risk_distance = initial_risk
+
         if direction == TradeDirection.LONG:
             profit_distance = current_price - entry_price
         else:
@@ -149,14 +156,14 @@ class PositionPipeline:
 
         # 1. Partial harvest — broker-authoritative to prevent double-harvest race.
         #
-        # Race fixed: pre-placed harvest limit fills at broker; local tp1_taken
-        # and live units aren't updated until StateRecovery.reconcile_pending_orders
+        # Race: pre-placed harvest limit fills at broker; local tp1_taken and
+        # live units aren't updated until StateRecovery.reconcile_pending_orders
         # runs. In that window, the old code fired a second market harvest.
         #
         # Guard order:
-        #   A. broker live_units < original_units -> limit already filled.
+        #   A. If broker live_units < original_units -> limit already filled.
         #      Mark tp1_taken, clear stale harvest_order_id, skip harvest.
-        #   B. harvest_order_id set -> limit still pending, skip harvest.
+        #   B. If harvest_order_id is set -> limit still pending, skip harvest.
         #   C. Otherwise consult harvest manager.
         if self.harvest:
             harvest_order_id = getattr(position, "harvest_order_id", "")
@@ -164,10 +171,11 @@ class PositionPipeline:
             effective_live_units = live_units if live_units is not None else getattr(position, "units", 0.0)
             tp1_taken = getattr(position, "tp1_taken", False)
 
+            # Guard A: broker shows a reduction — limit must have filled.
             if (
                 original_units > 0
                 and effective_live_units > 0
-                and effective_live_units < original_units - 0.5
+                and effective_live_units < original_units - 0.5  # tolerate fp
                 and not tp1_taken
             ):
                 if tracker is not None:
@@ -175,7 +183,7 @@ class PositionPipeline:
                         tracker.mark_tp1_taken(pos_id)
                         if harvest_order_id:
                             tracker.clear_harvest_order(pos_id)
-                    except Exception as exc:  # pragma: no cover
+                    except Exception as exc:  # pragma: no cover — defensive
                         log.warning("[HARVEST-GUARD] tracker update failed for %s: %s",
                                     pos_id, exc)
                 log.info(
@@ -183,12 +191,14 @@ class PositionPipeline:
                     "— limit already filled, skipping market harvest.",
                     pos_id, effective_live_units, original_units,
                 )
-                # Fall through to BE/trail.
+                # Fall through to other management (BE, trail, etc.)
 
             elif harvest_order_id:
-                pass  # Limit pending on broker — skip reactive harvest.
+                # Guard B: limit pending on broker — do NOT fire market harvest.
+                pass
 
             else:
+                # Guard C: no pre-placed limit, no broker reduction — safe to check.
                 tp1 = getattr(position, "tp1_price", None) or (
                     position.metadata.get("tp1", 0) if hasattr(position, "metadata") else 0
                 )

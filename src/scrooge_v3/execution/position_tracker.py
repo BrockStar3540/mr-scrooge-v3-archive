@@ -37,9 +37,11 @@ class TrackedPosition:
     strategy: str = ""
     v3_score: int = 0
     harvest_order_id: str = ""
-    # Snapshotted at entry — never mutated. Used for double-harvest guard
-    # (compare broker live_units vs original_units to detect fills).
+    # Snapshotted at entry — never mutated. Used for:
+    #  - profit_r computation (initial risk distance, not dynamic SL)
+    #  - double-harvest guard (compare vs broker live_units)
     original_units: float = 0.0
+    initial_risk_distance: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -66,8 +68,8 @@ class PositionTracker:
         metadata: dict | None = None,
     ) -> None:
         """Register a new trade after fill confirmation."""
-        self._positions[trade_id] = TrackedPosition(  # noqa: E501
-            original_units=units,
+        initial_risk = abs(entry_price - stop_price) if stop_price else 0.0
+        self._positions[trade_id] = TrackedPosition(
             trade_id=trade_id,
             symbol=symbol,
             direction=direction,
@@ -80,6 +82,8 @@ class PositionTracker:
             opened_at=datetime.now(timezone.utc).isoformat(),
             strategy=strategy,
             v3_score=v3_score,
+            original_units=units,
+            initial_risk_distance=initial_risk,
             metadata=metadata or {},
         )
         log.info("[TRACKER] Registered: %s %s %s %d units @ %.5f SL=%.5f",
