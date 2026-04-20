@@ -160,8 +160,14 @@ class Runtime:
             log.warning("[RUNTIME] Daily loss limit reached — skipping cycle")
             return
 
-        # --- Vanished trade detection ---
+        # --- Reconcile broker state FIRST (Bug E: state-truth before decisions) ---
+        # Order matters: vanished detection -> tracker reconcile -> pending order
+        # reconcile. This must all complete before the scanner reads tracker
+        # state (held_symbols / pending_symbols / correlation filter) or the
+        # management pipeline makes decisions on stale data.
         self.recovery.detect_vanished_trades()
+        self.recovery.reconcile_tracker()
+        self.recovery.reconcile_pending_orders()
 
         # --- Scan cycle ---
         scan = self.scanner.scan_cycle(now)
@@ -177,9 +183,6 @@ class Runtime:
         # --- Entry logic ---
         if scan.best_candidate:
             self.executor.try_execute(scan.best_candidate)
-
-        # --- Reconcile pending orders ---
-        self.recovery.reconcile_pending_orders()
 
         # --- Manage open positions ---
         self.positions.manage_all()
