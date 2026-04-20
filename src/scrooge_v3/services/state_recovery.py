@@ -109,14 +109,19 @@ class StateRecovery:
                 None,
             )
             if broker_trade and broker_trade.units < tracked.units:
+                old_units = tracked.units
+                # Sync unit truth BEFORE flag — so downstream reads see the
+                # correct remaining size if they happen between these calls.
+                ctx.tracker.update_units(tracked.trade_id, broker_trade.units)
                 ctx.tracker.mark_tp1_taken(tracked.trade_id)
                 ctx.tracker.clear_harvest_order(tracked.trade_id)
                 log.info("[RECOVERY] HARVEST LIMIT FILLED: %s units %.0f → %.0f",
-                         tracked.trade_id, tracked.units, broker_trade.units)
+                         tracked.trade_id, old_units, broker_trade.units)
             else:
                 ctx.tracker.clear_harvest_order(tracked.trade_id)
                 log.info("[RECOVERY] HARVEST LIMIT CANCELLED: %s order=%s",
                          tracked.trade_id, tracked.harvest_order_id)
+
 
     def _place_harvest_limit(self, tracked) -> None:
         """Pre-place a REDUCE_ONLY limit order at TP1 for partial harvest."""

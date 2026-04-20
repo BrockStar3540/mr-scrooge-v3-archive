@@ -153,16 +153,43 @@ class PositionCoordinator:
                    new_sl=new_stop, **audit_base)
 
     def _handle_harvest(self, ctx, tracked, details, audit_base, _audit) -> None:
-        """Execute partial harvest."""
+        """Execute partial harvest using broker-authoritative remaining units.
+
+        Reading tracked.units directly is unsafe: if a prior partial already
+        reduced the broker side but the tracker wasn't synced, we'd close
+        half of the ORIGINAL size and leave dust (or over-close and fail).
+        Always anchor on broker truth before computing close size.
+        """
         fraction = details.get("fraction", 0.5)
-        close_units = int(tracked.units * fraction)
-        if close_units > 0:
-            result = ctx.broker.close_trade(tracked.trade_id, close_units)
-            if result.success:
-                ctx.tracker.mark_tp1_taken(tracked.trade_id)
-                log.info("[POSITIONS] HARVEST: %s closed %d units @ %.5f",
-                         tracked.trade_id, close_units, result.fill_price)
-                _audit("harvest", "tp1_taken", **audit_base)
+
+        open_trades = ctx.broker.get_open_trades()
+        broker = next((t for t in open_trades if t.trade_id == tracked.trade_id), None)
+        if not broker:
+            log.warning("[POSITIONS] HARVEST skipped: trade %s not found on broker",
+                        tracked.trade_id)
+            _audit("harvest_blocked", "trade_missing_on_broker", **audit_base)
+            return
+
+        remaining = broker.units
+        # If tracker is stale, update it so downstream sees truth.
+        if remaining != tracked.units:
+            ctx.tracker.update_units(tracked.trade_id, remaining)
+
+        close_units = int(remaining * fraction)
+        if close_units <= 0:
+            log.info("[POSITIONS] HARVEST skipped: %s remaining=%.0f fraction=%.2f",
+                     tracked.trade_id, remaining, fraction)
+            return
+
+        result = ctx.broker.close_trade(tracked.trade_id, close_units)
+        if result.success:
+            new_remaining = remaining - close_units
+            ctx.tracker.update_units(tracked.trade_id, new_remaining)
+            ctx.tracker.mark_tp1_taken(tracked.trade_id)
+            ctx.tracker.clear_harvest_order(tracked.trade_id)
+            log.info("[POSITIONS] HARVEST: %s closed %d units @ %.5f (remaining=%d)",
+                     tracked.trade_id, close_units, result.fill_price, new_remaining)
+            _audit("harvest", "tp1_taken", **audit_base)
 
     def _handle_favorable_exit(self, ctx, open_trades, action, details,
                                 audit_base, _audit) -> None:

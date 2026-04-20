@@ -106,6 +106,21 @@ class PositionTracker:
             pos.current_stop = new_stop
             self.persist()
 
+    def update_units(self, trade_id: str, new_units: float) -> None:
+        """Sync tracked unit count with broker truth after a partial close.
+
+        Without this, tracked.units stays at the original size forever, and
+        any subsequent fraction-based close (e.g. int(units * 0.5)) will
+        compute half of the ORIGINAL size — not half of what's actually
+        open — generating dust or over-sized close requests.
+        """
+        pos = self._positions.get(trade_id)
+        if pos:
+            old_units = pos.units
+            pos.units = float(new_units)
+            log.info("[TRACKER] Units updated: %s %.0f -> %.0f", trade_id, old_units, new_units)
+            self.persist()
+
     def mark_tp1_taken(self, trade_id: str) -> None:
         pos = self._positions.get(trade_id)
         if pos:
