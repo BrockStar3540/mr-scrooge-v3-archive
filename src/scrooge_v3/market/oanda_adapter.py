@@ -347,8 +347,16 @@ class OANDAAdapter:
         return OrderResult(success=False, error=error, raw=result)
 
     def modify_stop_loss(self, trade_id: str, new_stop: float) -> bool:
+        # Precision: JPY pairs quote at ~100+, non-JPY at 0.x–2.x. 50 is a safe
+        # split. Phase 3 / Bug J instrumentation — log the wire-formatted value
+        # so any decimal-shrink (0.01 → 0.001) can be caught post-hoc.
         prec = 3 if new_stop > 50 else 5
-        body = {"stopLoss": {"price": f"{new_stop:.{prec}f}", "timeInForce": "GTC"}}
+        wire_price = f"{new_stop:.{prec}f}"
+        log.info(
+            "[OANDA][SL_MODIFY] trade=%s input=%.6f prec=%d wire_price=%s",
+            trade_id, new_stop, prec, wire_price,
+        )
+        body = {"stopLoss": {"price": wire_price, "timeInForce": "GTC"}}
         result = self._put(f"/v3/accounts/{self.account_id}/trades/{trade_id}/orders", body)
         return result is not None
 

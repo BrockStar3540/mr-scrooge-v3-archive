@@ -52,6 +52,13 @@ class StopPlanner:
           - Never place inside spread (no-man's-zone)
         """
         pip = self._pip_size_from_price(proposed_stop)
+        # Phase 3 / Bug J instrumentation — trace pip_size inference at this
+        # layer so we can detect the JPY offset bug in the wild.
+        log.debug(
+            "[STOP_PLANNER][FORENSIC] validate_stop dir=%s proposed=%.6f "
+            "inferred_pip=%.5f bid=%.5f ask=%.5f spread=%.6f",
+            direction.value, proposed_stop, pip, bid, ask, spread,
+        )
 
         if direction == TradeDirection.SHORT:
             # Short SL triggers when ASK >= SL
@@ -144,7 +151,13 @@ class StopPlanner:
 
     @staticmethod
     def _pip_size_from_price(price: float) -> float:
-        """Infer pip size from price magnitude."""
-        if price > 10:  # JPY pairs
+        """Infer pip size from price magnitude.
+
+        WARNING: this is a heuristic. For anything needing correctness (BE
+        offset, TP1 placement), use `scrooge_v3.core.trade_geometry.pip_size`
+        with the actual symbol. This heuristic exists only so `validate_stop`
+        can compute a no-mans-zone buffer without knowing the symbol.
+        """
+        if price > 10:  # JPY pairs have quote magnitude ~100
             return 0.01
         return 0.0001
