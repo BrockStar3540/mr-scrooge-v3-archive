@@ -35,6 +35,7 @@ class RuntimeContext:
     dbb_audit: Any
     live_state: Any
     screener: Any
+    cooldown_tracker: Any = None  # Phase 4: risk.CooldownTracker
 
     # Internal state
     known_trade_ids: set[str] = field(default_factory=set)

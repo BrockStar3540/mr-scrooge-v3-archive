@@ -60,8 +60,27 @@ class ScanCoordinator:
         snapshots = self._fetch_snapshots(pairs, now)
         result.pairs_scanned = len(snapshots)
 
+        # Phase 4: build the state dict handed into every gate.
+        gate_state: dict[str, Any] = {
+            "zone_last_entry": {
+                k: v.isoformat() for k, v in
+                getattr(ctx.state, "zone_debounce", {}).items()
+            },
+            "zone_entries_today": dict(
+                getattr(ctx.state, "zone_entry_counts", {})
+            ),
+        }
+        tracker_obj = getattr(ctx, "cooldown_tracker", None)
+        if tracker_obj is not None:
+            try:
+                gate_state.update(tracker_obj.to_state_dict())
+            except Exception:
+                log.exception("[SCAN] cooldown_tracker.to_state_dict failed")
+
         # Run scan pipeline — returns candidates + full per-pair reports
-        candidates, reports = ctx.scan_pipeline.scan_universe(pairs, snapshots)
+        candidates, reports = ctx.scan_pipeline.scan_universe(
+            pairs, snapshots, state=gate_state,
+        )
         result.reports = reports
 
         # Filter out symbols we already have a position in or pending entry for

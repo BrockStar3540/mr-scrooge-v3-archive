@@ -101,15 +101,39 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
     registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
 
+    # --- Build cooldown tracker (Phase 4 Signal Discipline) ---
+    from scrooge_v3.risk.cooldown_tracker import CooldownTracker
+
+    risk_cfg = config.section("risk") or {}
+    cooldown_tracker = CooldownTracker(
+        config=risk_cfg,
+        data_dir=Path("data"),
+    )
+
     # --- Register gates ---
-    from scrooge_v3.gates import DebounceGate, ZoneEntryCapGate, RegimeFloorGate
+    # Order matters: daily_circuit FIRST (cheapest, hardest veto), then
+    # cooldown / debounce / expiry_backoff (risk-discipline vetoes), then
+    # regime_floor and the rest.
+    from scrooge_v3.gates import (
+        CooldownGate, DailyCircuitGate, DebounceGate, ExpiryBackoffGate,
+        RegimeFloorGate, ZoneEntryCapGate,
+    )
     from scrooge_v3.gates.pipeline import GatePipeline
 
     gate_cfg = config.section("gates")
     gate_pipeline = GatePipeline()
     gate_pipeline.register_many([
+        DailyCircuitGate(),
+        CooldownGate(risk_cfg),
+        DebounceGate({
+            **gate_cfg.get("debounce", {}),
+            "zone_blacklist_hours": risk_cfg.get("zone_blacklist_hours", 4),
+            "zone_bucket_pips": risk_cfg.get("zone_bucket_pips", 20),
+        }),
+        ExpiryBackoffGate({
+            "zone_bucket_pips": risk_cfg.get("zone_bucket_pips", 20),
+        }),
         RegimeFloorGate({"min_score": -4}),
-        DebounceGate(gate_cfg.get("debounce", {})),
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
     ])
 
@@ -188,6 +212,15 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     if acct:
         state.equity_start = acct.equity
         log.info("[BOOT] Equity baseline: $%.2f", acct.equity)
+        # Phase 4: seed the daily circuit if first boot today.
+        from datetime import datetime as _dt, timezone as _tz
+        circuit_snap = cooldown_tracker.circuit_snapshot()
+        today_utc = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+        if (
+            circuit_snap.get("utc_date") != today_utc
+            or circuit_snap.get("equity_start", 0) <= 0
+        ):
+            cooldown_tracker.start_day(acct.equity)
 
     # --- Reconcile open positions with tracker ---
     open_trades = broker.get_open_trades()
@@ -237,6 +270,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         dbb_audit=dbb_audit,
         live_state=live_state,
         screener=screener,
+        cooldown_tracker=cooldown_tracker,
         known_trade_ids=known_trade_ids,
         scan_interval=scan_interval,
         dry_run=dry_run,
