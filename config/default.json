@@ -12,7 +12,12 @@
   "risk": {
     "max_open_positions": 5,
     "max_daily_loss_pct": 3.0,
-    "margin_utilization": 0.4
+    "margin_utilization": 0.4,
+    "cooldown_after_stop_minutes": 60,
+    "zone_blacklist_hours": 4,
+    "zone_bucket_pips": 20,
+    "max_consecutive_expiries": 3,
+    "backoff_minutes": 30
   },
   "features": {
     "atr": {
@@ -137,13 +142,17 @@
     "host": "127.0.0.1"
   },
   "management": {
+    "tp1_r": 1.0,
     "ratchet": {
-      "ratchet_min_profit_pips": 6.0,
+      "ratchet_trigger_r": 1.0,
+      "ratchet_trigger_min_pips": 3.0,
       "ratchet_lock_pct": 0.5
     },
     "break_even": {
-      "be_trigger_pips": 5.0,
-      "be_offset_pips": 1.0
+      "be_trigger_r": 0.5,
+      "be_trigger_min_pips": 2.0,
+      "be_offset_r": 0.1,
+      "be_offset_min_pips": 1.0
     },
     "exit_manager": {
       "early_hold_threshold_r": 0.5,

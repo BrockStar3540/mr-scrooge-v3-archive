@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from .trade_geometry import compute_tp1
 from .types import TradeCandidate, TradeDirection
 
 log = logging.getLogger("scrooge_v3.core.execution_coordinator")
@@ -97,6 +98,14 @@ class ExecutionCoordinator:
                  best.symbol, best.direction.value, signed_units,
                  limit_price, validated_sl, best.take_profit or 0, gtd_time)
 
+        # Phase 4: direction flip resets opposite-direction expiry counter.
+        tracker_obj = getattr(ctx, "cooldown_tracker", None)
+        if tracker_obj is not None:
+            try:
+                tracker_obj.record_direction_flip(best.symbol, best.direction.value)
+            except Exception:
+                log.exception("[EXEC] direction-flip hook failed")
+
         result = ctx.broker.place_limit_order(
             symbol=best.symbol, units=signed_units,
             price=limit_price,
@@ -107,6 +116,14 @@ class ExecutionCoordinator:
         if result.success and result.trade_id:
             # Immediate fill
             ctx.state.position_count += 1
+            # Phase 3 / Bug G: unified TP1 in R — ignore per-strategy tp1 level.
+            mgmt_cfg = ctx.config.section("management") if hasattr(ctx, "config") else {}
+            tp1_r = float(mgmt_cfg.get("tp1_r", 1.0))
+            tp1_unified = compute_tp1(
+                result.fill_price, validated_sl, best.direction.value, tp1_r=tp1_r,
+            )
+            merged_meta = dict(best.metadata or {})
+            merged_meta["strategy_tp1"] = best.metadata.get("tp1", 0) if best.metadata else 0
             ctx.tracker.register_entry(
                 trade_id=result.trade_id,
                 symbol=best.symbol,
@@ -115,11 +132,11 @@ class ExecutionCoordinator:
                 entry_price=result.fill_price,
                 stop_price=validated_sl,
                 tp_price=best.take_profit or 0,
-                tp1_price=best.metadata.get("tp1", 0),
+                tp1_price=tp1_unified,
                 tp2_price=best.take_profit or 0,
                 strategy=best.strategy,
                 v3_score=int(best.score),
-                metadata=best.metadata,
+                metadata=merged_meta,
             )
             ctx.state.record_zone_entry(best.symbol, f"{validated_sl:.5f}")
             log.info("[EXEC] LIMIT FILLED IMMEDIATELY: %s %s %d units @ %.5f",
@@ -129,12 +146,17 @@ class ExecutionCoordinator:
 
         elif result.success and result.order_id:
             # Pending — limit order placed, waiting for fill
+            mgmt_cfg = ctx.config.section("management") if hasattr(ctx, "config") else {}
+            tp1_r = float(mgmt_cfg.get("tp1_r", 1.0))
             ctx.tracker.register_pending_entry(best.symbol, result.order_id)
             ctx.tracker.set_pending_entry_meta(best.symbol, {
                 "direction": best.direction.value,
                 "stop_loss": validated_sl,
+                "entry_price": limit_price,
                 "take_profit": best.take_profit or 0,
-                "tp1_price": best.metadata.get("tp1", 0),
+                # Phase 3 / Bug G: tp1 recomputed on fill from actual entry.
+                "tp1_price": 0,
+                "tp1_r": tp1_r,
                 "strategy": best.strategy,
                 "v3_score": int(best.score),
                 "metadata": best.metadata,

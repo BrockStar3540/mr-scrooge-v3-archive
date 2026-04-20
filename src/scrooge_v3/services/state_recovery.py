@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from scrooge_v3.core.trade_geometry import compute_tp1
+
 log = logging.getLogger("scrooge_v3.services.state_recovery")
 
 
@@ -72,6 +74,14 @@ class StateRecovery:
 
             if new_trade:
                 meta = ctx.tracker.get_pending_entry_meta(symbol)
+                # Phase 3 / Bug G: unified TP1 in R — compute from actual fill.
+                tp1_r = float(meta.get("tp1_r", 1.0))
+                tp1_unified = compute_tp1(
+                    new_trade.entry_price,
+                    new_trade.current_stop,
+                    new_trade.direction,
+                    tp1_r=tp1_r,
+                ) or meta.get("tp1_price", 0)
                 ctx.tracker.register_entry(
                     trade_id=new_trade.trade_id,
                     symbol=new_trade.symbol,
@@ -80,7 +90,7 @@ class StateRecovery:
                     entry_price=new_trade.entry_price,
                     stop_price=new_trade.current_stop,
                     tp_price=new_trade.current_tp,
-                    tp1_price=meta.get("tp1_price", 0),
+                    tp1_price=tp1_unified,
                     tp2_price=new_trade.current_tp,
                     strategy=meta.get("strategy", "limit_fill"),
                     v3_score=meta.get("v3_score", 0),
