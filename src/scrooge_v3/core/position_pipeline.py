@@ -93,10 +93,19 @@ class PositionPipeline:
         mean_spread: float = 0.0,
         hourly_bars: Any = None,
         pip_size: float = 0.0001,
+        live_units: float | None = None,
+        tracker: Any = None,
     ) -> ManagementAction:
         """Run the full management chain for one position.
 
         Returns the highest-priority action to take.
+
+        Args:
+            live_units: broker-authoritative unit count. If lower than
+                position.original_units, the pre-placed harvest limit has
+                already filled — pipeline must NOT emit a market harvest.
+            tracker: PositionTracker — when a broker-observed reduction is
+                detected, tp1_taken is marked here so subsequent cycles skip.
         """
         pos_id = getattr(position, "position_id", None) or getattr(position, "trade_id", str(id(position)))
         direction = TradeDirection(getattr(position, "direction", "long"))
@@ -138,14 +147,51 @@ class PositionPipeline:
         # Build details dict with phase info for audit
         phase_info = {"phase": phase, "profit_r": round(profit_r, 3), "profile": profile}
 
-        # 1. Partial harvest (skip if harvest limit order is live on OANDA)
+        # 1. Partial harvest — broker-authoritative to prevent double-harvest race.
+        #
+        # Race fixed: pre-placed harvest limit fills at broker; local tp1_taken
+        # and live units aren't updated until StateRecovery.reconcile_pending_orders
+        # runs. In that window, the old code fired a second market harvest.
+        #
+        # Guard order:
+        #   A. broker live_units < original_units -> limit already filled.
+        #      Mark tp1_taken, clear stale harvest_order_id, skip harvest.
+        #   B. harvest_order_id set -> limit still pending, skip harvest.
+        #   C. Otherwise consult harvest manager.
         if self.harvest:
             harvest_order_id = getattr(position, "harvest_order_id", "")
-            if harvest_order_id:
-                pass  # Harvest limit order is live on OANDA — skip reactive check
+            original_units = getattr(position, "original_units", 0.0) or getattr(position, "units", 0.0)
+            effective_live_units = live_units if live_units is not None else getattr(position, "units", 0.0)
+            tp1_taken = getattr(position, "tp1_taken", False)
+
+            if (
+                original_units > 0
+                and effective_live_units > 0
+                and effective_live_units < original_units - 0.5
+                and not tp1_taken
+            ):
+                if tracker is not None:
+                    try:
+                        tracker.mark_tp1_taken(pos_id)
+                        if harvest_order_id:
+                            tracker.clear_harvest_order(pos_id)
+                    except Exception as exc:  # pragma: no cover
+                        log.warning("[HARVEST-GUARD] tracker update failed for %s: %s",
+                                    pos_id, exc)
+                log.info(
+                    "[HARVEST-GUARD] %s: broker live_units=%.0f < original=%.0f "
+                    "— limit already filled, skipping market harvest.",
+                    pos_id, effective_live_units, original_units,
+                )
+                # Fall through to BE/trail.
+
+            elif harvest_order_id:
+                pass  # Limit pending on broker — skip reactive harvest.
+
             else:
-                tp1 = getattr(position, "tp1_price", None) or (position.metadata.get("tp1", 0) if hasattr(position, "metadata") else 0)
-                tp1_taken = getattr(position, "tp1_taken", False)
+                tp1 = getattr(position, "tp1_price", None) or (
+                    position.metadata.get("tp1", 0) if hasattr(position, "metadata") else 0
+                )
                 if tp1:
                     harvest_action = self.harvest.check_harvest(
                         pos_id, direction, current_price, tp1, tp1_taken,

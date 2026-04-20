@@ -37,6 +37,9 @@ class TrackedPosition:
     strategy: str = ""
     v3_score: int = 0
     harvest_order_id: str = ""
+    # Snapshotted at entry — never mutated. Used for double-harvest guard
+    # (compare broker live_units vs original_units to detect fills).
+    original_units: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -63,7 +66,8 @@ class PositionTracker:
         metadata: dict | None = None,
     ) -> None:
         """Register a new trade after fill confirmation."""
-        self._positions[trade_id] = TrackedPosition(
+        self._positions[trade_id] = TrackedPosition(  # noqa: E501
+            original_units=units,
             trade_id=trade_id,
             symbol=symbol,
             direction=direction,

@@ -40,6 +40,9 @@ class PositionCoordinator:
             if audit:
                 audit.record(AuditEvent(type=etype, reason=reason, **kw))
 
+        # Map broker trade_id -> live units for the double-harvest guard
+        live_units_by_id = {t.trade_id: t.units for t in open_trades}
+
         for tracked in ctx.tracker.all_positions():
             quote = ctx.broker.get_price(tracked.symbol)
             if not quote:
@@ -58,6 +61,8 @@ class PositionCoordinator:
                 mean_spread=ctx.spread_monitor.get_stats(tracked.symbol).get('mean', quote.spread),
                 hourly_bars=h1,
                 pip_size=pip,
+                live_units=live_units_by_id.get(tracked.trade_id),
+                tracker=ctx.tracker,
             )
 
             details = action.details or {}
