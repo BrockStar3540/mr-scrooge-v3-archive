@@ -2,9 +2,24 @@
 
 Validates all 3 layers: hard blocks, single-factor scoring, paired aspects.
 Updated for V3.1 rebalanced weights (2026-04-16).
+Updated 2026-04-20: hour penalty now derived from session label via the
+centralized clock, not r["hour"]. Tests that cared about specific hours
+inject a FixedClock pinned to a concrete UTC moment.
 """
 
+from datetime import datetime, timezone
+
+from scrooge_v3.core.clock import FixedClock
 from scrooge_v3.strategies.v3_scorer import V3HybridScorer, ScorerResult
+
+
+def _utc(y, m, d, h, mm=0):
+    return datetime(y, m, d, h, mm, tzinfo=timezone.utc)
+
+
+def _scorer_at(y, m, d, h, mm=0) -> V3HybridScorer:
+    """Scorer whose clock is pinned to a specific UTC moment."""
+    return V3HybridScorer(clock=FixedClock(_utc(y, m, d, h, mm)))
 
 
 def make_factors(**overrides) -> dict:
@@ -104,22 +119,27 @@ class TestHardBlocks:
 # =====================================================================
 
 class TestSingleFactors:
-    def test_entry_hour_early_positive(self):
+    def test_entry_hour_early_positive_sydney_tokyo(self):
+        """UTC 03 winter = SYDNEY_TOKYO → +10 (old asia bucket)."""
+        s = _scorer_at(2025, 1, 15, 3)
         r = make_factors(hour=3)
-        result = scorer._compute_score(r)
+        result = s._compute_score(r)
         assert result.breakdown["hr"] == 10
 
-    def test_entry_hour_ny_active_mild(self):
-        """V3.1: 12-16 UTC is -3 (was -8)."""
+    def test_entry_hour_london_ny_overlap(self):
+        """UTC 14 winter = LONDON_NY_OVERLAP → -3."""
+        s = _scorer_at(2025, 1, 15, 14)
         r = make_factors(hour=14)
-        result = scorer._compute_score(r)
+        result = s._compute_score(r)
         assert result.breakdown["hr"] == -3
 
-    def test_entry_hour_ny_peak_minimal(self):
-        """V3.1: 16-18 UTC is -1 (was -4)."""
+    def test_entry_hour_ny_only_uniform(self):
+        """UTC 17 winter = NY_ONLY → -3 (old 'ny_peak' sweet spot -1 folded
+        into NY_ONLY; same compat strategy as threshold map)."""
+        s = _scorer_at(2025, 1, 15, 17)
         r = make_factors(hour=17)
-        result = scorer._compute_score(r)
-        assert result.breakdown["hr"] == -1
+        result = s._compute_score(r)
+        assert result.breakdown["hr"] == -3
 
     def test_box_age_fresh_positive(self):
         r = make_factors(bage=4)

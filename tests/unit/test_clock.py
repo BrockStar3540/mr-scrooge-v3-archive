@@ -16,6 +16,7 @@ from scrooge_v3.core.clock import (
     OandaClock,
     SessionLabel,
     box_day_start_utc,
+    compat_hour_penalty,
     compat_threshold_profile,
     is_weekly_open,
     session_label_from_utc,
@@ -292,3 +293,73 @@ class TestCompatRegression:
         assert label == SessionLabel.WEEKLY_OPEN
         assert is_weekly_open(ts) is True
         assert compat_threshold_profile(label).as_tuple() == _LEGACY_TUPLES["dead_late"]
+
+
+# ---------- Hour penalty compat ----------
+
+def _legacy_hour_penalty(utc_hour: int) -> int:
+    if utc_hour < 8: return 10
+    if utc_hour < 12: return 2
+    if utc_hour < 16: return -3
+    if utc_hour < 18: return -1
+    if utc_hour < 20: return -3
+    return -7
+
+
+class TestCompatHourPenalty:
+    """Session-label hour penalty must match old raw-hour table on non-drift hours.
+
+    Legacy hour penalty table (UTC):
+        h<8=+10, h<12=+2, h<16=-3, h<18=-1, h<20=-3, else=-7
+
+    All 16-19 UTC hours now map to NY_ONLY=-3, folding the old 'ny_peak' (16-17
+    at -1) and 'tired ny' (18-19 at -3) into one value. Same compat strategy as
+    thresholds: recalibration comes from the backtester.
+
+    Winter drifts:
+      - 12 UTC: old=-3, new=LONDON_ONLY→+2 (NY not open yet in EST)
+      - 16-17 UTC: old=-1, new=NY_ONLY→-3 (sweet-spot bucket folded out)
+      - 18-19 UTC: old=-3 (tired), new=NY_ONLY→-3 — no drift value-wise
+      - 20-21 UTC: old=-7, new=NY_ONLY→-3 (NY still open)
+
+    Summer drifts:
+      - 7 UTC: old=+10, new=TOKYO_LONDON→+2 (London open in BST)
+      - 16-17 UTC: old=-1, new=-3
+      - 18-19 UTC: old=-3, new=-3 — no drift
+      - 20 UTC: old=-7, new=NY_ONLY→-3 (NY still open)
+    """
+
+    WINTER_DRIFTS = {12, 16, 17, 20, 21}
+    SUMMER_DRIFTS = {7, 16, 17, 20}
+
+    def test_winter_non_drift_hours_match(self):
+        for h in range(24):
+            if h in self.WINTER_DRIFTS:
+                continue
+            ts = utc(2025, 1, 15, h, 0)
+            label = session_label_from_utc(ts)
+            assert compat_hour_penalty(label) == _legacy_hour_penalty(h), (
+                f"winter h={h} label={label} new={compat_hour_penalty(label)} old={_legacy_hour_penalty(h)}"
+            )
+
+    def test_summer_non_drift_hours_match(self):
+        for h in range(24):
+            if h in self.SUMMER_DRIFTS:
+                continue
+            ts = utc(2025, 7, 15, h, 0)
+            label = session_label_from_utc(ts)
+            assert compat_hour_penalty(label) == _legacy_hour_penalty(h), (
+                f"summer h={h} label={label} new={compat_hour_penalty(label)} old={_legacy_hour_penalty(h)}"
+            )
+
+    def test_sydney_only_still_gets_negative(self):
+        # Compat preserves the legacy -7 for Sydney-active hours. Fixing this
+        # is a scoring-policy change for backtester recalibration, not this PR.
+        ts = utc(2025, 7, 15, 23, 0)  # Tue 23 UTC, EDT, Sydney open
+        assert session_label_from_utc(ts) == SessionLabel.SYDNEY_ONLY
+        assert compat_hour_penalty(SessionLabel.SYDNEY_ONLY) == -7
+
+    def test_all_9_labels_mapped(self):
+        for label in SessionLabel:
+            # Must not raise.
+            compat_hour_penalty(label)

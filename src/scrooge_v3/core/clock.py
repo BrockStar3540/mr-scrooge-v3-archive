@@ -124,6 +124,42 @@ def compat_threshold_profile(label: SessionLabel, family: str = "default") -> Se
     return table[legacy_key]
 
 
+# Hour-penalty compat map. Legacy scorer used a raw UTC-hour bucket table:
+#   h < 8: +10, h < 12: +2, h < 16: -3, h < 18: -1, h < 20: -3, else: -7
+# That was a session-quality prior masquerading as a UTC hour lookup. Under
+# the clock, we derive the penalty from the session label so DST is handled
+# automatically. Values are picked to match the dominant legacy value for
+# each label's typical UTC hours — same compat strategy as thresholds.
+#
+# Known drifts from legacy (all intentional, same DST-correction set):
+#   - NY_ONLY covers old h<18 / h<20 / h>=20 spans; we pick -3 (dominant).
+#     18-19 UTC hours now read -3 instead of legacy -1 (late_ny relief bucket
+#     is dropped, same as for thresholds).
+#   - Summer 07 UTC (TOKYO_LONDON) reads +2 instead of legacy +10.
+#     London is actually open in BST; the old +10 was DST-wrong.
+_COMPAT_HOUR_PENALTY = {
+    SessionLabel.WEEKLY_OPEN: -7,
+    SessionLabel.SYDNEY_ONLY: -7,
+    SessionLabel.SYDNEY_TOKYO: 10,
+    SessionLabel.TOKYO_ONLY: 10,
+    SessionLabel.TOKYO_LONDON: 2,
+    SessionLabel.LONDON_ONLY: 2,
+    SessionLabel.LONDON_NY_OVERLAP: -3,
+    SessionLabel.NY_ONLY: -3,
+    SessionLabel.DEAD_ZONE: -7,
+}
+
+
+def compat_hour_penalty(label: SessionLabel) -> int:
+    """Session-label-derived hour penalty (compat mode).
+
+    Replaces the scorer's raw UTC hour if/elif. Uses session-label-to-value
+    mapping so DST is handled through the clock. Recalibration of per-label
+    values will come from the Oanda-Bot-Trainer backtester.
+    """
+    return _COMPAT_HOUR_PENALTY[label]
+
+
 def _in_window(hour: int, open_h: int, close_h: int) -> bool:
     return open_h <= hour < close_h
 

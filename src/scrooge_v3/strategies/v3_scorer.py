@@ -28,6 +28,7 @@ from scrooge_v3.core.clock import (
     Clock,
     OandaClock,
     SessionLabel,
+    compat_hour_penalty,
     compat_threshold_profile,
 )
 from scrooge_v3.core.types import SymbolContext, TradeCandidate, TradeDirection
@@ -241,14 +242,13 @@ class V3HybridScorer:
 
         # === LAYER 1: SINGLE FACTOR BASE (17 factors — decompressed) ===
 
-        # Entry hour — decompressed, NY not killed
-        h = r["hour"]
-        if h < 8: p = 10
-        elif h < 12: p = 2
-        elif h < 16: p = -3
-        elif h < 18: p = -1
-        elif h < 20: p = -3
-        else: p = -7
+        # Hour penalty — derived from centralized session clock. Legacy table
+        # used raw UTC hour buckets; that was a session-quality prior in
+        # disguise, and it drifted 1 hour twice a year with DST. Now we read
+        # the session label from the clock and map to a penalty via the same
+        # compat strategy used for thresholds.
+        session_label_now: SessionLabel = self.clock.session_label()
+        p = compat_hour_penalty(session_label_now)
         s += p; bd["hr"] = p
 
         # Box age (18-24h softened from -7 to -4, backtest-justified)

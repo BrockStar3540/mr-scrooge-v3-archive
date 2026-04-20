@@ -39,7 +39,7 @@ _DEFAULT_TIMEOUT = 10
 class OANDAAdapter:
     """OANDA v20 REST API implementation of BrokerAdapter."""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any], clock: "Clock | None" = None):
         self.api_url = config["api_url"]  # e.g. https://api-fxpractice.oanda.com
         self.account_id = config["account_id"]
         self._headers = {
@@ -53,6 +53,10 @@ class OANDAAdapter:
         self._failure_threshold = config.get("failure_threshold", 5)
         self._recovery_until: float = 0.0
         self._recovery_seconds = config.get("recovery_seconds", 120)
+        # Clock is injected so daily-window and other time reads align with
+        # the centralized timekeeper (OANDA NY-17:00 trading day), not raw UTC.
+        from scrooge_v3.core.clock import OandaClock
+        self.clock = clock or OandaClock()
 
     # ------------------------------------------------------------------
     # HTTP primitives with health tracking
@@ -490,10 +494,15 @@ class OANDAAdapter:
     # ------------------------------------------------------------------
 
     def get_realized_pl_today(self) -> float:
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00.000000000Z")
+        # Use the OANDA trading-day boundary (NY 17:00 local) from the clock,
+        # so "today's P/L" matches OANDA's own day and aligns with the box
+        # anchor used by the scorer. Previously this used raw UTC midnight —
+        # a fourth disagreeing time convention.
+        day_start = self.clock.box_day_start()
+        from_ts = day_start.strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
         data = self._get(
             f"/v3/accounts/{self.account_id}/transactions",
-            params={"from": today, "type": "ORDER_FILL"},
+            params={"from": from_ts, "type": "ORDER_FILL"},
         )
         if not data:
             return 0.0
