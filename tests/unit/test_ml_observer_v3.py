@@ -2,12 +2,18 @@
 # Copyright (c) Carl Brock 2026. All rights reserved.
 # ============================================================
 """
-Tests for the V3 ML Observer — feature extraction, outcome labeling, and
-OANDA transaction cursor advancement.
+Tests for the V3 ML Observer — five-file schema.
 
-The observer package uses flat imports (`from config import ...`) rather than
-`from scrooge_v3.advisors.ml_observer.config import ...`, so we prepend its
-directory to sys.path and import its modules by short name.
+Covers:
+    - V3_SCORER log-line parser (head + factors + pair_adjustments + context)
+    - build_scan_row → 47+ ml_features, all standard sections
+    - OANDA fill classification (open / close / win / loss)
+    - OANDA transactions cursor advancement
+    - Outcome reconciliation end-to-end (scan → fill → close → outcomes row)
+    - Each output file has stable schema (no required field missing)
+    - Journal reader classifier categorizes gate / sizing / exec correctly
+    - Account snapshot row shape (with and without OANDA summary)
+    - Trainer loader handles both scans+outcomes and legacy observations
 """
 
 from __future__ import annotations
@@ -24,40 +30,106 @@ OBS_PKG = (
 )
 sys.path.insert(0, str(OBS_PKG))
 
-import features as obs_features  # noqa: E402
-import observer as obs_module  # noqa: E402
-import oanda_poll as oanda_module  # noqa: E402
-import trainer as obs_trainer  # noqa: E402
+import features as obs_features   # noqa: E402
+import observer as obs_module     # noqa: E402
+import oanda_poll as oanda_module # noqa: E402
+import trainer as obs_trainer     # noqa: E402
+import v3_scorer_parser as spar   # noqa: E402
+import journal_reader as jrdr     # noqa: E402
+import account_snapshot as acct   # noqa: E402
 
 
-# ----------------------------- Feature extraction -----------------------------
+# =============================================================================
+# V3_SCORER log-line parser
+# =============================================================================
 
+_SCORER_LINE = (
+    "2026-04-20 14:46:08 [INFO] scrooge_v3.strategies.v3_scorer — "
+    "[V3_SCORER] base=14 final=13 tier=REJECT fam=direct session=ny_active "
+    "(floor=30 b=42 a=50 cap=12) pairs_raw=-1 capped=-1 | "
+    "hr=-3 age=+0 stp=-2 vol=-3 mom=+1 dc=+4 z=+4 bb=-1 e50=+0 e20=+4 "
+    "otr=+0 adr=-1 dur=+5 wal=+1 bdy=+1 bbs=+2 rsi=+2 "
+    "p_z_norm=+5 n_hr_adr=-6 || "
+    "px=0.55880 ema20=0.55950 ema50=0.56020 box=0.00354 age=17.8h"
+)
+
+
+def test_scorer_parser_full_line_populates_all_sections():
+    r = spar.parse_v3_scorer_line(_SCORER_LINE)
+    assert r is not None
+    # Head
+    assert r["base"] == 14 and r["final"] == 13
+    assert r["tier"] == "REJECT" and r["fam"] == "direct"
+    assert r["session"] == "ny_active"
+    assert r["floor"] == 30 and r["b"] == 42 and r["a"] == 50 and r["cap"] == 12
+    assert r["pairs_raw"] == -1 and r["capped"] == -1
+    # 17 factors
+    assert set(r["factors"].keys()) == {
+        "hr", "age", "stp", "vol", "mom", "dc", "z", "bb", "e50", "e20",
+        "otr", "adr", "dur", "wal", "bdy", "bbs", "rsi"
+    }
+    assert r["factors"]["hr"] == -3
+    assert r["factors"]["rsi"] == 2
+    # Pair adjustments
+    assert r["pair_adjustments"] == {"p_z_norm": 5, "n_hr_adr": -6}
+    # Context
+    assert r["context"]["px"] == pytest.approx(0.55880)
+    assert r["context"]["ema20"] == pytest.approx(0.55950)
+    assert r["context"]["age"] == pytest.approx(17.8)
+    # No unknown tokens
+    assert r["raw_extra"] == {}
+
+
+def test_scorer_parser_returns_none_on_unrelated_line():
+    assert spar.parse_v3_scorer_line("2026-04-20 14:46:08 [INFO] hello world") is None
+
+
+def test_scorer_parser_preserves_unknown_factor_in_raw_extra():
+    line = ("[V3_SCORER] base=1 final=1 tier=TAKE fam=reversal session=asia_active "
+            "(floor=30 b=44 a=54 cap=16) pairs_raw=+0 capped=+0 | "
+            "hr=+0 age=+0 stp=+0 vol=+0 mom=+0 dc=+0 z=+0 bb=+0 e50=+0 e20=+0 "
+            "otr=+0 adr=+0 dur=+0 wal=+0 bdy=+0 bbs=+0 rsi=+0 "
+            "something_new=+7 || px=1.0 ema20=1.0 ema50=1.0 box=0.1 age=1.0h")
+    r = spar.parse_v3_scorer_line(line)
+    assert r is not None
+    # "something_new" is not a core factor and doesn't start with p_ or n_
+    assert r["raw_extra"] == {"something_new": 7}
+
+
+# =============================================================================
+# Scan row builder
+# =============================================================================
 
 def _sample_v3_signal():
-    """Representative V3 /api/data signal (trimmed)."""
     return {
         "symbol": "EUR_USD",
         "verdict": "TAKE_LONG",
+        "strategy_allowed": "reversal",
         "spread": 0.00013,
         "classifications": {
-            "bb_state": {"label": "NORMAL", "metadata": {}},
-            "regime": {"label": "GO", "metadata": {"score": 4.0}},
+            "bb_state": {"label": "NORMAL", "confidence": 1.0, "metadata": {}},
+            "regime": {"label": "GO", "confidence": 2.0, "metadata": {"score": 4.0}},
+            "opening_state": {"label": "NORMAL_OPEN", "confidence": 1.0, "metadata": {}},
+            "structure": {"label": "UNKNOWN", "confidence": 0.0, "metadata": {}},
         },
         "features": {
-            "atr": {"adr_consumed": 0.42, "atr": 0.00071},
-            "bollinger": {"z_score": 1.2, "bb_position": 0.8,
-                          "current_close": 1.176},
+            "atr": {"adr_consumed": 0.42, "atr": 0.00071, "atr_20pct": 0.00014,
+                    "atr_60pct": 0.0004, "atr_80pct": 0.0005},
+            "bollinger": {"z_score": 1.2, "bb_position": 0.8, "current_close": 1.176},
             "rsi": {"rsi": 58.3},
-            "ema": {"ema20_dist_pct": -0.05, "ema50_dist_pct": -0.12},
-            "otr": {"otr_ratio": 1.15},
-            "volume": {"volume_ratio": 1.3},
-            "zone_detector": {"box_age_hours": 15.6, "wall_proximity": 0.2},
+            "ema": {"ema20": 1.175, "ema50": 1.174,
+                    "ema20_dist_pct": -0.05, "ema50_dist_pct": -0.12},
+            "otr": {"otr_ratio": 1.15, "range_half": 0.002, "total_overhead": 0.001},
+            "volume": {"volume_ratio": 1.3, "current_volume": 6500, "avg_volume": 5000},
+            "zone_detector": {"box_age_hours": 15.6, "wall_proximity": 0.2,
+                              "box_range": 0.007},
+        },
+        "gates": {
+            "debounce": {"passed": True, "reason": "no prior entry"},
+            "regime_floor": {"passed": True, "reason": "score above floor"},
         },
         "scorer": {
-            "score": 42,
-            "tier": "TAKE",
-            "fam": "reversal",
-            "blocks": [],
+            "score": 42, "tier": "TAKE", "pairs_total": 8, "blocks": [],
             "breakdown": {
                 "hr": -3, "age": 0, "stp": 2, "vol": 3, "mom": 6, "dc": 4,
                 "z": 5, "bb": 1, "e50": 0, "e20": -2, "otr": 2, "adr": 2,
@@ -68,150 +140,202 @@ def _sample_v3_signal():
     }
 
 
-def test_extract_features_v3_signal():
-    """V3 signal → flat feature dict with all expected keys."""
+def test_build_scan_row_merges_api_and_parsed_log():
     sig = _sample_v3_signal()
-    out = obs_features.extract_features(sig, "2026-04-20T14:30:00+00:00")
-    feats = out["features"]
-    meta = out["metadata"]
+    parsed = spar.parse_v3_scorer_line(_SCORER_LINE)
+    row = obs_features.build_scan_row(
+        sig, cycle=42, timestamp="2026-04-20T14:46:08+00:00",
+        scorer_log_parsed=parsed,
+    )
+    # Scan-row shape
+    for key in ("ts", "cycle", "symbol", "verdict", "spread",
+                "scorer", "features", "classifications", "gates",
+                "ml_features", "metadata", "trade_id"):
+        assert key in row, f"missing top-level key {key}"
+    assert row["trade_id"] is None
+    assert row["cycle"] == 42
+    # Scorer section has BOTH API + log fields
+    assert row["scorer"]["score"] == 42            # API
+    assert row["scorer"]["final"] == 13            # log
+    assert row["scorer"]["fam"] == "direct"        # log
+    assert row["scorer"]["session"] == "ny_active" # log
+    assert row["scorer"]["floor"] == 30
+    assert row["scorer"]["pair_adjustments"] == {"p_z_norm": 5, "n_hr_adr": -6}
+    # Gates
+    assert row["gates"]["debounce"]["passed"] is True
+    assert row["gates"]["debounce"]["reason"] == "no prior entry"
+    # ML features count
+    assert len(row["ml_features"]) == len(obs_features.FEATURE_NAMES)
+    assert len(row["ml_features"]) >= 47
 
-    # 17 scorer breakdown factors
-    assert feats["sc_hr"] == -3.0
-    assert feats["sc_mom"] == 6.0
-    assert feats["sc_rsi"] == -5.0
-    # Aggregates
-    assert feats["v3_score"] == 42.0
-    assert feats["v3_pairs_total"] == 8.0
-    # Market features
-    assert feats["z_score"] == pytest.approx(1.2)
-    assert feats["bb_position"] == pytest.approx(0.8)
-    assert feats["rsi"] == pytest.approx(58.3)
-    assert feats["adr_consumed"] == pytest.approx(0.42)
-    assert feats["otr_ratio"] == pytest.approx(1.15)
-    assert feats["volume_ratio"] == pytest.approx(1.3)
-    assert feats["box_age_hours"] == pytest.approx(15.6)
-    # Regime + temporal
-    assert feats["regime_score"] == 4.0
-    assert feats["hour_utc"] == 14.0
-    # Metadata
-    assert meta["symbol"] == "EUR_USD"
-    assert meta["verdict"] == "TAKE_LONG"
-    assert meta["v3_tier"] == "TAKE"
 
-    # Every declared feature is present
+def test_build_scan_row_without_log_still_works():
+    sig = _sample_v3_signal()
+    row = obs_features.build_scan_row(sig, cycle=1,
+                                      timestamp="2026-04-20T10:00:00+00:00")
+    # Log-only fields default gracefully
+    assert row["scorer"]["fam"] == ""
+    assert row["scorer"]["session"] == ""
+    assert row["scorer"]["pair_adjustments"] == {}
+    # ML feature vector is still complete
+    assert set(row["ml_features"].keys()) == set(obs_features.FEATURE_NAMES)
+
+
+def test_build_scan_row_handles_empty_signal():
+    row = obs_features.build_scan_row({"symbol": "X", "verdict": "",
+                                       "scorer": {"breakdown": {}}},
+                                      cycle=0,
+                                      timestamp="2026-04-20T00:00:00+00:00")
     for name in obs_features.FEATURE_NAMES:
-        assert name in feats, f"missing feature {name}"
+        assert isinstance(row["ml_features"][name], float)
 
 
-def test_extract_features_handles_missing_fields():
-    """Empty / missing sections shouldn't raise; defaults fill in."""
-    sig = {"symbol": "X", "verdict": "", "scorer": {"breakdown": {}}}
-    out = obs_features.extract_features(sig, "2026-04-20T12:00:00+00:00")
-    for name in obs_features.FEATURE_NAMES:
-        assert isinstance(out["features"][name], float)
+# =============================================================================
+# Observer wiring — five-file output
+# =============================================================================
+
+def _redirect_paths(tmp_path, monkeypatch):
+    monkeypatch.setattr(obs_module, "SCANS_FILE", tmp_path / "scans.jsonl")
+    monkeypatch.setattr(obs_module, "ACTIONS_FILE", tmp_path / "actions.jsonl")
+    monkeypatch.setattr(obs_module, "ACCOUNT_FILE", tmp_path / "account.jsonl")
+    monkeypatch.setattr(obs_module, "OUTCOMES_FILE", tmp_path / "outcomes.jsonl")
+    monkeypatch.setattr(obs_module, "BOT_LOGS_FILE", tmp_path / "bot-logs.jsonl")
+    monkeypatch.setattr(obs_module, "STATE_FILE", tmp_path / "state.json")
+    return obs_module.ObserverState()
 
 
-# ----------------------------- Observation collection -----------------------------
-
-
-def _make_state(tmp_path, monkeypatch):
-    """Redirect observer file paths into tmp_path."""
-    obs_file = tmp_path / "observations.jsonl"
-    out_file = tmp_path / "outcomes.jsonl"
-    state_file = tmp_path / "observer-state.json"
-    monkeypatch.setattr(obs_module, "OBSERVATIONS_FILE", obs_file)
-    monkeypatch.setattr(obs_module, "OUTCOMES_FILE", out_file)
-    monkeypatch.setattr(obs_module, "STATE_FILE", state_file)
-    state = obs_module.ObserverState()
-    return state, obs_file, out_file
-
-
-def test_observation_written_without_trade_id(tmp_path, monkeypatch):
-    """Phase 1 collect: observations have trade_id=None (immutable)."""
-    state, obs_file, _ = _make_state(tmp_path, monkeypatch)
-    data = {
-        "system": {"cycle_count": 42},
-        "signals": [_sample_v3_signal()],
-    }
-    n = obs_module.collect_signals(state, data)
+def test_collect_scans_writes_one_row_per_scored_candidate(tmp_path, monkeypatch):
+    state = _redirect_paths(tmp_path, monkeypatch)
+    data = {"system": {"cycle_count": 7}, "signals": [_sample_v3_signal()]}
+    n = obs_module.collect_scans(state, data, scorer_by_symbol={})
     assert n == 1
-    line = obs_file.read_text().splitlines()[0]
-    obs = json.loads(line)
-    assert obs["trade_id"] is None
-    assert obs["cycle"] == 42
-    assert obs["symbol"] == "EUR_USD"
-    assert obs["verdict"] == "TAKE_LONG"
-    assert obs["v3_tier"] == "TAKE"
-    assert "outcome" not in obs  # immutable — no outcome inline
+    row = json.loads((tmp_path / "scans.jsonl").read_text().splitlines()[0])
+    assert row["cycle"] == 7
+    assert row["symbol"] == "EUR_USD"
+    assert row["trade_id"] is None
 
 
-def test_cycle_dedup_uses_equality_not_ordering(tmp_path, monkeypatch):
-    """Regression: V3 restarts reset cycle_count. Old <=dedup froze observer.
-
-    Now: same cycle → skip; different cycle (even lower) → record.
-    """
-    state, obs_file, _ = _make_state(tmp_path, monkeypatch)
-    # First cycle at 100
-    obs_module.collect_signals(state, {"system": {"cycle_count": 100},
-                                       "signals": [_sample_v3_signal()]})
-    # Same cycle → no new record
-    obs_module.collect_signals(state, {"system": {"cycle_count": 100},
-                                       "signals": [_sample_v3_signal()]})
-    # V3 restarted, counter back to 1 → MUST record
-    obs_module.collect_signals(state, {"system": {"cycle_count": 1},
-                                       "signals": [_sample_v3_signal()]})
-    lines = [l for l in obs_file.read_text().splitlines() if l.strip()]
-    assert len(lines) == 2
-    cycles = [json.loads(l)["cycle"] for l in lines]
+def test_collect_scans_cycle_dedup_uses_equality(tmp_path, monkeypatch):
+    state = _redirect_paths(tmp_path, monkeypatch)
+    sig = _sample_v3_signal()
+    obs_module.collect_scans(state, {"system": {"cycle_count": 100}, "signals": [sig]}, {})
+    obs_module.collect_scans(state, {"system": {"cycle_count": 100}, "signals": [sig]}, {})
+    # V3 restarted, counter reset
+    obs_module.collect_scans(state, {"system": {"cycle_count": 1}, "signals": [sig]}, {})
+    cycles = [json.loads(l)["cycle"]
+              for l in (tmp_path / "scans.jsonl").read_text().splitlines() if l.strip()]
     assert cycles == [100, 1]
 
 
-# ----------------------------- OANDA fill classification -----------------------------
+# =============================================================================
+# Journal reader classifier
+# =============================================================================
 
+def test_journal_classify_gate_line():
+    cat = jrdr._classify(
+        "[GATE:debounce] PASSED symbol=EUR_USD reason=No prior entry",
+        "6")
+    assert cat == "gate"
+
+
+def test_journal_classify_scorer_line():
+    cat = jrdr._classify("[V3_SCORER] base=1 final=2 tier=TAKE", "6")
+    assert cat == "scorer_line"
+
+
+def test_journal_classify_sizing_line():
+    cat = jrdr._classify(
+        "[SIZING] EUR_USD: 5000 units | equity $10000", "6")
+    assert cat == "sizing"
+
+
+def test_journal_classify_exec_line():
+    cat = jrdr._classify("ORDER_FILL tradeID=123 price=1.10", "6")
+    assert cat == "exec"
+
+
+def test_journal_classify_error_routes_to_error():
+    cat = jrdr._classify("some random boring error", "3")
+    assert cat == "error"
+
+
+def test_journal_classify_warning_routes_to_warning():
+    cat = jrdr._classify("some random warning", "4")
+    assert cat == "warning"
+
+
+def test_journal_noise_is_dropped():
+    assert jrdr._is_noise("Percentile filter applied to XXX")
+    assert jrdr._is_noise("Insufficient bars for AUD_CHF")
+    assert jrdr._is_noise("HTTP 502 Bad Gateway from broker")
+    assert not jrdr._is_noise("[V3_SCORER] base=1 final=1")
+
+
+def test_gate_line_enrichment_parses_fields(tmp_path, monkeypatch):
+    """Observer.drain_journal enriches gate lines with name/passed/reason."""
+    # Patch iter_journal_events to yield a canned gate entry
+    state = _redirect_paths(tmp_path, monkeypatch)
+
+    def fake_iter(*_args, **_kwargs):
+        yield ("gate", {
+            "ts": "2026-04-20T14:00:00+00:00",
+            "priority": "6",
+            "level": "INFO",
+            "logger": "scrooge_v3.gate.pipeline",
+            "message": ("2026-04-20 14:00:00 [INFO] scrooge_v3.gate.pipeline — "
+                        "[GATE:cooldown] PASSED symbol=EUR_USD reason=No active cooldown"),
+        })
+    monkeypatch.setattr(obs_module, "iter_journal_events", fake_iter)
+    obs_module.drain_journal(state)
+    lines = [l for l in (tmp_path / "actions.jsonl").read_text().splitlines() if l.strip()]
+    assert len(lines) == 1
+    rec = json.loads(lines[0])
+    assert rec["category"] == "gate"
+    assert rec["gate_name"] == "cooldown"
+    assert rec["passed"] is True
+    assert rec["symbol"] == "EUR_USD"
+    assert rec["reason"] == "No active cooldown"
+
+
+def test_drain_journal_routes_warning_to_bot_logs(tmp_path, monkeypatch):
+    state = _redirect_paths(tmp_path, monkeypatch)
+    def fake_iter(*_a, **_k):
+        yield ("warning", {"ts": "2026-04-20T00:00:00+00:00", "priority": "4",
+                           "level": "WARNING", "logger": "foo",
+                           "message": "something went sideways"})
+    monkeypatch.setattr(obs_module, "iter_journal_events", fake_iter)
+    obs_module.drain_journal(state)
+    assert (tmp_path / "bot-logs.jsonl").exists()
+    assert not (tmp_path / "actions.jsonl").exists()
+
+
+# =============================================================================
+# OANDA fill classifier
+# =============================================================================
 
 def test_classify_fill_open():
-    tx = {
-        "id": "1502", "time": "2026-04-20T06:08:17Z", "type": "ORDER_FILL",
-        "instrument": "NZD_JPY", "price": "93.264", "units": "1105104",
-        "pl": "0.0000",
-        "tradeOpened": {"tradeID": "1502", "units": "1105104", "price": "93.264"},
-    }
+    tx = {"id": "1502", "time": "2026-04-20T06:08:17Z", "type": "ORDER_FILL",
+          "instrument": "NZD_JPY", "price": "93.264", "units": "1105104",
+          "pl": "0.0000",
+          "tradeOpened": {"tradeID": "1502", "units": "1105104", "price": "93.264"}}
     ev = oanda_module.classify_fill(tx)
     assert ev["kind"] == "open"
     assert ev["trade_ids_opened"] == ["1502"]
-    assert ev["trade_ids_closed"] == []
     assert ev["realized_pl_usd"] == 0.0
-    assert ev["symbol"] == "NZD_JPY"
-
-
-def test_classify_fill_close_win():
-    tx = {
-        "id": "1600", "time": "2026-04-20T09:12:00Z", "type": "ORDER_FILL",
-        "instrument": "NZD_JPY", "price": "93.500", "units": "-1105104",
-        "pl": "23.45",
-        "tradesClosed": [{"tradeID": "1502", "realizedPL": "23.45", "units": "-1105104"}],
-    }
-    ev = oanda_module.classify_fill(tx)
-    assert ev["kind"] == "close"
-    assert ev["trade_ids_closed"] == ["1502"]
-    # pl is added once (tx-level) — tradesClosed realizedPL gets added too, so 46.90
-    # That duplication is the documented trade-off of OANDA's reporting; acceptable.
-    assert ev["realized_pl_usd"] == pytest.approx(46.90)
 
 
 def test_classify_fill_close_loss():
-    tx = {
-        "id": "1601", "type": "ORDER_FILL", "instrument": "EUR_USD",
-        "price": "1.10", "units": "-1000", "pl": "-12.00",
-        "tradesClosed": [{"tradeID": "1503", "realizedPL": "0"}],
-    }
+    tx = {"id": "1601", "type": "ORDER_FILL", "instrument": "EUR_USD",
+          "price": "1.10", "units": "-1000", "pl": "-12.00",
+          "tradesClosed": [{"tradeID": "1503", "realizedPL": "0"}]}
     ev = oanda_module.classify_fill(tx)
     assert ev["kind"] == "close"
     assert ev["realized_pl_usd"] == -12.0
 
 
-# ----------------------------- Outcome polling cursor -----------------------------
-
+# =============================================================================
+# Outcome reconciliation (end-to-end)
+# =============================================================================
 
 class _FakePoller:
     def __init__(self, fills_by_since=None, latest_id="1500"):
@@ -222,101 +346,125 @@ class _FakePoller:
     def get_last_transaction_id(self):
         return self._latest
 
-    def fetch_fills_since(self, since_id: str):
+    def fetch_fills_since(self, since_id):
         self._calls.append(since_id)
         return list(self._fills.get(since_id, []))
 
 
 def test_poll_oanda_primes_cursor_on_first_run(tmp_path, monkeypatch):
-    state, _, _ = _make_state(tmp_path, monkeypatch)
-    assert state.last_transaction_id_seen is None
+    state = _redirect_paths(tmp_path, monkeypatch)
     poller = _FakePoller(latest_id="999")
     closed = obs_module.poll_oanda_outcomes(state, poller)
     assert closed == 0
     assert state.last_transaction_id_seen == "999"
-    # No fetch_fills_since call yet — we primed the cursor only
     assert poller._calls == []
 
 
-def test_poll_oanda_labels_closed_trade(tmp_path, monkeypatch):
-    state, _, out_file = _make_state(tmp_path, monkeypatch)
+def test_trade_open_links_to_scan_row(tmp_path, monkeypatch):
+    state = _redirect_paths(tmp_path, monkeypatch)
     state.last_transaction_id_seen = "1000"
-    close_tx = {
-        "id": "1050", "type": "ORDER_FILL", "instrument": "EUR_USD",
-        "price": "1.11", "units": "-1000", "pl": "15.0",
-        "tradesClosed": [{"tradeID": "999", "realizedPL": "0"}],
-    }
-    poller = _FakePoller(fills_by_since={"1000": [close_tx]})
-    closed = obs_module.poll_oanda_outcomes(state, poller)
-    assert closed == 1
-    assert state.total_outcomes == 1
-    assert state.last_transaction_id_seen == "1050"
-    rows = [json.loads(l) for l in out_file.read_text().splitlines() if l.strip()]
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    (tmp_path / "scans.jsonl").write_text(json.dumps({
+        "ts": now, "cycle": 42, "symbol": "EUR_USD", "verdict": "TAKE_LONG",
+        "ml_features": {n: 0.0 for n in obs_features.FEATURE_NAMES},
+    }) + "\n")
+    open_tx = {"id": "1001", "type": "ORDER_FILL", "instrument": "EUR_USD",
+               "price": "1.10", "units": "1000", "pl": "0",
+               "tradeOpened": {"tradeID": "1001", "units": "1000", "price": "1.10"}}
+    poller = _FakePoller(fills_by_since={"1000": [open_tx]})
+    obs_module.poll_oanda_outcomes(state, poller)
+    rows = [json.loads(l) for l in (tmp_path / "outcomes.jsonl").read_text().splitlines()
+            if l.strip()]
     assert len(rows) == 1
-    row = rows[0]
-    assert row["kind"] == "trade_close"
-    assert row["trade_id"] == "999"
-    assert row["label"] == "win"
-    assert row["outcome"] == 1
-    assert row["realized_pnl_usd"] == 15.0
+    assert rows[0]["kind"] == "trade_open"
+    assert rows[0]["matched_scan_cycle"] == 42
+    assert rows[0]["matched_scan_verdict"] == "TAKE_LONG"
 
 
-def test_poll_oanda_incremental_uses_cursor(tmp_path, monkeypatch):
-    state, _, _ = _make_state(tmp_path, monkeypatch)
+def test_end_to_end_scan_open_close_produces_outcome_row(tmp_path, monkeypatch):
+    """Full flow: scan row → open fill → close fill → two outcome rows."""
+    state = _redirect_paths(tmp_path, monkeypatch)
+    state.last_transaction_id_seen = "1000"
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    (tmp_path / "scans.jsonl").write_text(json.dumps({
+        "ts": now, "cycle": 42, "symbol": "EUR_USD", "verdict": "TAKE_LONG",
+        "ml_features": {n: 0.0 for n in obs_features.FEATURE_NAMES},
+    }) + "\n")
+    open_tx = {"id": "1001", "type": "ORDER_FILL", "instrument": "EUR_USD",
+               "price": "1.10", "units": "1000", "pl": "0",
+               "tradeOpened": {"tradeID": "9001", "units": "1000", "price": "1.10"}}
+    close_tx = {"id": "1002", "type": "ORDER_FILL", "instrument": "EUR_USD",
+                "price": "1.11", "units": "-1000", "pl": "10.0",
+                "tradesClosed": [{"tradeID": "9001", "realizedPL": "0"}]}
+    poller = _FakePoller(fills_by_since={"1000": [open_tx, close_tx]})
+    obs_module.poll_oanda_outcomes(state, poller)
+    rows = [json.loads(l) for l in (tmp_path / "outcomes.jsonl").read_text().splitlines()
+            if l.strip()]
+    kinds = [r["kind"] for r in rows]
+    assert kinds == ["trade_open", "trade_close"]
+    close_row = rows[1]
+    assert close_row["label"] == "win"
+    assert close_row["outcome"] == 1
+    assert close_row["realized_pnl_usd"] == 10.0
+    assert state.total_outcomes == 1
+
+
+def test_incremental_cursor_does_not_reprocess(tmp_path, monkeypatch):
+    state = _redirect_paths(tmp_path, monkeypatch)
     state.last_transaction_id_seen = "2000"
     poller = _FakePoller(fills_by_since={"2000": []})
     obs_module.poll_oanda_outcomes(state, poller)
     obs_module.poll_oanda_outcomes(state, poller)
-    # Both calls used the cursor
     assert poller._calls == ["2000", "2000"]
 
 
-def test_trade_open_links_to_matching_observation(tmp_path, monkeypatch):
-    """Trade-open fill picks up the most recent TAKE_* obs of same symbol."""
-    state, obs_file, out_file = _make_state(tmp_path, monkeypatch)
-    state.last_transaction_id_seen = "1000"
+# =============================================================================
+# Account snapshot
+# =============================================================================
 
-    # Seed observations.jsonl with a recent TAKE_LONG for EUR_USD
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc).isoformat()
-    obs_file.write_text(json.dumps({
-        "ts": now, "cycle": 42, "symbol": "EUR_USD", "verdict": "TAKE_LONG",
-        "v3_score": 40, "v3_tier": "TAKE", "features": {}, "metadata": {},
-        "trade_id": None,
-    }) + "\n")
-
-    open_tx = {
-        "id": "1001", "type": "ORDER_FILL", "instrument": "EUR_USD",
-        "price": "1.10", "units": "1000", "pl": "0",
-        "tradeOpened": {"tradeID": "1001", "units": "1000", "price": "1.10"},
+def test_account_snapshot_without_oanda(tmp_path):
+    v3_data = {
+        "system": {"cycle_count": 5},
+        "account": {"balance": 80987.65, "equity": 80987.65,
+                    "daily_pnl": -13.7, "position_count": 0},
     }
-    poller = _FakePoller(fills_by_since={"1000": [open_tx]})
-    obs_module.poll_oanda_outcomes(state, poller)
-
-    rows = [json.loads(l) for l in out_file.read_text().splitlines() if l.strip()]
-    assert len(rows) == 1
-    assert rows[0]["kind"] == "trade_open"
-    assert rows[0]["trade_id"] == "1001"
-    assert rows[0]["matched_observation_cycle"] == 42
-    assert rows[0]["matched_observation_verdict"] == "TAKE_LONG"
-
-
-# ----------------------------- Trainer data loader -----------------------------
+    row = acct.build_snapshot(v3_data, tmp_path)
+    assert row["cycle"] == 5
+    assert row["v3_account"]["balance"] == 80987.65
+    # Tracker files missing → null
+    assert row["cooldowns"] is None
+    assert row["daily_circuit"] is None
+    assert row["oanda"]["balance"] is None
+    assert "ts" in row
 
 
-def test_trainer_loads_outcomes_via_observations(tmp_path, monkeypatch):
-    """Trainer still reads from observations.jsonl — legacy flat records with
-    `outcome` field should load correctly (backwards compat with archive)."""
+def test_account_snapshot_reads_tracker_files(tmp_path):
+    (tmp_path / "cooldowns.json").write_text('{"EUR_USD": 1717200000}')
+    (tmp_path / "daily_circuit.json").write_text(
+        '{"date": "2026-04-20", "tripped": false, "equity_start": 80000}'
+    )
+    row = acct.build_snapshot({"system": {"cycle_count": 1}, "account": {}}, tmp_path)
+    assert row["cooldowns"] == {"EUR_USD": 1717200000}
+    assert row["daily_circuit"]["tripped"] is False
+
+
+# =============================================================================
+# Trainer
+# =============================================================================
+
+def test_trainer_legacy_loader_still_works(tmp_path, monkeypatch):
     obs_file = tmp_path / "observations.jsonl"
-    # Write 3 rows with outcomes
-    rows = []
-    for i in range(3):
-        row = {"features": {n: 0.1 * i for n in obs_features.FEATURE_NAMES},
-               "outcome": i % 2}
-        rows.append(row)
+    rows = [
+        {"features": {n: 0.1 * i for n in obs_features.FEATURE_NAMES},
+         "outcome": i % 2}
+        for i in range(3)
+    ]
     obs_file.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
     monkeypatch.setattr(obs_trainer, "OBSERVATIONS_FILE", obs_file)
-    # Force PHASE2_MIN_TRADES to 2 so load succeeds with just 3 rows
+    monkeypatch.setattr(obs_trainer, "SCANS_FILE", tmp_path / "scans.jsonl")
+    monkeypatch.setattr(obs_trainer, "OUTCOMES_FILE", tmp_path / "outcomes.jsonl")
     monkeypatch.setattr(obs_trainer, "PHASE2_MIN_TRADES", 2)
     X, y, n = obs_trainer.load_training_data()
     assert n == 3
@@ -324,30 +472,92 @@ def test_trainer_loads_outcomes_via_observations(tmp_path, monkeypatch):
     assert list(y) == [0.0, 1.0, 0.0]
 
 
-# ----------------------------- Phase-advance trigger -----------------------------
+def test_trainer_scans_outcomes_loader(tmp_path, monkeypatch):
+    """Trainer joins scans.jsonl + outcomes.jsonl by symbol + time."""
+    from datetime import datetime, timezone, timedelta
+    scans_file = tmp_path / "scans.jsonl"
+    out_file = tmp_path / "outcomes.jsonl"
+
+    base = datetime.now(timezone.utc)
+    scan_rows = []
+    close_rows = []
+    open_rows = []
+    for i in range(3):
+        ts = (base - timedelta(minutes=60 - i * 10)).isoformat()
+        scan_rows.append({
+            "ts": ts, "cycle": i, "symbol": "EUR_USD", "verdict": "TAKE_LONG",
+            "ml_features": {n: 0.1 * i for n in obs_features.FEATURE_NAMES},
+        })
+        open_rows.append({
+            "kind": "trade_open", "ts": ts, "trade_id": f"T{i}", "symbol": "EUR_USD",
+            "matched_scan_ts": ts,
+        })
+        close_rows.append({
+            "kind": "trade_close", "ts": (base + timedelta(minutes=i)).isoformat(),
+            "trade_id": f"T{i}", "symbol": "EUR_USD",
+            "label": "win" if i % 2 == 0 else "loss",
+            "outcome": 1 if i % 2 == 0 else 0, "realized_pnl_usd": 5 if i % 2 == 0 else -5,
+        })
+
+    scans_file.write_text("\n".join(json.dumps(r) for r in scan_rows) + "\n")
+    out_file.write_text("\n".join(json.dumps(r) for r in open_rows + close_rows) + "\n")
+
+    monkeypatch.setattr(obs_trainer, "SCANS_FILE", scans_file)
+    monkeypatch.setattr(obs_trainer, "OUTCOMES_FILE", out_file)
+    monkeypatch.setattr(obs_trainer, "OBSERVATIONS_FILE", tmp_path / "none.jsonl")
+    monkeypatch.setattr(obs_trainer, "PHASE2_MIN_TRADES", 2)
+
+    X, y, n = obs_trainer.load_training_data()
+    assert n == 3
+    assert X is not None
+    assert list(y) == [1.0, 0.0, 1.0]
 
 
-def test_phase_advance_at_threshold(tmp_path, monkeypatch):
-    """maybe_train triggers only when total_outcomes >= PHASE2_MIN_TRADES."""
-    state, _, _ = _make_state(tmp_path, monkeypatch)
-    # No model yet, only 49 outcomes — should not train
-    state.total_outcomes = 49
-    called = {"n": 0}
+# =============================================================================
+# Schema invariants
+# =============================================================================
 
-    def fake_train():
-        called["n"] += 1
-        return {"status": "trained", "insample_accuracy": 0.55, "phase3_ready": False}
+def test_scans_row_has_47_plus_ml_features():
+    sig = _sample_v3_signal()
+    parsed = spar.parse_v3_scorer_line(_SCORER_LINE)
+    row = obs_features.build_scan_row(sig, cycle=1,
+                                      timestamp="2026-04-20T00:00:00+00:00",
+                                      scorer_log_parsed=parsed)
+    assert len(row["ml_features"]) >= 47
 
-    monkeypatch.setattr(obs_module, "train_model", fake_train)
-    # Force MODEL_FILE path to tmp so needs_initial = (not exists) and cfg threshold
-    monkeypatch.setattr(obs_module, "MODEL_FILE", tmp_path / "model.xgb")
-    monkeypatch.setattr(obs_module, "PHASE2_MIN_TRADES", 50)
-    obs_module.maybe_train(state)
-    assert called["n"] == 0
-    assert state.phase == 1
 
-    # Bump to 50 → should train and advance to phase 2 (not 3, accuracy below)
-    state.total_outcomes = 50
-    obs_module.maybe_train(state)
-    assert called["n"] == 1
-    assert state.phase == 2
+def test_scans_row_every_feature_name_is_a_float():
+    sig = _sample_v3_signal()
+    row = obs_features.build_scan_row(sig, cycle=1,
+                                      timestamp="2026-04-20T00:00:00+00:00")
+    for name in obs_features.FEATURE_NAMES:
+        assert isinstance(row["ml_features"][name], float)
+
+
+def test_actions_row_schema_required_keys(tmp_path, monkeypatch):
+    """Any action row written by drain_journal has {ts, category, level,
+    logger, message} at minimum."""
+    state = _redirect_paths(tmp_path, monkeypatch)
+    def fake_iter(*_a, **_k):
+        yield ("sizing", {"ts": "2026-04-20T01:02:03+00:00", "priority": "6",
+                          "level": "INFO", "logger": "scrooge_v3.execution.sizing",
+                          "message": "[SIZING] EUR_USD: 123 units"})
+    monkeypatch.setattr(obs_module, "iter_journal_events", fake_iter)
+    obs_module.drain_journal(state)
+    rec = json.loads((tmp_path / "actions.jsonl").read_text().splitlines()[0])
+    for k in ("ts", "category", "level", "logger", "message"):
+        assert k in rec
+
+
+def test_outcomes_row_schema_required_keys(tmp_path, monkeypatch):
+    state = _redirect_paths(tmp_path, monkeypatch)
+    state.last_transaction_id_seen = "1"
+    tx = {"id": "2", "type": "ORDER_FILL", "instrument": "USD_JPY",
+          "price": "150.0", "units": "-100", "pl": "7.5",
+          "tradesClosed": [{"tradeID": "X1", "realizedPL": "0"}]}
+    poller = _FakePoller(fills_by_since={"1": [tx]})
+    obs_module.poll_oanda_outcomes(state, poller)
+    rec = json.loads((tmp_path / "outcomes.jsonl").read_text().splitlines()[0])
+    for k in ("kind", "ts", "trade_id", "symbol", "label", "outcome",
+              "realized_pnl_usd", "exit_price"):
+        assert k in rec

@@ -2,9 +2,24 @@
 # Copyright (c) Carl Brock 2026. All rights reserved.
 # ============================================================
 """
-ML Observer — Configuration
-Paths, thresholds, and phase triggers.
+ML Observer — Configuration.
 
+Paths, thresholds, and phase triggers. The observer writes to FIVE JSONL
+files in `data/ml-observer/` that downstream training joins by
+(ts, symbol, trade_id, cycle_id):
+
+    scans.jsonl     — one row per scored candidate per cycle (the full
+                      47+ ML-feature vector + context + gates)
+    actions.jsonl   — bot actions (orders, fills, SL moves, harvests,
+                      gate blocks, circuit trips, cooldowns)
+    account.jsonl   — periodic account + risk-tracker snapshots
+    outcomes.jsonl  — trade_open / trade_close rows from OANDA poller
+    bot-logs.jsonl  — filtered WARNING/ERROR and uncategorized info
+                      from journald
+
+2026-04-20: Scope expansion — production-grade data pipeline, 5 output
+            files, full-fidelity V3 scorer capture, journald tailer,
+            OANDA summary snapshots, risk-tracker JSON ingestion.
 2026-04-19: Added OANDA transaction polling + separate outcomes.jsonl.
 2026-04-16: Rewired for V3 only. V1 and V2 are decommissioned.
 """
@@ -15,34 +30,47 @@ from pathlib import Path
 V3_API_URL = "http://127.0.0.1:8084/api/data"
 V3_AUTH = ("admin", "scrooge2026")
 
-# --- OANDA credentials (loaded from V3 .env at runtime, read-only) ---
-OANDA_ENV_PATH = Path(__file__).resolve().parent.parent.parent.parent.parent / ".env"
-
-# --- Observer data directory ---
+# --- Paths ---
 OBS_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent  # mr-scrooge-v3/
 DATA_DIR = OBS_DIR / "data" / "ml-observer"
-LOG_DIR = OBS_DIR / "logs"  # shared V3 logs dir
+V3_DATA_DIR = OBS_DIR / "data"          # mr-scrooge-v3/data/ (risk tracker JSONs)
+LOG_DIR = OBS_DIR / "logs"              # shared V3 logs dir
 
-OBSERVATIONS_FILE = DATA_DIR / "observations.jsonl"
-OUTCOMES_FILE = DATA_DIR / "outcomes.jsonl"  # separate file — observations stay immutable
-PROTESTS_FILE = DATA_DIR / "ml-protests.jsonl"
-MODEL_FILE = DATA_DIR / "model.xgb"
-STATE_FILE = DATA_DIR / "observer-state.json"
+# --- OANDA credentials (loaded from V3 .env at runtime, read-only) ---
+OANDA_ENV_PATH = OBS_DIR / ".env"
+
+# --- Output files (five-file schema) ---
+SCANS_FILE        = DATA_DIR / "scans.jsonl"
+ACTIONS_FILE      = DATA_DIR / "actions.jsonl"
+ACCOUNT_FILE      = DATA_DIR / "account.jsonl"
+OUTCOMES_FILE     = DATA_DIR / "outcomes.jsonl"
+BOT_LOGS_FILE     = DATA_DIR / "bot-logs.jsonl"
+
+# --- Observer state + model ---
+STATE_FILE        = DATA_DIR / "observer-state.json"
+MODEL_FILE        = DATA_DIR / "model.xgb"
+PROTESTS_FILE     = DATA_DIR / "ml-protests.jsonl"
+
+# --- journald cursor (resume reads across observer restarts) ---
+JOURNAL_CURSOR_FILE = DATA_DIR / "journal.cursor"
+JOURNAL_UNIT = "mr-scrooge-v3.service"
+JOURNAL_MAX_ENTRIES_PER_CYCLE = 10000
+
+# --- Legacy (still used for reads during backfill) ---
+OBSERVATIONS_FILE = DATA_DIR / "observations.jsonl"  # legacy — no new writes
 
 # --- Cycle timing ---
-CYCLE_SECONDS = 300  # 5 minutes, matches bot cycle
+CYCLE_SECONDS = 300  # 5 min, matches bot cycle
 
 # --- Phase thresholds ---
-PHASE2_MIN_TRADES = 50       # trades with outcomes before training
-PHASE3_MIN_CV_ACCURACY = 0.60  # minimum CV accuracy to start advising
-RETRAIN_INTERVAL_TRADES = 25   # retrain after this many new closed trades
+PHASE2_MIN_TRADES = 50          # trades with outcomes before training
+PHASE3_MIN_CV_ACCURACY = 0.60   # min CV accuracy before advising
+RETRAIN_INTERVAL_TRADES = 25    # retrain after this many new closed trades
 
 # --- Advisor thresholds ---
-PROTEST_CONFIDENCE = 0.70  # minimum ML confidence to log a protest
+PROTEST_CONFIDENCE = 0.70
 
 # --- Trade association window ---
-# When an OANDA tradeOpened fill lands, associate with the most recent
-# observation of same symbol + TAKE_* verdict within this window.
 TRADE_ASSOCIATION_WINDOW_SEC = 600  # 10 min
 
 # --- XGBoost parameters ---

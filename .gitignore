@@ -37,3 +37,14 @@ logs/*.lock
 data/ml-observer/observations.jsonl
 data/ml-observer/observations-v1v2-archive.jsonl
 data/ml-observer/observer-state.json
+
+# ML observer expanded-scope data files (2026-04-20)
+data/ml-observer/scans.jsonl
+data/ml-observer/actions.jsonl
+data/ml-observer/account.jsonl
+data/ml-observer/outcomes.jsonl
+data/ml-observer/bot-logs.jsonl
+data/ml-observer/ml-protests.jsonl
+data/ml-observer/model.xgb
+data/ml-observer/journal.cursor
+data/ml-observer/legacy-v1v2/
