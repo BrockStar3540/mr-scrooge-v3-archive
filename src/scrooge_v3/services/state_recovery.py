@@ -117,11 +117,48 @@ class StateRecovery:
                 ctx.tracker.clear_harvest_order(tracked.trade_id)
                 log.info("[RECOVERY] HARVEST LIMIT FILLED: %s units %.0f → %.0f",
                          tracked.trade_id, old_units, broker_trade.units)
+                # Dust check — if the remaining size is below threshold,
+                # flatten the residual so we don't carry orphan units.
+                self._maybe_flatten_dust(tracked, broker_trade.units)
             else:
                 ctx.tracker.clear_harvest_order(tracked.trade_id)
                 log.info("[RECOVERY] HARVEST LIMIT CANCELLED: %s order=%s",
                          tracked.trade_id, tracked.harvest_order_id)
 
+    def _dust_threshold(self) -> float:
+        """Units below which a residual is considered accounting dust."""
+        try:
+            mgmt = self.ctx.config.section("management") if hasattr(self.ctx, "config") else {}
+            if isinstance(mgmt, dict):
+                return float(mgmt.get("dust_unit_threshold", 2))
+        except Exception:
+            pass
+        return 2.0
+
+    def _maybe_flatten_dust(self, tracked, remaining_units: float) -> None:
+        """If remaining broker units are at/below the dust threshold, flatten.
+
+        After a partial close, tiny residuals (1-2 units) are just accounting
+        noise — they can't be meaningfully managed and generate log spam.
+        Market-close them and let the normal vanish path clean up the tracker.
+        """
+        threshold = self._dust_threshold()
+        if remaining_units <= 0 or remaining_units > threshold:
+            return
+        log.warning(
+            "[RECOVERY] DUST FLATTEN: %s remaining=%.0f <= threshold=%.0f",
+            tracked.trade_id, remaining_units, threshold,
+        )
+        try:
+            result = self.ctx.broker.close_trade(tracked.trade_id)
+            if getattr(result, "success", False):
+                log.info("[RECOVERY] DUST FLATTENED: %s pl=%.2f",
+                         tracked.trade_id, getattr(result, "realized_pl", 0.0))
+            else:
+                log.warning("[RECOVERY] DUST FLATTEN FAILED: %s error=%s",
+                            tracked.trade_id, getattr(result, "error", "?"))
+        except Exception:
+            log.exception("[RECOVERY] DUST FLATTEN raised: %s", tracked.trade_id)
 
     def _place_harvest_limit(self, tracked) -> None:
         """Pre-place a REDUCE_ONLY limit order at TP1 for partial harvest."""

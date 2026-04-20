@@ -149,6 +149,7 @@
       "early_hold_threshold_r": 0.5,
       "lock_threshold_r": 0.8,
       "min_sl_step_pips": 3.0
-    }
+    },
+    "dust_unit_threshold": 2
   }
 }
