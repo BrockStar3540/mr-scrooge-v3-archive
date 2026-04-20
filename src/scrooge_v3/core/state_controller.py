@@ -53,8 +53,17 @@ class StateController:
         self.last_candle: dict[str, str] = {}
 
         # Position tracking
+        # Read from risk.max_open_positions (canonical path in default.json).
+        # Support both a pre-flattened dict (current bootstrap path) and a
+        # nested config. Defaults to 2 per user spec.
         self.position_count: int = 0
-        self.max_positions: int = config.get("max_concurrent_positions", 5)
+        risk_section = config.get("risk") if isinstance(config.get("risk"), dict) else {}
+        self.max_positions: int = (
+            config.get("max_open_positions")
+            or risk_section.get("max_open_positions")
+            or config.get("max_concurrent_positions")  # legacy key — still honored
+            or 2
+        )
 
         # Equity tracking
         self.equity_start: float = 0.0
