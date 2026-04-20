@@ -4,13 +4,15 @@
 # ============================================================
 """
 ML Observer — Main Loop (V3)
-Watches Scrooge V3 passively via its /api/data endpoint.
-Collects signal data, trains XGBoost after enough trades,
-logs protests when ML disagrees with bot decisions.
-Never takes action — read-only forever.
+Watches Scrooge V3 passively via its /api/data endpoint and OANDA transactions.
+Collects signal data, associates live trades by symbol+time, polls OANDA for
+closed-trade outcomes, trains XGBoost after enough labeled trades, logs protests
+when ML disagrees with bot decisions. Never takes action — read-only forever.
 
+2026-04-19: Split outcomes into outcomes.jsonl (observations immutable).
+            OANDA transactions polled via sinceid cursor for incremental labeling.
+            Fixed cycle-dedup bug that froze the observer after a V3 restart.
 2026-04-16: Rewired from V1/V2 status.json to V3 REST API.
-V1 and V2 are decommissioned. Old observations are archived.
 
 Phases:
   1. Collector  — record every evaluated signal + outcomes
@@ -23,18 +25,20 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Set
+from typing import Optional, Set
 
 import requests
 
 from config import (
-    V3_API_URL, V3_AUTH,
-    CYCLE_SECONDS, OBSERVATIONS_FILE, PROTESTS_FILE,
+    V3_API_URL, V3_AUTH, OANDA_ENV_PATH,
+    CYCLE_SECONDS, OBSERVATIONS_FILE, OUTCOMES_FILE, PROTESTS_FILE,
     STATE_FILE, MODEL_FILE, LOG_DIR,
     PHASE2_MIN_TRADES, RETRAIN_INTERVAL_TRADES, PROTEST_CONFIDENCE,
+    TRADE_ASSOCIATION_WINDOW_SEC,
 )
 from features import extract_features
-from trainer import load_training_data, train_model, predict
+from trainer import train_model, predict
+from oanda_poll import OandaPoller, classify_fill
 
 # --- Logging setup ---
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -58,8 +62,13 @@ class ObserverState:
         self.total_outcomes = 0
         self.last_train_outcomes = 0
         self.cv_accuracy = 0.0
-        self.last_cycle_count = 0  # V3 cycle dedup
-        self.known_trade_ids: Set[str] = set()  # track closed trades
+        # Per-cycle dedup — track exact last cycle we've RECORDED.
+        # Using equality, not ordering, so V3 restarts (cycle counter reset)
+        # don't freeze us forever.
+        self.last_cycle_seen: Optional[int] = None
+        # OANDA transactions cursor (string id).
+        self.last_transaction_id_seen: Optional[str] = None
+        self.known_trade_ids: Set[str] = set()
 
     def save(self):
         data = {
@@ -68,7 +77,8 @@ class ObserverState:
             "total_outcomes": self.total_outcomes,
             "last_train_outcomes": self.last_train_outcomes,
             "cv_accuracy": self.cv_accuracy,
-            "last_cycle_count": self.last_cycle_count,
+            "last_cycle_seen": self.last_cycle_seen,
+            "last_transaction_id_seen": self.last_transaction_id_seen,
             "known_trade_ids": list(self.known_trade_ids),
         }
         STATE_FILE.write_text(json.dumps(data, indent=2))
@@ -82,7 +92,8 @@ class ObserverState:
                 self.total_outcomes = data.get("total_outcomes", 0)
                 self.last_train_outcomes = data.get("last_train_outcomes", 0)
                 self.cv_accuracy = data.get("cv_accuracy", 0.0)
-                self.last_cycle_count = data.get("last_cycle_count", 0)
+                self.last_cycle_seen = data.get("last_cycle_seen")
+                self.last_transaction_id_seen = data.get("last_transaction_id_seen")
                 self.known_trade_ids = set(data.get("known_trade_ids", []))
             except (json.JSONDecodeError, KeyError):
                 log.warning("Corrupt state file, starting fresh")
@@ -99,25 +110,29 @@ def fetch_v3_data() -> dict | None:
         r = requests.get(V3_API_URL, auth=V3_AUTH, timeout=10)
         if r.status_code == 200:
             return r.json()
-        log.warning(f"V3 API returned {r.status_code}")
+        log.warning("V3 API returned %s", r.status_code)
     except requests.RequestException as e:
-        log.warning(f"V3 API fetch failed: {e}")
+        log.warning("V3 API fetch failed: %s", e)
     return None
 
 
-def collect_signals(state: ObserverState, data: dict):
-    """Phase 1: Extract signals from V3 API response and store features."""
+def collect_signals(state: ObserverState, data: dict) -> int:
+    """Phase 1: Extract signals from V3 API response and store features.
+
+    Returns count of observations written this cycle.
+    """
     system = data.get("system", {})
     cycle = system.get("cycle_count", 0)
 
-    # Dedup by cycle count
-    if cycle <= state.last_cycle_count:
-        return
-    state.last_cycle_count = cycle
+    # Dedup: only record if cycle changed. Using != (not <=) so V3 restarts
+    # don't freeze us.
+    if state.last_cycle_seen is not None and cycle == state.last_cycle_seen:
+        return 0
+    state.last_cycle_seen = cycle
 
     signals = data.get("signals", [])
     if not signals:
-        return
+        return 0
 
     timestamp = datetime.now(timezone.utc).isoformat()
     recorded = 0
@@ -130,25 +145,24 @@ def collect_signals(state: ObserverState, data: dict):
         verdict = signal.get("verdict", "")
         scorer = signal.get("scorer", {})
 
-        # Only record signals that were actually scored
-        if not scorer.get("score") and not scorer.get("breakdown"):
+        # Only record signals that were actually scored.
+        if not scorer.get("breakdown"):
             continue
 
         extracted = extract_features(signal, timestamp)
 
         observation = {
             "ts": timestamp,
-            "bot": "v3",
             "cycle": cycle,
             "symbol": symbol,
             "verdict": verdict,
             "v3_score": scorer.get("score", 0),
             "v3_tier": scorer.get("tier", ""),
+            "fam": scorer.get("fam", scorer.get("family", "")),
             "features": extracted["features"],
             "metadata": extracted["metadata"],
+            # Observations are immutable — trade_id / outcome live in outcomes.jsonl.
             "trade_id": None,
-            "outcome": None,
-            "outcome_pnl": None,
         }
 
         _append_jsonl(OBSERVATIONS_FILE, observation)
@@ -156,46 +170,122 @@ def collect_signals(state: ObserverState, data: dict):
 
     state.total_observations += recorded
     if recorded > 0:
-        log.info(f"[v3] Recorded {recorded} signals (cycle {cycle})")
+        log.info("[v3] Recorded %d signals (cycle %s)", recorded, cycle)
+    return recorded
 
 
-def check_outcomes(state: ObserverState, data: dict):
-    """Check V3 recent_closes for new trade outcomes."""
-    recent_closes = data.get("recent_closes", [])
-
-    for close in recent_closes:
-        trade_id = close.get("trade_id", "")
-        if not trade_id or trade_id in state.known_trade_ids:
+def _find_obs_for_trade(symbol: str, window_sec: int,
+                        observations_path: Optional[Path] = None) -> Optional[dict]:
+    """
+    Look backwards through observations.jsonl for the most recent TAKE_* signal
+    of this symbol within the window. Returns the raw observation dict, or None.
+    """
+    path = observations_path or OBSERVATIONS_FILE
+    if not path.exists():
+        return None
+    cutoff = datetime.now(timezone.utc).timestamp() - window_sec
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return None
+    # Walk bottom-up, capped at a few cycles worth.
+    for line in reversed(lines[-400:]):
+        if not line.strip():
             continue
+        try:
+            obs = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if obs.get("symbol") != symbol:
+            continue
+        if not str(obs.get("verdict", "")).startswith("TAKE_"):
+            continue
+        try:
+            ts = datetime.fromisoformat(obs["ts"]).timestamp()
+        except (KeyError, ValueError):
+            continue
+        if ts < cutoff:
+            break
+        return obs
+    return None
 
-        state.known_trade_ids.add(trade_id)
 
-        pnl = close.get("realized_pl", 0.0)
-        outcome = 1 if pnl > 0 else 0
+def poll_oanda_outcomes(state: ObserverState, poller: OandaPoller) -> int:
+    """Poll OANDA transactions since last cursor.
 
-        outcome_record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "bot": "v3",
-            "cycle": -1,
-            "symbol": close.get("symbol", ""),
-            "verdict": "TRADE_CLOSED",
-            "v3_score": 0,
-            "v3_tier": "",
-            "features": {k: 0.0 for k in __import__("features").FEATURE_NAMES},
-            "metadata": {
-                "symbol": close.get("symbol", ""),
-                "verdict": "TRADE_CLOSED",
-                "trade_id": trade_id,
-            },
-            "trade_id": trade_id,
-            "outcome": outcome,
-            "outcome_pnl": pnl,
-        }
+    Returns count of closed-trade outcomes recorded this call.
+    """
+    if state.last_transaction_id_seen is None:
+        # Prime cursor to current latest so we don't re-process history.
+        latest = poller.get_last_transaction_id()
+        if latest:
+            state.last_transaction_id_seen = latest
+            log.info("OANDA cursor primed at lastTransactionID=%s", latest)
+        return 0
 
-        _append_jsonl(OBSERVATIONS_FILE, outcome_record)
-        state.total_outcomes += 1
-        log.info(f"[v3] Trade outcome: {close.get('symbol')} "
-                 f"pnl={pnl:.2f} outcome={'WIN' if outcome else 'LOSS'}")
+    fills = poller.fetch_fills_since(state.last_transaction_id_seen)
+    if not fills:
+        return 0
+
+    closed_count = 0
+    max_id_seen = state.last_transaction_id_seen
+    for tx in fills:
+        ev = classify_fill(tx)
+        tx_id = ev["tx_id"]
+        try:
+            if int(tx_id) > int(max_id_seen or "0"):
+                max_id_seen = tx_id
+        except (TypeError, ValueError):
+            pass
+
+        if ev["kind"] == "open":
+            for trade_id in ev["trade_ids_opened"]:
+                matched = _find_obs_for_trade(ev["symbol"], TRADE_ASSOCIATION_WINDOW_SEC)
+                link = {
+                    "kind": "trade_open",
+                    "ts": ev["time"],
+                    "trade_id": trade_id,
+                    "symbol": ev["symbol"],
+                    "price": ev["price"],
+                    "units": ev["units"],
+                    "matched_observation_ts": matched["ts"] if matched else None,
+                    "matched_observation_cycle": matched["cycle"] if matched else None,
+                    "matched_observation_verdict": matched["verdict"] if matched else None,
+                }
+                _append_jsonl(OUTCOMES_FILE, link)
+                state.known_trade_ids.add(trade_id)
+                log.info("[oanda] trade_open %s %s matched=%s",
+                         trade_id, ev["symbol"], bool(matched))
+        elif ev["kind"] == "close":
+            for trade_id in ev["trade_ids_closed"]:
+                pl = ev["realized_pl_usd"]
+                if pl > 0:
+                    label = "win"
+                    outcome_bin = 1
+                elif pl < 0:
+                    label = "loss"
+                    outcome_bin = 0
+                else:
+                    label = "scratch"
+                    outcome_bin = 0
+                record = {
+                    "kind": "trade_close",
+                    "ts": ev["time"],
+                    "trade_id": trade_id,
+                    "symbol": ev["symbol"],
+                    "label": label,
+                    "outcome": outcome_bin,
+                    "realized_pnl_usd": pl,
+                    "exit_price": ev["price"],
+                }
+                _append_jsonl(OUTCOMES_FILE, record)
+                state.total_outcomes += 1
+                closed_count += 1
+                log.info("[oanda] trade_close %s %s pl=%.2f label=%s",
+                         trade_id, ev["symbol"], pl, label)
+
+    state.last_transaction_id_seen = max_id_seen
+    return closed_count
 
 
 def maybe_train(state: ObserverState) -> bool:
@@ -208,8 +298,8 @@ def maybe_train(state: ObserverState) -> bool:
     if not (needs_initial or needs_retrain):
         return MODEL_FILE.exists()
 
-    log.info(f"Training triggered: outcomes={state.total_outcomes} "
-             f"new_since_last={new_outcomes}")
+    log.info("Training triggered: outcomes=%d new_since_last=%d",
+             state.total_outcomes, new_outcomes)
 
     report = train_model()
 
@@ -241,13 +331,12 @@ def advise(state: ObserverState, data: dict):
         symbol = signal.get("symbol", "")
         verdict = signal.get("verdict", "")
         scorer = signal.get("scorer", {})
-        if not symbol or not scorer.get("score"):
+        if not symbol or not scorer.get("breakdown"):
             continue
 
         extracted = extract_features(signal, timestamp)
         prob, pred_label = predict(extracted["features"])
 
-        # Determine if ML disagrees with bot
         bot_entering = verdict.startswith("TAKE")
         bot_skipping = verdict in ("NO_CANDIDATE", "V3_REJECT", "V3_BLOCKED")
         ml_says_win = prob > PROTEST_CONFIDENCE
@@ -282,52 +371,49 @@ def advise(state: ObserverState, data: dict):
                 "features": extracted["features"],
             }
             _append_jsonl(PROTESTS_FILE, record)
-            log.info(f"[v3] PROTEST {protest['type']}: "
-                     f"{symbol} — {protest['detail']}")
+            log.info("[v3] PROTEST %s: %s — %s",
+                     protest["type"], symbol, protest["detail"])
 
 
 def run():
     log.info("=" * 60)
     log.info("ML Observer starting — V3 mode")
-    log.info(f"V3 API: {V3_API_URL}")
-    log.info(f"Cycle: {CYCLE_SECONDS}s")
-    log.info("V1 and V2 are decommissioned. Watching V3 only.")
+    log.info("V3 API: %s", V3_API_URL)
+    log.info("OANDA env: %s", OANDA_ENV_PATH)
+    log.info("Cycle: %ss", CYCLE_SECONDS)
     log.info("=" * 60)
 
     state = ObserverState()
     state.load()
-    log.info(f"Resumed at phase={state.phase} "
-             f"observations={state.total_observations} "
-             f"outcomes={state.total_outcomes}")
+    log.info("Resumed at phase=%s observations=%d outcomes=%d cursor=%s last_cycle_seen=%s",
+             state.phase, state.total_observations, state.total_outcomes,
+             state.last_transaction_id_seen, state.last_cycle_seen)
+
+    poller = OandaPoller.from_env(OANDA_ENV_PATH)
+    if poller is None:
+        log.warning("OANDA poller disabled — outcomes will NOT be labeled")
 
     while True:
         try:
             cycle_start = time.time()
 
-            # Fetch V3 data
             data = fetch_v3_data()
             if data:
-                # Phase 1: Always collect
                 collect_signals(state, data)
 
-                # Check for trade outcomes
-                check_outcomes(state, data)
+                if poller:
+                    poll_oanda_outcomes(state, poller)
 
-                # Phase 2: Train if ready
                 model_ready = maybe_train(state)
 
-                # Phase 3: Advise if model is ready and accurate enough
                 if model_ready and state.phase >= 3:
                     advise(state, data)
 
-            # Save state
             state.save()
 
-            # Log phase status
-            log.info(f"Cycle complete: phase={state.phase} "
-                     f"obs={state.total_observations} "
-                     f"outcomes={state.total_outcomes} "
-                     f"accuracy={state.cv_accuracy:.2f}")
+            log.info("Cycle complete: phase=%s obs=%d outcomes=%d accuracy=%.2f cursor=%s",
+                     state.phase, state.total_observations, state.total_outcomes,
+                     state.cv_accuracy, state.last_transaction_id_seen)
 
             elapsed = time.time() - cycle_start
             sleep_time = max(0, CYCLE_SECONDS - elapsed)
@@ -337,8 +423,8 @@ def run():
             log.info("Shutting down (keyboard interrupt)")
             state.save()
             break
-        except Exception as e:
-            log.error(f"Cycle error: {e}", exc_info=True)
+        except Exception as e:  # noqa: BLE001
+            log.error("Cycle error: %s", e, exc_info=True)
             state.save()
             time.sleep(30)
 
