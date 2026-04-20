@@ -24,6 +24,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from scrooge_v3.core.clock import (
+    Clock,
+    OandaClock,
+    SessionLabel,
+    compat_threshold_profile,
+)
 from scrooge_v3.core.types import SymbolContext, TradeCandidate, TradeDirection
 
 log = logging.getLogger("scrooge_v3.strategies.v3_scorer")
@@ -39,29 +45,9 @@ class ScorerResult:
     pairs_total: int = 0
 
 
-# Session-aware thresholds — 5 sessions instead of 3
-# Session thresholds recalibrated 2026-04-16.
-# Loser max base score = +3 on 50-trade dataset.
-# Old floors (36-46) were 33+ pts above highest loser — mis-scaled.
-# New floors lowered by 6, still 27+ pts above loser max.
-_SESSION_RULES = {
-    # session: (base_floor, final_min_b, final_min_a, pair_cap)
-    "asia_london_open": (30, 44, 54, 16),   # 0-7 UTC
-    "london":           (32, 44, 54, 12),   # 8-11 UTC
-    "ny_active":        (30, 42, 50, 12),   # 12-17 UTC
-    "late_ny":          (34, 44, 54, 10),   # 18-19 UTC
-    "dead_late":        (40, 52, 62, 8),    # 20-23 UTC
-}
-
-# Trend-family session rules — slightly more permissive
-# Trend family thresholds (also lowered by 6)
-_SESSION_RULES_TREND = {
-    "asia_london_open": (28, 42, 52, 16),
-    "london":           (30, 42, 52, 12),
-    "ny_active":        (28, 40, 48, 12),
-    "late_ny":          (32, 42, 52, 10),
-    "dead_late":        (38, 50, 60, 8),
-}
+# Session thresholds now live in scrooge_v3/core/clock.py under the 9-label
+# SessionThresholdProfile system with a compat map back to the legacy 5-bucket
+# values (same calibration, just accessed through the DST-aware clock).
 
 # Correlated-negative caps — prevent triple-dipping
 _MAX_HOUR_PLUS_AGE = -10
@@ -81,10 +67,12 @@ class V3HybridScorer:
 
     name = "v3_scorer"
 
-    def __init__(self, config: dict | None = None):
+    def __init__(self, config: dict | None = None, clock: Clock | None = None):
         config = config or {}
         self.threshold_a = config.get("threshold_a", 60)
         self.threshold_b = config.get("threshold_b", 50)
+        # Clock is injected. Production passes OandaClock; replay passes FixedClock.
+        self.clock: Clock = clock or OandaClock()
 
     def score(self, ctx: SymbolContext, candidate: TradeCandidate) -> ScorerResult:
         """Score a trade candidate using V3.1 Hybrid formula."""
@@ -97,7 +85,7 @@ class V3HybridScorer:
 
     def _extract_factors(self, ctx: SymbolContext, candidate: TradeCandidate) -> dict[str, Any]:
         """Build flat factor dict from SymbolContext features."""
-        now = datetime.now(timezone.utc)
+        now = self.clock.now_utc()
 
         bb_cls = ctx.classifications.get("bb_state")
         bbs = bb_cls.label if bb_cls else "NORM"
@@ -473,23 +461,16 @@ class V3HybridScorer:
             bd["neutral_cap"] = cap_adj
 
         # === SESSION-AWARE PAIR CAPPING ===
-        h = r["hour"]
-        if h >= 20:
-            session = "dead_late"
-        elif h >= 18:
-            session = "late_ny"
-        elif h >= 12:
-            session = "ny_active"
-        elif h >= 8:
-            session = "london"
-        else:
-            session = "asia_london_open"
-
-        # Family-aware session thresholds
-        if family == "trend":
-            base_floor, final_min_b, final_min_a, pair_cap = _SESSION_RULES_TREND[session]
-        else:
-            base_floor, final_min_b, final_min_a, pair_cap = _SESSION_RULES[session]
+        # Session detection now goes through the centralized clock (DST-aware,
+        # Sydney-aware, 9 semantic labels). Threshold selection goes through a
+        # compatibility map so production scoring behavior stays near-identical
+        # while we ship the clock foundation. See scrooge_v3/core/clock.py.
+        session_label: SessionLabel = self.clock.session_label()
+        weekly_open_flag = self.clock.is_weekly_open()
+        profile = compat_threshold_profile(session_label, family=family or "default")
+        base_floor, final_min_b, final_min_a, pair_cap = profile.as_tuple()
+        # Expose both the new semantic label and the compat key for audit.
+        session = session_label.value
 
         # Cap positive pair bonuses (negative pairs always apply in full)
         positive_pairs = max(0, pairs)
