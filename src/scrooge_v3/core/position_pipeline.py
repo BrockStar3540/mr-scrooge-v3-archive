@@ -16,6 +16,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from .trade_geometry import pip_size as _pip_size
 from .events import (
     POSITION_CLOSED,
     STOP_UPDATE_ATTEMPTED,
@@ -110,6 +111,22 @@ class PositionPipeline:
         direction = TradeDirection(getattr(position, "direction", "long"))
         entry_price = getattr(position, "entry_price", 0.0)
         current_stop = getattr(position, "current_stop", 0.0)
+
+        # Phase 3 / Bug I: update MFE (peak) each cycle so ratchet can anchor
+        # its lock on peak price, not current — retracement can't unlock gains.
+        peak_price = getattr(position, "peak_price", 0.0) or entry_price
+        if tracker is not None:
+            try:
+                if tracker.update_peak(pos_id, current_price):
+                    peak_price = getattr(position, "peak_price", peak_price)
+            except Exception as exc:  # pragma: no cover — defensive
+                log.warning("[PIPELINE] update_peak failed for %s: %s", pos_id, exc)
+        else:
+            # Inline update when no tracker is provided (tests, bootstrap).
+            if direction == TradeDirection.LONG and current_price > peak_price:
+                peak_price = current_price
+            elif direction == TradeDirection.SHORT and (peak_price <= 0 or current_price < peak_price):
+                peak_price = current_price
 
         # --- Compute profit-R for phase selection ---
         # BUG FIX: use initial_risk_distance (snapshotted at entry), NOT the
@@ -223,6 +240,7 @@ class PositionPipeline:
             be_plan = self.be.should_move_to_be(
                 direction, entry_price, current_price, current_stop,
                 pip_size, partial_taken,
+                initial_risk_distance=risk_distance,
             )
             if be_plan:
                 self._emit(STOP_UPDATE_ATTEMPTED, position_id=pos_id, type="break_even")
@@ -244,6 +262,8 @@ class PositionPipeline:
         if self.ratchet:
             ratchet_plan = self.ratchet.compute_ratchet_stop(
                 direction, entry_price, current_price, current_stop, pip_size,
+                initial_risk_distance=risk_distance,
+                peak_price=peak_price,
             )
             if ratchet_plan:
                 new_stop = ratchet_plan.new_stop
@@ -330,7 +350,7 @@ class PositionPipeline:
                 spread=data.get("spread", 0.0),
                 mean_spread=data.get("mean_spread", 0.0),
                 hourly_bars=data.get("hourly_bars"),
-                pip_size=0.01 if "JPY" in symbol else 0.0001,
+                pip_size=_pip_size(symbol),
             )
             actions.append(action)
         return actions

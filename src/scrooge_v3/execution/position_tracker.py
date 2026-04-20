@@ -42,6 +42,11 @@ class TrackedPosition:
     #  - double-harvest guard (compare vs broker live_units)
     original_units: float = 0.0
     initial_risk_distance: float = 0.0
+    # MFE tracking (Phase 3 / Bug I) — most-favorable price reached since
+    # entry. Used by ratchet to anchor locks on peak, not current, so
+    # retracement can't unlock already-protected gains.
+    peak_price: float = 0.0
+    peak_profit_distance: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -88,6 +93,8 @@ class PositionTracker:
             v3_score=v3_score,
             original_units=units,
             initial_risk_distance=initial_risk,
+            peak_price=entry_price,
+            peak_profit_distance=0.0,
             metadata=metadata or {},
         )
         log.info("[TRACKER] Registered: %s %s %s %d units @ %.5f SL=%.5f",
@@ -120,6 +127,32 @@ class PositionTracker:
             pos.units = float(new_units)
             log.info("[TRACKER] Units updated: %s %.0f -> %.0f", trade_id, old_units, new_units)
             self.persist()
+
+    def update_peak(self, trade_id: str, current_price: float) -> bool:
+        """Update MFE tracking (peak_price + peak_profit_distance).
+
+        Called every management cycle. Persists only when the peak actually
+        moves (avoids writing on every tick). Returns True if updated.
+        """
+        pos = self._positions.get(trade_id)
+        if not pos:
+            return False
+        # Direction-aware "more favorable" check.
+        if pos.direction == "long":
+            if current_price > pos.peak_price:
+                pos.peak_price = current_price
+                pos.peak_profit_distance = current_price - pos.entry_price
+                self.persist()
+                return True
+        else:
+            # For shorts: peak is the LOWEST price seen. Bootstrap peak_price
+            # at entry_price on register, so initial comparison works.
+            if pos.peak_price <= 0 or current_price < pos.peak_price:
+                pos.peak_price = current_price
+                pos.peak_profit_distance = pos.entry_price - current_price
+                self.persist()
+                return True
+        return False
 
     def mark_tp1_taken(self, trade_id: str) -> None:
         pos = self._positions.get(trade_id)
