@@ -116,8 +116,9 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # regime_floor and the rest.
     from scrooge_v3.gates import (
         CooldownGate, DailyCircuitGate, DebounceGate, ExpiryBackoffGate,
-        RegimeFloorGate, ZoneEntryCapGate,
+        RegimeCompatGate, RegimeFloorGate, ZoneEntryCapGate,
     )
+    from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
 
     gate_cfg = config.section("gates")
@@ -135,6 +136,10 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         }),
         RegimeFloorGate({"min_score": -4}),
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
+        # Observe-only regime compatibility classifier. Never blocks; emits
+        # (regime × family × dir_vs_hint) recommendation for audit-trail
+        # analysis. Promote to HARD only after held-out validation.
+        RegimeCompatGate(mode=GateMode.OBSERVE),
     ])
 
     # --- Wire scorer and gate pipeline into scan pipeline ---

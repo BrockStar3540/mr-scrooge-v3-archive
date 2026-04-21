@@ -18,6 +18,7 @@ from .zone_entry_cap import ZoneEntryCapGate
 from .debounce import DebounceGate
 from .regime_floor import RegimeFloorGate
 from .exhaustion_filter import ExhaustionFilterGate
+from .regime_compat import RegimeCompatGate
 
 # Phase 4 Signal Discipline
 from .cooldown import CooldownGate
@@ -43,6 +44,7 @@ __all__ = [
     "DebounceGate",
     "RegimeFloorGate",
     "ExhaustionFilterGate",
+    "RegimeCompatGate",
     # Phase 4
     "CooldownGate",
     "ExpiryBackoffGate",
