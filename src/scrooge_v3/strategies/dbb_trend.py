@@ -10,7 +10,7 @@ and trade pullback continuations. Two entry modes:
     holds above reclaimed zone, continuation candle confirms.
 
 Follows Platform Doctrine:
-  - Only activates with router permission (TREND/BREAKOUT states)
+  - Only activates with router permission (BREAKOUT/STRETCH_DOWN states)
   - Tags management_profile="trend_runner" for shared PositionPipeline
   - No private exit logic
 
@@ -31,8 +31,8 @@ from scrooge_v3.core.types import (
 
 log = logging.getLogger("scrooge_v3.strategy.dbb_trend")
 
-_BULLISH_STATES = ("TREND_UP", "BREAKOUT_UP")
-_BEARISH_STATES = ("TREND_DOWN", "BREAKOUT_DOWN")
+_BULLISH_STATES = ("BREAKOUT_UP",)
+_BEARISH_STATES = ("BREAKOUT_DOWN",)
 _ALL_TREND = _BULLISH_STATES + _BEARISH_STATES + ("STRETCH_DOWN",)
 
 

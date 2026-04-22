@@ -59,7 +59,7 @@ def _make_bars(n=30, base=1.1000, trend="up", breakout_at=None):
 
 def _make_ctx(
     symbol="EUR_USD",
-    bb_label="TREND_UP",
+    bb_label="BREAKOUT_UP",
     regime_label="NORMAL",
     upper_a=1.1050,
     lower_a=1.0950,
@@ -137,8 +137,8 @@ strategy = DBBTrendStrategy()
 # =====================================================================
 
 class TestEligibility:
-    def test_trend_up_eligible(self):
-        ctx = _make_ctx(bb_label="TREND_UP")
+    def test_breakout_up_eligible(self):
+        ctx = _make_ctx(bb_label="BREAKOUT_UP")
         assert strategy.eligible(ctx) is True
 
     def test_breakout_down_eligible(self):
@@ -162,12 +162,12 @@ class TestEligibility:
         assert strategy.eligible(ctx) is False
 
     def test_blocked_regime_not_eligible(self):
-        ctx = _make_ctx(bb_label="TREND_UP", regime_label="BLOCKED")
+        ctx = _make_ctx(bb_label="BREAKOUT_UP", regime_label="BLOCKED")
         assert strategy.eligible(ctx) is False
 
     def test_disabled_not_eligible(self):
         s = DBBTrendStrategy({"enabled": False})
-        ctx = _make_ctx(bb_label="TREND_UP")
+        ctx = _make_ctx(bb_label="BREAKOUT_UP")
         assert s.eligible(ctx) is False
 
 
@@ -223,7 +223,7 @@ class TestPullback:
     def test_pullback_requires_prior_breakout(self):
         """No breakout in history = no pullback candidate."""
         bars = _make_bars(30, base=1.1000, trend="flat")
-        ctx = _make_ctx(bb_label="TREND_UP", bars=bars, upper_a=1.1200)
+        ctx = _make_ctx(bb_label="BREAKOUT_UP", bars=bars, upper_a=1.1200)
         result = strategy.evaluate(ctx)
         assert result is None
 

@@ -1,13 +1,12 @@
 """Trend participation strategy — BB20 pullback entries.
 
-Fires when BB state = TREND or STRETCH. Enters with the trend on
+Fires when BB state = STRETCH. Enters with the stretch on
 pullbacks to the BB20 midline (SMA20). Intentionally simple — no
 entry confirmation gate, no directional pressure, no complex scoring.
 
 Regime mapping:
   EXTREME → reversal strategy
-  TREND   → this strategy (full size)
-  STRETCH → this strategy (reduced size, 2-candle confirmation)
+  STRETCH → this strategy (2-candle confirmation)
   RANGE   → idle
 """
 
@@ -24,9 +23,7 @@ from scrooge_v3.core.types import (
 
 log = logging.getLogger("scrooge_v3.strategy.trend")
 
-_TREND_STATES = ("TREND_UP", "TREND_DOWN")
 _STRETCH_STATES = ("STRETCH_UP", "STRETCH_DOWN")
-_ALL_TREND = _TREND_STATES + _STRETCH_STATES
 
 TREND_FIXED_SCORE = 30
 
@@ -52,7 +49,7 @@ class TrendStrategy:
         bb = ctx.classifications.get("bb_state")
         if bb is None:
             return False
-        return bb.label in _ALL_TREND
+        return bb.label in _STRETCH_STATES
 
     def evaluate(self, ctx: SymbolContext) -> TradeCandidate | None:
         """Evaluate trend pullback entry.
@@ -68,7 +65,7 @@ class TrendStrategy:
             return None
 
         bb_state = bb.label
-        if bb_state not in _ALL_TREND:
+        if bb_state not in _STRETCH_STATES:
             return None
 
         bars_5m = ctx.snapshot.candles.get("5M")
@@ -82,7 +79,7 @@ class TrendStrategy:
         current_open = float(bars_5m["open"].astype(float).iloc[-1])
 
         # Direction from BB state
-        if bb_state in ("TREND_UP", "STRETCH_UP"):
+        if bb_state == "STRETCH_UP":
             direction = TradeDirection.LONG
         else:
             direction = TradeDirection.SHORT
@@ -111,19 +108,18 @@ class TrendStrategy:
                 return None
 
         # STRETCH requires 2-candle confirmation
-        if bb_state in _STRETCH_STATES:
-            prev_close = float(closes.iloc[-2])
-            prev_open = float(bars_5m["open"].astype(float).iloc[-2])
-            if direction == TradeDirection.LONG:
-                if prev_close > sma20 * (1 + max_pct * 3):
-                    return None
-                if prev_close > prev_open and abs(prev_close - sma20) / sma20 > max_pct * 2:
-                    return None
-            else:
-                if prev_close < sma20 * (1 - max_pct * 3):
-                    return None
-                if prev_close < prev_open and abs(prev_close - sma20) / sma20 > max_pct * 2:
-                    return None
+        prev_close = float(closes.iloc[-2])
+        prev_open = float(bars_5m["open"].astype(float).iloc[-2])
+        if direction == TradeDirection.LONG:
+            if prev_close > sma20 * (1 + max_pct * 3):
+                return None
+            if prev_close > prev_open and abs(prev_close - sma20) / sma20 > max_pct * 2:
+                return None
+        else:
+            if prev_close < sma20 * (1 - max_pct * 3):
+                return None
+            if prev_close < prev_open and abs(prev_close - sma20) / sma20 > max_pct * 2:
+                return None
 
         # Spread check
         zone_feature = ctx.features.get("zone_detector")
@@ -162,7 +158,7 @@ class TrendStrategy:
         reward = abs(tp2 - current_close)
         rr = reward / risk if risk > 0 else 0.0
 
-        entry_type = "TREND_FULL" if bb_state in _TREND_STATES else "TREND_STRETCH"
+        entry_type = "TREND_STRETCH"
 
         log.info(
             "[STRATEGY:trend] CANDIDATE symbol=%s type=%s direction=%s "
