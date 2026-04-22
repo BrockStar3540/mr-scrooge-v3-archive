@@ -19,6 +19,7 @@ from .debounce import DebounceGate
 from .regime_floor import RegimeFloorGate
 from .exhaustion_filter import ExhaustionFilterGate
 from .regime_compat import RegimeCompatGate
+from .box_v3_shadow import BoxV3ShadowGate
 
 # Phase 4 Signal Discipline
 from .cooldown import CooldownGate
@@ -45,6 +46,7 @@ __all__ = [
     "RegimeFloorGate",
     "ExhaustionFilterGate",
     "RegimeCompatGate",
+    "BoxV3ShadowGate",
     # Phase 4
     "CooldownGate",
     "ExpiryBackoffGate",

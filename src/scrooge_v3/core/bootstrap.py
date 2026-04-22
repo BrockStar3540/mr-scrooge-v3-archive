@@ -115,8 +115,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # cooldown / debounce / expiry_backoff (risk-discipline vetoes), then
     # regime_floor and the rest.
     from scrooge_v3.gates import (
-        CooldownGate, DailyCircuitGate, DebounceGate, ExpiryBackoffGate,
-        RegimeCompatGate, RegimeFloorGate, ZoneEntryCapGate,
+        BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate,
+        ExpiryBackoffGate, RegimeCompatGate, RegimeFloorGate, ZoneEntryCapGate,
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
@@ -140,6 +140,10 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         # (regime × family × dir_vs_hint) recommendation for audit-trail
         # analysis. Promote to HARD only after held-out validation.
         RegimeCompatGate(mode=GateMode.OBSERVE),
+        # Observe-only shadow of frozen box v3 gate tree (from trainer repo
+        # 19ada0e: docs/box_gate_tree.md + data/regimes/box_gate_v3.yaml).
+        # Emits would_allow / ranking_score / tier per candidate; never rejects.
+        BoxV3ShadowGate(mode=GateMode.OBSERVE),
     ])
 
     # --- Wire scorer and gate pipeline into scan pipeline ---
