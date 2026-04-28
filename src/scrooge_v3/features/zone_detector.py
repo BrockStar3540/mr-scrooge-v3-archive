@@ -38,7 +38,7 @@ class ZoneDetector:
 
     name: str = "zone_detector"
 
-    def __init__(self, config: dict | None = None):
+    def __init__(self, config: dict | None = None, clock=None):
         config = config or {}
         self.pivot_lookback = config.get("pivot_lookback_bars", 5)
         self.zone_merge_pct = config.get("zone_merge_pct", 0.0015)
@@ -55,6 +55,10 @@ class ZoneDetector:
         self.min_level_touches = config.get("min_level_touches", 1)
         self.touch_buffer_pct = config.get("touch_buffer_pct", 0.001)
         self.reject_unvalidated = config.get("reject_unvalidated_boxes", False)
+        # Clock is injected so replay (FixedClock) computes box_age relative
+        # to the replayed scan moment, not wall-clock "now".
+        from scrooge_v3.core.clock import OandaClock
+        self.clock = clock or OandaClock()
 
     def compute(
         self, symbol: str, snapshot: MarketSnapshot, state: dict
@@ -73,13 +77,21 @@ class ZoneDetector:
         if zone_map is None:
             return FeatureResult(name=self.name, values={}, computed_at=datetime.now())
 
-        # Box age: hours since the session range was established (prior day close)
+        # Box age: hours since the session range was established (prior day close).
+        # MUST use the injected clock so replay produces reproducible values
+        # (previously used datetime.now() and leaked wall-clock time).
         box_age_hours = 0.0
         sr = zone_map.session_range
         if sr is not None:
             try:
-                last_daily_ts = pd.Timestamp(daily_bars.index[-1]) if hasattr(daily_bars.index[-1], 'hour') else pd.Timestamp(daily_bars.iloc[-1].get("time", datetime.now()))
-                box_age_hours = (datetime.now() - last_daily_ts.to_pydatetime().replace(tzinfo=None)).total_seconds() / 3600
+                now_utc = self.clock.now_utc()
+                last_daily_ts = pd.Timestamp(daily_bars.index[-1]) if hasattr(daily_bars.index[-1], 'hour') else pd.Timestamp(daily_bars.iloc[-1].get("time", now_utc))
+                # Normalize to tz-aware UTC for consistent subtraction.
+                if last_daily_ts.tzinfo is None:
+                    last_daily_ts = last_daily_ts.tz_localize("UTC")
+                else:
+                    last_daily_ts = last_daily_ts.tz_convert("UTC")
+                box_age_hours = (now_utc - last_daily_ts.to_pydatetime()).total_seconds() / 3600
             except Exception:
                 box_age_hours = 0.0
 
