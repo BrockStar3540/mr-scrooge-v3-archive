@@ -94,6 +94,10 @@ class SizingCalculator:
     def __init__(self, config: dict | None = None):
         config = config or {}
         self.margin_utilization = config.get("margin_utilization", 0.40)
+        # TRADE_MATH.md doctrine: risk-capped sizing.
+        # max_loss <= equity * max_risk_pct; default 1% per trade.
+        # Set to 0 to disable risk cap (legacy behavior).
+        self.max_risk_pct = float(config.get("max_risk_per_trade_pct", 0.01))
 
     def calculate(
         self,
@@ -105,6 +109,7 @@ class SizingCalculator:
         free_margin: float | None = None,
         notional_per_unit: float = 0.0,
         usd_conversion_lookup: Callable[[str], float | None] | None = None,
+        stop_distance_pips: float | None = None,
     ) -> int | None:
         """Returns integer unit count, or None if sizing is impossible.
 
@@ -131,7 +136,36 @@ class SizingCalculator:
             return None
 
         target_margin = equity * self.margin_utilization
-        units = round(target_margin / (notional_per_unit * margin_rate))
+        margin_units = round(target_margin / (notional_per_unit * margin_rate))
+
+        # TRADE_MATH risk cap: units = min(margin_units, risk_cap_units)
+        # risk_cap_units = (equity * max_risk_pct) / (SL_pips * pip_value)
+        risk_units = None
+        if (
+            self.max_risk_pct > 0
+            and stop_distance_pips
+            and stop_distance_pips > 0
+            and pip_value_per_unit > 0
+        ):
+            max_loss_dollars = equity * self.max_risk_pct
+            risk_units = round(max_loss_dollars / (stop_distance_pips * pip_value_per_unit))
+
+        if risk_units is not None and risk_units >= 1:
+            units = min(margin_units, risk_units)
+            if units == risk_units and risk_units < margin_units:
+                log.info(
+                    "[SIZING] %s: risk-capped %d -> %d (max_loss=%.2f, sl=%.1fp, pip_val=%.6f)",
+                    symbol, margin_units, risk_units,
+                    equity * self.max_risk_pct, stop_distance_pips, pip_value_per_unit,
+                )
+        else:
+            units = margin_units
+            if self.max_risk_pct > 0 and stop_distance_pips is None:
+                log.warning(
+                    "[SIZING] %s: no stop_distance_pips passed — risk cap not applied. "
+                    "Caller should pass stop distance for proper risk normalization.",
+                    symbol,
+                )
 
         if units < 1:
             log.warning("[SIZING] %s: sized to %d units — too small", symbol, units)

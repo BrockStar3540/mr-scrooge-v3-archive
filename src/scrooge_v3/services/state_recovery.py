@@ -85,16 +85,39 @@ class StateRecovery:
             return
 
         broker = ctx.broker
+        # Per-trade close attribution. Previously we used the brokers daily
+        # P&L delta to estimate this trades P&L, but if two trades vanish
+        # in the same cycle the first consumes the whole delta and the
+        # second is wrongly tagged as a stop-loss. Now we ask OANDA for the
+        # trades own realizedPL, which is the truthful per-close number.
         pnl_delta = 0.0
+        per_trade_pl = None
         try:
-            total_today = 0.0
-            if hasattr(broker, "get_realized_pl_today"):
-                total_today = float(broker.get_realized_pl_today() or 0.0)
-            last = getattr(ctx, "_last_realized_pl_today", 0.0)
-            pnl_delta = total_today - last
-            ctx._last_realized_pl_today = total_today
+            if hasattr(broker, "get_trade"):
+                tdata = broker.get_trade(trade_id)
+                if tdata is not None:
+                    raw_pl = tdata.get("realizedPL")
+                    if raw_pl is not None:
+                        per_trade_pl = float(raw_pl)
+                        # Add financing if present, subtract commission.
+                        per_trade_pl += float(tdata.get("financing", 0) or 0)
         except Exception:
-            log.exception("[RECOVERY] failed to read realized_pl_today")
+            log.exception("[RECOVERY] get_trade(%s) failed; falling back to daily delta", trade_id)
+
+        if per_trade_pl is not None:
+            pnl_delta = per_trade_pl
+        else:
+            # Fallback: legacy daily-aggregate delta heuristic.
+            try:
+                total_today = 0.0
+                if hasattr(broker, "get_realized_pl_today"):
+                    total_today = float(broker.get_realized_pl_today() or 0.0)
+                last = getattr(ctx, "_last_realized_pl_today", 0.0)
+                pnl_delta = total_today - last
+                ctx._last_realized_pl_today = total_today
+                log.warning("[RECOVERY] using daily-delta fallback for %s pnl=%.2f", trade_id, pnl_delta)
+            except Exception:
+                log.exception("[RECOVERY] failed to read realized_pl_today")
 
         acct = None
         try:

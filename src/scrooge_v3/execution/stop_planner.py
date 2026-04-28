@@ -83,6 +83,25 @@ class StopPlanner:
 
         return proposed_stop, "valid"
 
+    def is_entry_spread_hostile(
+        self,
+        spread: float,
+        mean_spread: float,
+    ) -> tuple[bool, str]:
+        """Dedicated entry-spread preflight. Returns (hostile, reason).
+
+        Earlier versions reused should_trail() for entry-time spread vetoes,
+        but that helper checks tightness first and returns
+        new_stop_not_tighter on fresh entries (validated_sl == best.stop_price),
+        which is NOT hostile_spread, so the entry kill-switch was bypassed.
+        This method evaluates ONLY spread fastness, ignoring stop geometry.
+        """
+        if mean_spread > 0 and spread > mean_spread * self.fast_market_multiplier:
+            return True, (
+                f"hostile_spread ({spread:.5f} > {mean_spread * self.fast_market_multiplier:.5f})"
+            )
+        return False, "spread_normal"
+
     def should_trail(
         self,
         direction: TradeDirection,

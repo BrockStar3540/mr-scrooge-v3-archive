@@ -279,6 +279,18 @@ class OANDAAdapter:
     # Positions
     # ------------------------------------------------------------------
 
+    def get_trade(self, trade_id: str) -> dict | None:
+        """Fetch a single trade (open OR closed) from OANDA.
+
+        Returns the trade JSON including realizedPL, state, closeTime, etc.
+        Used by close-attribution to read the per-trade actual PnL rather
+        than guessing from a daily aggregate delta.
+        """
+        data = self._get(f"/v3/accounts/{self.account_id}/trades/{trade_id}")
+        if not data:
+            return None
+        return data.get("trade")
+
     def get_open_trades(self) -> list[TradeInfo]:
         data = self._get(f"/v3/accounts/{self.account_id}/openTrades")
         if not data:

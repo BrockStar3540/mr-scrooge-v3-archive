@@ -54,10 +54,18 @@ class ExecutionCoordinator:
                 return 1.0 / q.mid
             return None
 
+        # Compute stop distance in pips for risk-capped sizing (TRADE_MATH).
+        try:
+            pip_size = 0.01 if any(j in best.symbol for j in ("JPY", "MXN")) else 0.0001
+            stop_pips = abs(best.entry_price - best.stop_price) / pip_size if best.stop_price else None
+        except Exception:
+            stop_pips = None
+
         units = sizer.calculate(
             best.symbol, best.entry_price, equity, inst_info,
             free_margin=free_margin,
             usd_conversion_lookup=_usd_conversion,
+            stop_distance_pips=stop_pips,
         )
 
         if not units or units <= 0:
@@ -77,13 +85,15 @@ class ExecutionCoordinator:
             log.warning("[EXEC] SL adjusted: %s %.5f → %.5f (%s)",
                         best.symbol, best.stop_price, validated_sl, sl_reason)
 
-        # Spread kill switch
-        trail_ok, trail_reason = stop_planner.should_trail(
-            best.direction, best.stop_price, validated_sl,
-            quote.spread, ctx.spread_monitor.get_stats(best.symbol).get('mean', quote.spread),
+        # Entry spread preflight (dedicated — was previously bypassed because
+        # should_trail() returns new_stop_not_tighter on fresh entries before
+        # ever evaluating spread).
+        mean_spread = ctx.spread_monitor.get_stats(best.symbol).get('mean', quote.spread)
+        hostile, hostile_reason = stop_planner.is_entry_spread_hostile(
+            quote.spread, mean_spread,
         )
-        if not trail_ok and "hostile_spread" in trail_reason:
-            log.warning("[EXEC] ENTRY SKIPPED: %s spread kill — %s", best.symbol, trail_reason)
+        if hostile:
+            log.warning("[EXEC] ENTRY SKIPPED: %s spread kill — %s", best.symbol, hostile_reason)
             return False
 
         # Build order
