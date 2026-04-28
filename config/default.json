@@ -166,6 +166,17 @@
       "enabled": true,
       "mode": "hard",
       "_note": "Per-strategy XGBoost filter. observe = log only, hard = drop below threshold. dbb_trend p>=0.5 calibrated."
+    },
+    "branch_router": {
+      "enabled": false,
+      "mode": "observe",
+      "model_path": "data/ml-observer-offline/models/branch_router_T0.xgb",
+      "thresholds": {
+        "freeze": 0.55,
+        "min_confidence": 0.58,
+        "min_margin": 0.08
+      },
+      "_note": "Pre-gate branch router. Enable after running trainer pipeline."
     }
   }
 }

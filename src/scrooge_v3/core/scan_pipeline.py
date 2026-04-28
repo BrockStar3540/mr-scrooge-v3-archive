@@ -50,6 +50,7 @@ class ScanPipeline:
         gate_pipeline: Any = None,
         scorer: Any = None,
         ml_filter: Any = None,
+        branch_router: Any = None,
     ):
         self.registry = registry
         self.router = router
@@ -58,6 +59,8 @@ class ScanPipeline:
         self.scorer = scorer
         # Post-scorer per-strategy ML gate. None = disabled (no-op).
         self.ml_filter = ml_filter
+        # Pre-gate branch router (box/dbb/freeze/unclear). None = disabled.
+        self.branch_router = branch_router
 
     def scan_symbol(
         self,
@@ -140,6 +143,24 @@ class ScanPipeline:
 
         if not candidates:
             return None
+
+        # 5b. Branch router (pre-gate). Decides which family should own this
+        # timestamp. Observe-mode logs only; hard-mode filters out candidates
+        # from non-routed branches.
+        if self.branch_router is not None:
+            try:
+                rr_decision = self.branch_router.decide(ctx, candidates)
+                for c in candidates:
+                    c.metadata["branch_router"] = rr_decision
+                kept = self.branch_router.filter_candidates(candidates, rr_decision)
+                if len(kept) < len(candidates):
+                    log.info("[ROUTER] %s: filtered %d -> %d (decision=%s)",
+                             symbol, len(candidates), len(kept), rr_decision.get("decision"))
+                candidates = kept
+                if not candidates:
+                    return None
+            except Exception:
+                log.exception("[ROUTER] branch_router.decide raised; ignoring")
 
         # 6. Run gate pipeline on each candidate
         approved: list[TradeCandidate] = []

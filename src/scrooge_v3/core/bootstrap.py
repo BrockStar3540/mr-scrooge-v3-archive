@@ -167,6 +167,21 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     else:
         log.info("[BOOT] ML strategy filter disabled")
 
+    # --- Branch router (pre-gate; box/dbb/freeze/unclear) ---
+    br_cfg = config.section("scoring").get("branch_router") if config.get("scoring") else None
+    if br_cfg and br_cfg.get("enabled"):
+        from scrooge_v3.advisors.branch_router import BranchRouter
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        scan_pipeline.branch_router = BranchRouter(
+            repo_root=repo_root,
+            mode=br_cfg.get("mode", "observe"),
+            model_path=br_cfg.get("model_path", "data/ml-observer-offline/models/branch_router_T0.xgb"),
+            thresholds=br_cfg.get("thresholds"),
+        )
+        log.info("[BOOT] Branch router ENABLED (mode=%s)", br_cfg.get("mode", "observe"))
+    else:
+        log.info("[BOOT] Branch router disabled")
+
     # --- Position pipeline ---
     from scrooge_v3.core.position_pipeline import PositionPipeline
     from scrooge_v3.management.trail import TrailManager
