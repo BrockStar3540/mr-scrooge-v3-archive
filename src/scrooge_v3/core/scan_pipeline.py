@@ -323,12 +323,34 @@ class ScanPipeline:
             except Exception:
                 pass
 
-        # Track all candidates by strategy for transparency
+        # Build per-candidate records that we'll enrich as we walk the
+        # pipeline (gates -> scorer). The trainer persists this so it can
+        # reason about winners AND losers from the same scan.
+        candidate_records: list[dict] = []
+        for c in candidates:
+            candidate_records.append({
+                "strategy": c.strategy,
+                "strategy_family": (c.metadata or {}).get("strategy_family", ""),
+                "direction": c.direction.value if hasattr(c.direction, 'value') else str(c.direction),
+                "entry_price": float(c.entry_price or 0.0),
+                "stop_price": float(c.stop_price or 0.0),
+                "take_profit": float(c.take_profit) if c.take_profit else None,
+                "risk_reward": round(float(c.risk_reward or 0.0), 3),
+                "metadata": dict(c.metadata or {}),
+                "gates": {},
+                "gate_passed": None,
+                "gate_rejection_reason": None,
+                "scorer": None,
+                "scorer_tier": None,
+                "score": None,
+                "selected_by_runtime": False,  # filled in at the very end
+            })
+        # Backward-compat lightweight view (existing dashboard uses this).
         report["candidates_by_strategy"] = [
-            {"strategy": c.strategy, "direction": c.direction.value if hasattr(c.direction, 'value') else str(c.direction),
-             "entry": c.entry_price, "stop": c.stop_price, "rr": round(c.risk_reward, 2),
-             "family": (c.metadata or {}).get("strategy_family", "")}
-            for c in candidates
+            {"strategy": r["strategy"], "direction": r["direction"],
+             "entry": r["entry_price"], "stop": r["stop_price"], "rr": r["risk_reward"],
+             "family": r["strategy_family"]}
+            for r in candidate_records
         ]
 
         if not candidates:
@@ -340,23 +362,39 @@ class ScanPipeline:
                     report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
                 except Exception:
                     pass
+            report["all_candidates"] = candidate_records
             return report
 
         # 5. Gates — run on ALL candidates (mirrors live scan_symbol path)
         gate_approved = []
         gate_rejected = []
-        for candidate in candidates:
+        for i, candidate in enumerate(candidates):
+            rec = candidate_records[i]
             if self.gate_pipeline:
                 gate_result = self.gate_pipeline.run(candidate, ctx)
-                # Record gate results for first candidate (display)
-                if not report["gates"] and hasattr(gate_result, "results"):
-                    for gr in gate_result.results:
-                        report["gates"][gr.gate_name] = {"passed": gr.passed, "reason": gr.reason, "metrics": gr.metrics}
+                # Per-candidate gate results into the record
+                if hasattr(gate_result, "gates"):
+                    rec["gates"] = {
+                        gr.gate_name: {
+                            "passed": gr.passed, "reason": gr.reason,
+                            "mode": gr.mode.value if hasattr(gr.mode, "value") else str(gr.mode),
+                            "metrics": dict(gr.metrics or {}),
+                        }
+                        for gr in gate_result.gates
+                    }
+                rec["gate_passed"] = bool(gate_result.all_passed)
+                rec["gate_rejection_reason"] = (
+                    gate_result.rejection_reason if not gate_result.all_passed else None
+                )
+                # Display report keeps first-candidate snapshot for backward compat
+                if not report["gates"] and rec["gates"]:
+                    report["gates"] = dict(rec["gates"])
                 if gate_result.all_passed:
                     gate_approved.append(candidate)
                 else:
                     gate_rejected.append({"strategy": candidate.strategy, "reason": gate_result.rejection_reason})
             else:
+                rec["gate_passed"] = True
                 gate_approved.append(candidate)
 
         if not gate_approved:
@@ -371,6 +409,9 @@ class ScanPipeline:
                     pass
             return report
 
+        # Index for writing per-candidate scorer result back into records
+        idx_by_obj = {id(c): i for i, c in enumerate(candidates)}
+
         # 6. Scorer — score ALL gate-approved candidates, pick best
         if self.scorer:
             scored = []
@@ -378,6 +419,16 @@ class ScanPipeline:
             for candidate in gate_approved:
                 try:
                     sr = self.scorer.score(ctx, candidate)
+                    rec = candidate_records[idx_by_obj[id(candidate)]]
+                    rec["scorer"] = {
+                        "score": float(sr.score), "tier": str(sr.tier),
+                        "blocks": list(sr.blocks or []),
+                        "breakdown": dict(sr.breakdown or {}),
+                        "pairs_total": getattr(sr, "pairs_total", None),
+                        "base_score": getattr(sr, "base_score", None),
+                    }
+                    rec["scorer_tier"] = str(sr.tier)
+                    rec["score"] = float(sr.score)
                     # Track scorer result for the best candidate (for report display)
                     if best_score_result is None or sr.score > best_score_result.score:
                         best_score_result = sr
@@ -397,18 +448,27 @@ class ScanPipeline:
                         report["verdict"] = "V3_BLOCKED"
                     else:
                         report["verdict"] = "V3_REJECT"
+                report["all_candidates"] = candidate_records
                 return report
 
             # Pick actual winner (same as live path)
             winner = max(scored, key=lambda c: c.score)
             report["verdict"] = f"TAKE_{winner.metadata.get('v3_tier', 'B')}"
             report["candidate"] = winner
+            # Mark selected_by_runtime on the winning record
+            wi = idx_by_obj.get(id(winner))
+            if wi is not None:
+                candidate_records[wi]["selected_by_runtime"] = True
         else:
             # No scorer — pick by strategy score
             winner = max(gate_approved, key=lambda c: c.score)
             report["verdict"] = "TAKE_UNSCORED"
             report["candidate"] = winner
+            wi = idx_by_obj.get(id(winner))
+            if wi is not None:
+                candidate_records[wi]["selected_by_runtime"] = True
 
+        report["all_candidates"] = candidate_records
         return report
 
     def scan_universe(
