@@ -27,25 +27,37 @@ class SpreadGate(BaseGate):
         self.spread_pct_of_half = self.config.get("spread_pct_of_half", 0.10)
 
     def evaluate(self, candidate: TradeCandidate, ctx: SymbolContext) -> GateResult:
-        spread = ctx.snapshot.spread
+        # ctx.snapshot.spread is a raw price difference (e.g. 0.00015 on
+        # EUR/USD). Thresholds in this gate are in PIPS. Convert before
+        # comparison — previously the gate compared price-units to pip-units
+        # and never fired even on hostile spreads.
+        raw_spread = ctx.snapshot.spread
         symbol = candidate.symbol
-        threshold = self.max_spread_jpy if "JPY" in symbol else self.max_spread_default
+        is_jpy = any(j in symbol for j in ("JPY", "MXN"))
+        pip_size = 0.01 if is_jpy else 0.0001
+        spread_pips = raw_spread / pip_size if pip_size else raw_spread
 
-        # 1. Absolute threshold
-        if spread > threshold:
-            return self._fail(f"Spread {spread:.4f} > threshold {threshold:.2f}",
-                              {"spread": spread, "threshold": threshold})
+        threshold = self.max_spread_jpy if is_jpy else self.max_spread_default
 
-        # 2. Spread vs natural stop (from candidate metadata)
-        # Note: % of half-box check REMOVED — the V3 scorer handles
-        # spread cost via OTR scoring (Layer 1: -11 to +4 pts).
-        risk_points = candidate.metadata.get("risk_points", 0)
-        if risk_points > 0 and spread >= risk_points:
+        # 1. Absolute threshold (pips)
+        if spread_pips > threshold:
             return self._fail(
-                f"Spread {spread:.4f} >= natural stop {risk_points:.4f}",
-                {"spread": spread, "natural_stop": risk_points})
+                f"Spread {spread_pips:.2f}p > threshold {threshold:.2f}p",
+                {"spread_pips": spread_pips, "threshold": threshold},
+            )
 
-        return self._pass(f"Spread {spread:.4f} OK", {"spread": spread, "threshold": threshold})
+        # 2. Spread vs natural stop (both in pips now)
+        risk_points = candidate.metadata.get("risk_points", 0)
+        if risk_points > 0 and spread_pips >= risk_points:
+            return self._fail(
+                f"Spread {spread_pips:.2f}p >= natural stop {risk_points:.2f}p",
+                {"spread_pips": spread_pips, "natural_stop": risk_points},
+            )
+
+        return self._pass(
+            f"Spread {spread_pips:.2f}p OK",
+            {"spread_pips": spread_pips, "threshold": threshold},
+        )
 
     def _pass(self, reason: str, metrics: dict) -> GateResult:
         metrics["score"] = 1.0
