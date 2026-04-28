@@ -386,8 +386,17 @@ def build_scan_row(
 
 
 # Backwards-compat wrapper for the old call signature (used by advise()).
-def extract_features(signal: dict, timestamp: Optional[str] = None) -> dict:
-    row = build_scan_row(signal, timestamp=timestamp)
+def extract_features(
+    signal: dict,
+    timestamp: Optional[str] = None,
+    scorer_log_parsed: Optional[dict] = None,
+) -> dict:
+    # Default scorer_log_parsed to signal["scorer"] (V3 API already populates
+    # floor/b/a/cap/fam/session/factors there). Earlier the protest path
+    # didn''t pass any parsed dict, so those fields came out as 0.
+    if scorer_log_parsed is None:
+        scorer_log_parsed = signal.get("scorer") or None
+    row = build_scan_row(signal, timestamp=timestamp, scorer_log_parsed=scorer_log_parsed)
     return {"features": row["ml_features"], "metadata": {
         "symbol": row["symbol"],
         "verdict": row["verdict"],

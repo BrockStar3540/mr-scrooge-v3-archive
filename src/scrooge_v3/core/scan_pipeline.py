@@ -36,6 +36,31 @@ from .types import (
 log = logging.getLogger("scrooge_v3.core.scan_pipeline")
 
 
+
+def _synthesize_session_thresholds(scorer, family: str) -> dict:
+    """Return {session, fam, floor, b, a, cap} for the current scan moment.
+    Uses scorer's clock when available; falls back to UTC-now."""
+    try:
+        from scrooge_v3.core.clock import compat_threshold_profile, session_label_from_utc
+        from datetime import datetime, timezone
+        clock = getattr(scorer, "clock", None) if scorer is not None else None
+        if clock is not None and hasattr(clock, "session_label"):
+            label = clock.session_label()
+        else:
+            label = session_label_from_utc(datetime.now(timezone.utc))
+        profile = compat_threshold_profile(label, family=family or "default")
+        return {
+            "session": label.value if hasattr(label, "value") else str(label),
+            "fam": family or "default",
+            "floor": profile.base_floor,
+            "b": profile.b_tier,
+            "a": profile.a_tier,
+            "cap": profile.pair_cap,
+        }
+    except Exception:
+        return {}
+
+
 class ScanPipeline:
     """Orchestrates the full scan cycle for one symbol.
 
@@ -326,7 +351,16 @@ class ScanPipeline:
                 dummy_candidate = TradeCandidate(symbol=symbol, direction="long", strategy="none", entry_price=snapshot.mid, stop_price=snapshot.mid, score=0)
                 try:
                     sr = self.scorer.score(ctx, dummy_candidate)
-                    report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
+                    _st = _synthesize_session_thresholds(self.scorer, "default")
+                    report["scorer"] = {
+                        "score": sr.score, "tier": sr.tier,
+                        "blocks": sr.blocks, "breakdown": sr.breakdown,
+                        "pairs_total": sr.pairs_total,
+                        "base_score": getattr(sr, "base_score", 0),
+                        "fam": _st.get("fam", ""), "session": _st.get("session", ""),
+                        "floor": _st.get("floor", 0), "b": _st.get("b", 0),
+                        "a": _st.get("a", 0), "cap": _st.get("cap", 0),
+                    }
                 except Exception:
                     pass
             return report
@@ -380,7 +414,16 @@ class ScanPipeline:
                 dummy_candidate = TradeCandidate(symbol=symbol, direction="long", strategy="none", entry_price=snapshot.mid, stop_price=snapshot.mid, score=0)
                 try:
                     sr = self.scorer.score(ctx, dummy_candidate)
-                    report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
+                    _st = _synthesize_session_thresholds(self.scorer, "default")
+                    report["scorer"] = {
+                        "score": sr.score, "tier": sr.tier,
+                        "blocks": sr.blocks, "breakdown": sr.breakdown,
+                        "pairs_total": sr.pairs_total,
+                        "base_score": getattr(sr, "base_score", 0),
+                        "fam": _st.get("fam", ""), "session": _st.get("session", ""),
+                        "floor": _st.get("floor", 0), "b": _st.get("b", 0),
+                        "a": _st.get("a", 0), "cap": _st.get("cap", 0),
+                    }
                 except Exception:
                     pass
             report["all_candidates"] = candidate_records
@@ -425,7 +468,16 @@ class ScanPipeline:
             if self.scorer and candidates:
                 try:
                     sr = self.scorer.score(ctx, candidates[0])
-                    report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
+                    _st = _synthesize_session_thresholds(self.scorer, "default")
+                    report["scorer"] = {
+                        "score": sr.score, "tier": sr.tier,
+                        "blocks": sr.blocks, "breakdown": sr.breakdown,
+                        "pairs_total": sr.pairs_total,
+                        "base_score": getattr(sr, "base_score", 0),
+                        "fam": _st.get("fam", ""), "session": _st.get("session", ""),
+                        "floor": _st.get("floor", 0), "b": _st.get("b", 0),
+                        "a": _st.get("a", 0), "cap": _st.get("cap", 0),
+                    }
                 except Exception:
                     pass
             return report
@@ -453,7 +505,16 @@ class ScanPipeline:
                     # Track scorer result for the best candidate (for report display)
                     if best_score_result is None or sr.score > best_score_result.score:
                         best_score_result = sr
-                        report["scorer"] = {"score": sr.score, "tier": sr.tier, "blocks": sr.blocks, "breakdown": sr.breakdown, "pairs_total": sr.pairs_total}
+                        _st = _synthesize_session_thresholds(self.scorer, "default")
+                    report["scorer"] = {
+                        "score": sr.score, "tier": sr.tier,
+                        "blocks": sr.blocks, "breakdown": sr.breakdown,
+                        "pairs_total": sr.pairs_total,
+                        "base_score": getattr(sr, "base_score", 0),
+                        "fam": _st.get("fam", ""), "session": _st.get("session", ""),
+                        "floor": _st.get("floor", 0), "b": _st.get("b", 0),
+                        "a": _st.get("a", 0), "cap": _st.get("cap", 0),
+                    }
                     if sr.tier in ("A", "B"):
                         candidate.score = float(sr.score)
                         candidate.metadata["v3_tier"] = sr.tier
