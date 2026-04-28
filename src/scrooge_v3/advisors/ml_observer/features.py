@@ -72,6 +72,16 @@ FEATURE_NAMES = [
     "ctx_px", "ctx_ema20", "ctx_ema50", "ctx_box", "ctx_box_age_hours",
     # Temporal
     "hour_utc", "day_of_week", "minute_of_day",
+    # Enriched factors (added 2026-04-28 — Factor Bible coverage)
+    "sma20_dist_signed_bps",
+    "bb_band_width_a_bps", "bb_band_width_b_bps",
+    "bb_percent_b_a", "bb_percent_b_b",
+    "bb_state_id", "regime_id",
+    "strategy_id", "direction_long",
+    "tier_b_flag", "tier_a_flag",
+    "score_minus_floor", "score_above_b",
+    "natural_stop_pips", "tp_distance_pips", "rr_ratio",
+    "spread_pips", "spread_to_stop_ratio",
 ]
 
 # Sanity: must be at least 47 as documented in the scope brief.
@@ -272,6 +282,77 @@ def build_scan_row(
         "day_of_week":   float(day_of_week),
         "minute_of_day": float(minute_of_day),
     }
+
+    # === Enriched factors (2026-04-28) — recoverable from existing report dicts ===
+    # These were missing from the original 61-feature vector. Adding them here
+    # so live capture starts collecting the data XGBoost needs to learn from.
+    boll = (feat.get("bollinger") or {}) if isinstance(feat.get("bollinger"), dict) else {}
+    sma_a = float(boll.get("sma_a") or 0.0)
+    upper_a = float(boll.get("upper_a") or 0.0)
+    lower_a = float(boll.get("lower_a") or 0.0)
+    upper_b = float(boll.get("upper_b") or 0.0)
+    lower_b = float(boll.get("lower_b") or 0.0)
+    cur_close = float(boll.get("current_close") or 0.0)
+    pct_b_a = float(boll.get("percent_b_a") or boll.get("percent_b") or 0.0)
+    pct_b_b = float(boll.get("percent_b_b") or 0.0)
+
+    sma_dist_bps = ((cur_close - sma_a) / sma_a * 1e4) if sma_a > 0 else 0.0
+    bw_a_bps = ((upper_a - lower_a) / sma_a * 1e4) if sma_a > 0 else 0.0
+    bw_b_bps = ((upper_b - lower_b) / sma_a * 1e4) if sma_a > 0 else 0.0
+
+    _BB_STATE_MAP = {"NORMAL": 0, "REJECTION_LONG": 1, "REJECTION_SHORT": 2,
+                     "STRETCH_UP": 3, "STRETCH_DOWN": 4,
+                     "TREND_UP": 5, "TREND_DOWN": 6}
+    _REGIME_MAP = {"NORMAL": 0, "CAUTION": 1, "RESTRICTED": 2}
+    _STRATEGY_MAP = {"reversal": 0, "direct": 1, "dbb_trend": 2, "trend": 3}
+
+    bb_label = _safe_str(cls, "bb_state", "label") or "NORMAL"
+    regime_label = _safe_str(cls, "regime", "label") or "NORMAL"
+
+    candidate = signal.get("candidate") or {}
+    if not isinstance(candidate, dict):
+        candidate = {}
+    cand_dir = str(candidate.get("direction") or "")
+    cand_strat = str(candidate.get("strategy") or "")
+    entry_p = float(candidate.get("entry_price") or 0.0)
+    stop_p = float(candidate.get("stop_price") or 0.0)
+    tp_p = float(candidate.get("take_profit") or 0.0)
+
+    sym_str = str(signal.get("symbol") or "")
+    pip_size = 0.01 if any(j in sym_str for j in ("JPY", "MXN")) else 0.0001
+    nat_stop_pips = abs(entry_p - stop_p) / pip_size if (entry_p and stop_p) else 0.0
+    tp_dist_pips = abs(entry_p - tp_p) / pip_size if (entry_p and tp_p) else 0.0
+    rr = (tp_dist_pips / nat_stop_pips) if nat_stop_pips > 0 else 0.0
+
+    spread_raw = float(signal.get("spread") or 0.0)
+    spread_pips = (spread_raw * 1e4) if pip_size == 0.0001 else (spread_raw * 1e2)
+    sp_to_stop = (spread_pips / nat_stop_pips) if nat_stop_pips > 0 else 0.0
+
+    score_v = float(scorer_section.get("score") or 0)
+    floor_v = float(scorer_section.get("floor") or 0)
+    b_thr_v = float(scorer_section.get("b") or 0)
+    a_thr_v = float(scorer_section.get("a") or 0)
+
+    ml_features.update({
+        "sma20_dist_signed_bps": sma_dist_bps,
+        "bb_band_width_a_bps":   bw_a_bps,
+        "bb_band_width_b_bps":   bw_b_bps,
+        "bb_percent_b_a":        pct_b_a,
+        "bb_percent_b_b":        pct_b_b,
+        "bb_state_id":           float(_BB_STATE_MAP.get(bb_label, 0)),
+        "regime_id":             float(_REGIME_MAP.get(regime_label, 0)),
+        "strategy_id":           float(_STRATEGY_MAP.get(cand_strat, 0)),
+        "direction_long":        1.0 if cand_dir == "long" else 0.0,
+        "tier_b_flag":           1.0 if (b_thr_v and score_v >= b_thr_v) else 0.0,
+        "tier_a_flag":           1.0 if (a_thr_v and score_v >= a_thr_v) else 0.0,
+        "score_minus_floor":     score_v - floor_v,
+        "score_above_b":         score_v - b_thr_v,
+        "natural_stop_pips":     nat_stop_pips,
+        "tp_distance_pips":      tp_dist_pips,
+        "rr_ratio":              rr,
+        "spread_pips":           spread_pips,
+        "spread_to_stop_ratio":  sp_to_stop,
+    })
 
     classifications_clean = {
         label_key: {
