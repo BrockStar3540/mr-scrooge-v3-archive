@@ -154,6 +154,11 @@ class Runtime:
             if acct:
                 ctx.state.equity_start = acct.equity
                 log.info("[RUNTIME] New day — equity baseline: $%.2f", acct.equity)
+                # Roll daily circuit (Bug: maybe_roll_day was only called from
+                # PnL-event paths, so a tripped circuit on a quiet day stayed
+                # tripped indefinitely — no trades -> no PnL -> no roll.)
+                if ctx.cooldown_tracker is not None:
+                    ctx.cooldown_tracker.start_day(acct.equity, when=now)
 
         # Daily loss limit
         if ctx.state.is_daily_loss_exceeded():
