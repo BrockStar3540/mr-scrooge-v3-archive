@@ -160,5 +160,12 @@
       "min_sl_step_pips": 3.0
     },
     "dust_unit_threshold": 2
+  },
+  "scoring": {
+    "ml_filter": {
+      "enabled": true,
+      "mode": "observe",
+      "_note": "Per-strategy XGBoost filter. observe = log only, hard = drop below threshold. dbb_trend p>=0.5 calibrated."
+    }
   }
 }

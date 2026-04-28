@@ -49,12 +49,15 @@ class ScanPipeline:
         event_bus: EventBus | None = None,
         gate_pipeline: Any = None,
         scorer: Any = None,
+        ml_filter: Any = None,
     ):
         self.registry = registry
         self.router = router
         self.event_bus = event_bus
         self.gate_pipeline = gate_pipeline
         self.scorer = scorer
+        # Post-scorer per-strategy ML gate. None = disabled (no-op).
+        self.ml_filter = ml_filter
 
     def scan_symbol(
         self,
@@ -191,6 +194,21 @@ class ScanPipeline:
                 candidate.metadata["v3_tier"] = result.tier
                 candidate.metadata["v3_breakdown"] = result.breakdown
                 candidate.metadata["v3_pairs"] = result.pairs_total
+
+                # ML strategy filter (post-scorer). Predicts P(win) for
+                # opt-in strategies. Mode=observe logs only; mode=hard
+                # actually drops candidates below threshold.
+                if self.ml_filter is not None:
+                    ml = self.ml_filter.evaluate(symbol, candidate, ctx, result)
+                    candidate.metadata["ml_filter"] = ml
+                    if ml.get("vetoed"):
+                        self._emit(
+                            CANDIDATE_REJECTED,
+                            symbol=symbol,
+                            strategy=candidate.strategy,
+                            reason=f"ML_FILTER:{ml.get('reason','low_p')}",
+                        )
+                        continue
                 scored.append(candidate)
 
                 # DBB candidate audit — log every dbb_trend candidate for calibration

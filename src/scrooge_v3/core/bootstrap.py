@@ -151,6 +151,22 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     scan_pipeline.gate_pipeline = gate_pipeline
     scan_pipeline.scorer = scorer
 
+    # --- ML strategy filter (post-scorer, per-strategy XGBoost) ---
+    # Off by default. Enable via config.scoring.ml_filter = {mode: "observe" | "hard"}
+    ml_cfg = config.section("scoring").get("ml_filter") if config.get("scoring") else None
+    if ml_cfg and ml_cfg.get("enabled"):
+        from scrooge_v3.gates.ml_strategy_filter import MLStrategyFilter
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        scan_pipeline.ml_filter = MLStrategyFilter(
+            repo_root=repo_root,
+            mode=ml_cfg.get("mode", "observe"),
+            model_map=ml_cfg.get("model_map"),
+            thresholds=ml_cfg.get("thresholds"),
+        )
+        log.info("[BOOT] ML strategy filter ENABLED (mode=%s)", ml_cfg.get("mode", "observe"))
+    else:
+        log.info("[BOOT] ML strategy filter disabled")
+
     # --- Position pipeline ---
     from scrooge_v3.core.position_pipeline import PositionPipeline
     from scrooge_v3.management.trail import TrailManager
