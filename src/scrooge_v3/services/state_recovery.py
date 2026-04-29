@@ -428,26 +428,71 @@ class StateRecovery:
                     strategy=getattr(tracked, "strategy", ""),
                 )
 
+    # ------------------------------------------------------------------
+    # Orphan-harvest sweep — broker-first walk
+    # ------------------------------------------------------------------
+    # Hotfix/orphan-sweep-broker-walk (2026-04-29)
+    # The 2026-04-29 (4ad40b3) hotfix caught harvest LIMITs placed AFTER
+    # deploy but missed pre-deploy orphans because the original sweep walked
+    # only the persisted ledger. Today the user manually closed 7 broker-
+    # side orphan LIMITs the ledger never knew about.
+    #
+    # The fix: walk broker pending orders FIRST. If a pending order looks
+    # unambiguously like a harvest-style reduce LIMIT and its parent trade
+    # is dead on broker AND not in tracker, cancel it -- ledger entry or no
+    # ledger entry. The ledger walk is kept (housekeeping pass to drop
+    # dead/filled entries) so behaviour is a strict superset of before.
+    #
+    # Safety budget: this sweep ONLY ever calls cancel_order on orders that
+    # match all four signals below. Any ambiguity -> skip. We would rather
+    # leave a real orphan for one cycle than cancel a legitimate entry/SL/TP.
+    _HARVEST_LIMIT_TYPES = ("LIMIT_ORDER", "LIMIT")
+
+    @staticmethod
+    def _is_harvest_style_reduce_limit(order: Any) -> bool:
+        """Tight signature for a V3-placed harvest LIMIT.
+
+        REQUIRED (all must hold):
+          1. order_type is a LIMIT (not STOP_LOSS_ORDER, not TAKE_PROFIT_ORDER,
+             not MARKET_IF_TOUCHED, not anything else).
+          2. position_fill == "REDUCE_ONLY" -- this is what _place_harvest_limit
+             stamps onto every harvest LIMIT request and is the cleanest way
+             to distinguish from entry LIMITs (which carry "DEFAULT").
+          3. parent_trade_id is non-empty -- harvest LIMITs reference the
+             trade they're reducing; entry LIMITs do not.
+
+        Anything that fails any of these is left alone.
+        """
+        order_type = (getattr(order, "order_type", "") or "").upper()
+        if order_type not in StateRecovery._HARVEST_LIMIT_TYPES:
+            return False
+        if (getattr(order, "position_fill", "") or "").upper() != "REDUCE_ONLY":
+            return False
+        if not (getattr(order, "parent_trade_id", "") or "").strip():
+            return False
+        return True
+
     def reconcile_orphan_harvests(self) -> None:
         """Cancel any harvest LIMIT whose parent trade is no longer alive.
 
-        Belt-and-suspenders defence beyond reconcile_tracker:
-          * Walks the persisted harvest ledger (every order_id we ever placed).
-          * For each ledger entry whose parent trade_id is absent from both
-            the broker's open trades AND the tracker AND the order is still
-            pending on the broker -> orphan -> cancel.
-          * Drops dead ledger entries (order already gone) on sight.
+        Broker-first walk (covers pre-deploy orphans + state-loss cases):
+          1. Pull broker pending orders.
+          2. For each one that unambiguously matches the harvest-style
+             reduce-LIMIT signature: if the parent trade is dead on broker
+             AND absent from tracker -> orphan -> cancel + audit.
+          3. Skip (don't cancel) anything that doesn't match the signature
+             -- this includes entry LIMITs, SL/TP, and any LIMIT we can't
+             identify a parent for.
+          4. Then walk the ledger and drop dead/filled ledger entries
+             (housekeeping; tracker hooks own the live-trade case).
 
         Called from Runtime._run_cycle() each cycle alongside the existing
         reconcile_pending_orders() call.
         """
         ctx = self.ctx
-        ledger = self._ledger.all()
-        if not ledger:
-            return
 
         try:
-            pending = {o.order_id: o for o in ctx.broker.get_pending_orders()}
+            pending_list = list(ctx.broker.get_pending_orders())
         except Exception:
             log.exception("[RECOVERY] orphan-harvest sweep: get_pending_orders failed")
             return
@@ -457,34 +502,64 @@ class StateRecovery:
             log.exception("[RECOVERY] orphan-harvest sweep: get_open_trades failed")
             return
 
-        for order_id, entry in ledger.items():
-            trade_id = entry.get("trade_id", "")
-            symbol = entry.get("symbol", "")
-            strategy = entry.get("strategy", "")
-            order_info = pending.get(order_id)
+        ledger = self._ledger.all()
+        pending_by_id: dict[str, Any] = {o.order_id: o for o in pending_list}
+        orphans_found = 0
 
-            if order_info is None:
-                # Order is no longer pending (filled/cancelled/expired by
-                # GTD). Drop the ledger entry; tracker hooks already
-                # handle the live-trade case.
-                self._ledger.remove(order_id)
+        for order in pending_list:
+            order_type = (getattr(order, "order_type", "") or "").upper()
+            order_id = getattr(order, "order_id", "")
+            symbol = getattr(order, "symbol", "")
+
+            # Hard skip everything that isn't a LIMIT order.  STOP_LOSS_ORDER
+            # and TAKE_PROFIT_ORDER are managed by OANDA and must never be
+            # touched by this sweep regardless of parent state.
+            if order_type not in self._HARVEST_LIMIT_TYPES:
                 continue
 
-            parent_alive_on_broker = trade_id in open_trade_ids
-            parent_in_tracker = ctx.tracker.get(trade_id) is not None
+            if not self._is_harvest_style_reduce_limit(order):
+                # Entry LIMIT (DEFAULT positionFill, no parent), or a LIMIT
+                # we can't classify with confidence -> leave it alone.
+                if not (getattr(order, "parent_trade_id", "") or "").strip():
+                    log.debug(
+                        "[RECOVERY] orphan-harvest sweep: skip non-reduce LIMIT "
+                        "order=%s symbol=%s position_fill=%s",
+                        order_id, symbol,
+                        getattr(order, "position_fill", "") or "",
+                    )
+                continue
+
+            parent_trade_id = (order.parent_trade_id or "").strip()
+            # Critical safety guard: cancel_order is ONLY ever called below
+            # this point, and only when parent_trade_id is non-empty.
+            assert parent_trade_id, (
+                "harvest-style classifier let through an order with no parent "
+                "trade_id (order=%s) -- bug, refusing to cancel" % order_id
+            )
+
+            parent_alive_on_broker = parent_trade_id in open_trade_ids
+            parent_in_tracker = ctx.tracker.get(parent_trade_id) is not None
             if parent_alive_on_broker or parent_in_tracker:
                 continue  # legitimate live harvest LIMIT
 
-            # Parent is gone but the harvest LIMIT is still pending. Naked
-            # entry waiting to fire — exactly the bug the audit caught.
-            log.warning("[RECOVERY] ORPHAN HARVEST LIMIT: order=%s trade=%s "
-                        "symbol=%s -> cancelling", order_id, trade_id, symbol)
+            # Pull strategy/created_at from ledger if we have a record;
+            # otherwise we only know what the broker tells us.
+            entry = ledger.get(order_id, {}) or {}
+            strategy = entry.get("strategy", "")
+            created_at = entry.get("created_at", "")
+            gtd_time = entry.get("gtd_time", "") or getattr(order, "gtd_time", "")
+
+            log.warning(
+                "[RECOVERY] ORPHAN HARVEST LIMIT (broker-walk): order=%s "
+                "trade=%s symbol=%s position_fill=%s -> cancelling",
+                order_id, parent_trade_id, symbol,
+                getattr(order, "position_fill", ""),
+            )
             self._audit_harvest(
                 "orphan_harvest_limit_found", "parent_absent",
-                trade_id=trade_id, order_id=order_id,
+                trade_id=parent_trade_id, order_id=order_id,
                 symbol=symbol, strategy=strategy,
-                gtd_time=entry.get("gtd_time", ""),
-                created_at=entry.get("created_at", ""),
+                gtd_time=gtd_time, created_at=created_at,
             )
             ok = False
             try:
@@ -495,10 +570,27 @@ class StateRecovery:
             self._audit_harvest(
                 "orphan_harvest_limit_cancelled",
                 "ok" if ok else "broker_reject",
-                trade_id=trade_id, order_id=order_id,
+                trade_id=parent_trade_id, order_id=order_id,
                 symbol=symbol, strategy=strategy,
-                gtd_time=entry.get("gtd_time", ""),
-                created_at=entry.get("created_at", ""),
+                gtd_time=gtd_time, created_at=created_at,
+            )
+            orphans_found += 1
+
+        # Housekeeping: drop ledger entries whose order is gone from broker
+        # (filled, cancelled by us elsewhere, or GTD-expired). Same logic as
+        # the original sweep's tail; preserved verbatim.
+        for order_id, entry in list(ledger.items()):
+            if order_id in pending_by_id:
+                continue
+            self._ledger.remove(order_id)
+
+        # Single-line cycle summary -- only when there's something to say,
+        # to avoid log spam when the broker has zero pendings (the common
+        # case on this account).
+        if pending_list:
+            log.info(
+                "[RECOVERY] orphan-harvest sweep: walked %d pending, %d orphans found",
+                len(pending_list), orphans_found,
             )
 
     def _dust_threshold(self) -> float:

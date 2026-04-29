@@ -481,6 +481,14 @@ class OANDAAdapter:
             order_symbol = o.get("instrument", "")
             if symbol and order_symbol != symbol:
                 continue
+            # Hotfix/orphan-sweep-broker-walk: surface parent trade reference
+            # and positionFill so the orphan sweep can safely distinguish
+            # harvest-style reduce LIMITs from entry LIMITs / SL / TP.
+            parent_trade_id = (
+                o.get("tradeID", "")
+                or o.get("tradeId", "")
+                or (o.get("tradeClose", {}) or {}).get("tradeID", "")
+            )
             orders.append(PendingOrderInfo(
                 order_id=o.get("id", ""),
                 symbol=order_symbol,
@@ -490,6 +498,8 @@ class OANDAAdapter:
                 state=o.get("state", "PENDING"),
                 time_in_force=o.get("timeInForce", ""),
                 gtd_time=o.get("gtdTime", ""),
+                parent_trade_id=str(parent_trade_id or ""),
+                position_fill=str(o.get("positionFill", "") or ""),
             ))
         return orders
 
