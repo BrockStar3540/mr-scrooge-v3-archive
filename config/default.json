@@ -146,7 +146,7 @@
     "ratchet": {
       "ratchet_trigger_r": 1.0,
       "ratchet_trigger_min_pips": 3.0,
-      "ratchet_lock_pct": 0.5
+      "ratchet_lock_pct": 0.7
     },
     "break_even": {
       "be_trigger_r": 0.5,
