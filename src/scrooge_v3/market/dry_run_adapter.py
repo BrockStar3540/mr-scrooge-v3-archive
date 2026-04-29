@@ -192,8 +192,9 @@ class DryRunAdapter:
             if symbol and o["symbol"] != symbol:
                 continue
             orders.append(PendingOrderInfo(
-                order_id=oid, symbol=o["symbol"], order_type="LIMIT",
+                order_id=oid, symbol=o["symbol"], order_type="LIMIT_ORDER",
                 units=abs(o["units"]), price=o["price"], state="PENDING",
+                position_fill=str(o.get("position_fill", "") or ""),
             ))
         return orders
 

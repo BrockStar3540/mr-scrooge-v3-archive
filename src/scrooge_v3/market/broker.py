@@ -61,12 +61,18 @@ class OrderResult:
 class PendingOrderInfo:
     order_id: str
     symbol: str
-    order_type: str  # "LIMIT", "STOP", etc.
+    order_type: str  # "LIMIT_ORDER", "STOP_LOSS_ORDER", "TAKE_PROFIT_ORDER", etc.
     units: float
     price: float
     state: str  # "PENDING"
     time_in_force: str = "GTC"
     gtd_time: str = ""
+    # Hotfix/orphan-sweep-broker-walk: surface parent + reduce-only flag so
+    # state_recovery.reconcile_orphan_harvests can distinguish harvest-style
+    # reduce LIMITs from entry LIMITs / SL / TP orders without parsing raw
+    # broker payloads.  Empty string when the broker doesn't expose them.
+    parent_trade_id: str = ""
+    position_fill: str = ""  # "REDUCE_ONLY" | "DEFAULT" | "" (unknown)
 
 
 @dataclass

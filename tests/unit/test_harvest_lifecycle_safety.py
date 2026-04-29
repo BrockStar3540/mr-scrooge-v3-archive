@@ -193,9 +193,10 @@ def test_orphan_sweep_cancels_harvest_with_no_parent(tmp_path):
     broker = _FakeBroker(
         open_trades=[],
         pending=[PendingOrderInfo(
-            order_id="ORD_GHOST", symbol="GBP_USD", order_type="LIMIT",
+            order_id="ORD_GHOST", symbol="GBP_USD", order_type="LIMIT_ORDER",
             units=5000, price=1.25, state="PENDING",
             time_in_force="GTD", gtd_time="2026-12-31T00:00:00.000000000Z",
+            parent_trade_id="T_LOST", position_fill="REDUCE_ONLY",
         )],
     )
     audit = _FakeAudit()
@@ -232,11 +233,147 @@ def test_orphan_sweep_leaves_live_harvest_alone(tmp_path):
             units=10000, entry_price=150.0,
         )],
         pending=[PendingOrderInfo(
-            order_id="ORD_LIVE", symbol="USD_JPY", order_type="LIMIT",
+            order_id="ORD_LIVE", symbol="USD_JPY", order_type="LIMIT_ORDER",
             units=5000, price=150.5, state="PENDING",
             time_in_force="GTD", gtd_time="2026-12-31T00:00:00.000000000Z",
+            parent_trade_id="T_LIVE", position_fill="REDUCE_ONLY",
         )],
     )
     recovery = StateRecovery(_ctx(broker, tracker, audit=_FakeAudit()))
     recovery.reconcile_orphan_harvests()
+    assert broker.cancelled == []
+
+
+# ---------- Hotfix/orphan-sweep-broker-walk: 5 new tests ----------
+
+def test_broker_walk_catches_orphan_with_empty_ledger():
+    """Pre-deploy orphan: broker reports a REDUCE_ONLY LIMIT with parent
+    trade dead on broker AND ledger empty AND tracker empty. The new
+    broker-first walk MUST cancel + emit both audit events even though the
+    ledger has no record of this order."""
+    tracker = PositionTracker(persist_path=None)
+    # Ledger is empty (autouse fixture _isolated_ledger gives us a fresh one).
+    assert sr_mod._HARVEST_LEDGER.all() == {}
+    broker = _FakeBroker(
+        open_trades=[],
+        pending=[PendingOrderInfo(
+            order_id="ORD_PRE", symbol="EUR_USD", order_type="LIMIT_ORDER",
+            units=5000, price=1.10, state="PENDING",
+            time_in_force="GTD", gtd_time="2026-12-31T00:00:00.000000000Z",
+            parent_trade_id="T_DEAD", position_fill="REDUCE_ONLY",
+        )],
+    )
+    audit = _FakeAudit()
+    recovery = StateRecovery(_ctx(broker, tracker, audit=audit))
+
+    recovery.reconcile_orphan_harvests()
+
+    assert "ORD_PRE" in broker.cancelled, \
+        f"expected ORD_PRE cancelled, got {broker.cancelled}"
+    types = [e["type"] for e in audit.events]
+    assert "orphan_harvest_limit_found" in types
+    assert "orphan_harvest_limit_cancelled" in types
+
+
+def test_broker_walk_does_not_cancel_entry_limit():
+    """CRITICAL SAFETY: an entry LIMIT (positionFill=DEFAULT, no parent
+    trade) must never be cancelled by the orphan sweep, even if it looks
+    'unparented'."""
+    tracker = PositionTracker(persist_path=None)
+    broker = _FakeBroker(
+        open_trades=[],
+        pending=[PendingOrderInfo(
+            order_id="ORD_ENTRY", symbol="USD_CAD", order_type="LIMIT_ORDER",
+            units=10000, price=1.35, state="PENDING",
+            time_in_force="GTD", gtd_time="2026-12-31T00:00:00.000000000Z",
+            parent_trade_id="",  # entry LIMITs have no parent
+            position_fill="DEFAULT",
+        )],
+    )
+    audit = _FakeAudit()
+    recovery = StateRecovery(_ctx(broker, tracker, audit=audit))
+
+    recovery.reconcile_orphan_harvests()
+
+    assert broker.cancelled == [], \
+        f"entry LIMIT must NEVER be cancelled by orphan sweep; got {broker.cancelled}"
+    types = [e["type"] for e in audit.events]
+    assert "orphan_harvest_limit_cancelled" not in types
+
+
+def test_broker_walk_does_not_cancel_sl_or_tp_orders():
+    """CRITICAL SAFETY: STOP_LOSS_ORDER and TAKE_PROFIT_ORDER types must be
+    skipped even if their parent trade looks gone."""
+    tracker = PositionTracker(persist_path=None)
+    broker = _FakeBroker(
+        open_trades=[],
+        pending=[
+            PendingOrderInfo(
+                order_id="ORD_SL", symbol="AUD_USD", order_type="STOP_LOSS_ORDER",
+                units=10000, price=0.65, state="PENDING",
+                time_in_force="GTC",
+                parent_trade_id="T_GONE", position_fill="REDUCE_ONLY",
+            ),
+            PendingOrderInfo(
+                order_id="ORD_TP", symbol="AUD_USD", order_type="TAKE_PROFIT_ORDER",
+                units=10000, price=0.70, state="PENDING",
+                time_in_force="GTC",
+                parent_trade_id="T_GONE", position_fill="REDUCE_ONLY",
+            ),
+        ],
+    )
+    audit = _FakeAudit()
+    recovery = StateRecovery(_ctx(broker, tracker, audit=audit))
+
+    recovery.reconcile_orphan_harvests()
+
+    assert broker.cancelled == [], \
+        f"SL/TP orders must NEVER be cancelled by orphan sweep; got {broker.cancelled}"
+
+
+def test_broker_walk_respects_live_parent_on_broker():
+    """Parent trade is alive on broker (not in tracker). Sweep must skip
+    -- the harvest is legitimate."""
+    tracker = PositionTracker(persist_path=None)
+    broker = _FakeBroker(
+        open_trades=[TradeInfo(
+            trade_id="T_BROKER_LIVE", symbol="GBP_JPY",
+            direction="long", units=10000, entry_price=190.0,
+        )],
+        pending=[PendingOrderInfo(
+            order_id="ORD_HARV", symbol="GBP_JPY", order_type="LIMIT_ORDER",
+            units=5000, price=191.0, state="PENDING",
+            time_in_force="GTD", gtd_time="2026-12-31T00:00:00.000000000Z",
+            parent_trade_id="T_BROKER_LIVE", position_fill="REDUCE_ONLY",
+        )],
+    )
+    recovery = StateRecovery(_ctx(broker, tracker, audit=_FakeAudit()))
+
+    recovery.reconcile_orphan_harvests()
+
+    assert broker.cancelled == []
+
+
+def test_broker_walk_respects_live_tracker_entry():
+    """Parent absent from broker open trades but present in tracker. Sweep
+    must skip -- tracker is the V3 source of truth for in-flight trades."""
+    tracker = PositionTracker(persist_path=None)
+    tracker.register_entry(
+        trade_id="T_TRACKED", symbol="NZD_USD", direction="short",
+        units=10000, entry_price=0.60, stop_price=0.605,
+        tp1_price=0.595, strategy="direct",
+    )
+    broker = _FakeBroker(
+        open_trades=[],  # not on broker yet (race / lag)
+        pending=[PendingOrderInfo(
+            order_id="ORD_TRACKED", symbol="NZD_USD", order_type="LIMIT_ORDER",
+            units=5000, price=0.595, state="PENDING",
+            time_in_force="GTD", gtd_time="2026-12-31T00:00:00.000000000Z",
+            parent_trade_id="T_TRACKED", position_fill="REDUCE_ONLY",
+        )],
+    )
+    recovery = StateRecovery(_ctx(broker, tracker, audit=_FakeAudit()))
+
+    recovery.reconcile_orphan_harvests()
+
     assert broker.cancelled == []
