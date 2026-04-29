@@ -7,10 +7,104 @@ logic from normal trading flow.
 
 from __future__ import annotations
 
+import json
 import logging
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("scrooge_v3.services.state_recovery")
+
+# --- Harvest LIMIT lifecycle safety (hotfix/stale-harvest-limit) ---------
+# 60-day audit found 8 cases of harvest LIMITs surviving parent close and
+# later firing as naked positions with no SL/TP. Three independent guards:
+#   1. GTD on every harvest LIMIT (hard ceiling at the broker)
+#   2. Cancellation on any parent-close path (vanish reconcile)
+#   3. Periodic orphan-LIMIT sweep using a persisted harvest ledger
+#
+# GTD windows are bounded by typical strategy holding profile, NOT pure GTC.
+# Hardcoded here because V3 strategy metadata does not currently expose a
+# holding/management timeout. If/when it does, switch to that source.
+_HARVEST_GTD_HOURS_BY_STRATEGY = {
+    "dbb_trend": 12,
+    # direct + box-like fallbacks all use 4h
+}
+_HARVEST_GTD_DEFAULT_HOURS = 4
+
+# Persisted ledger of every harvest order_id we have ever placed. Survives
+# restart so we can still cancel orphans even if the tracker entry has been
+# removed/corrupted/lost.
+_HARVEST_LEDGER_PATH = Path("data/harvest-order-ledger.json")
+
+
+def _harvest_gtd_hours(strategy: str | None) -> int:
+    if not strategy:
+        return _HARVEST_GTD_DEFAULT_HOURS
+    return _HARVEST_GTD_HOURS_BY_STRATEGY.get(strategy, _HARVEST_GTD_DEFAULT_HOURS)
+
+
+def _format_gtd(now: datetime, hours: int) -> str:
+    """OANDA RFC3339 nano-precision GTD timestamp."""
+    expires = now + timedelta(hours=hours)
+    return expires.strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+
+
+class HarvestLedger:
+    """Persisted order_id -> trade_id map for harvest LIMITs.
+
+    Used purely for orphan reconciliation. Authoritative tracker state still
+    lives on TrackedPosition.harvest_order_id; this is a redundant pointer so
+    we can clean up even when the tracker entry is gone.
+    """
+
+    def __init__(self, path: Path = _HARVEST_LEDGER_PATH):
+        self._path = path
+        self._entries: dict[str, dict[str, Any]] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not self._path.exists():
+            return
+        try:
+            with open(self._path) as f:
+                self._entries = json.load(f)
+        except Exception:
+            log.exception("[HARVEST-LEDGER] failed to load %s", self._path)
+            self._entries = {}
+
+    def _save(self) -> None:
+        try:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._path, "w") as f:
+                json.dump(self._entries, f, indent=2)
+        except Exception:
+            log.exception("[HARVEST-LEDGER] failed to save %s", self._path)
+
+    def add(self, order_id: str, trade_id: str, symbol: str,
+            strategy: str, gtd_time: str) -> None:
+        if not order_id:
+            return
+        self._entries[order_id] = {
+            "trade_id": trade_id,
+            "symbol": symbol,
+            "strategy": strategy,
+            "gtd_time": gtd_time,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._save()
+
+    def remove(self, order_id: str) -> None:
+        if order_id in self._entries:
+            self._entries.pop(order_id, None)
+            self._save()
+
+    def all(self) -> dict[str, dict[str, Any]]:
+        return dict(self._entries)
+
+
+# Module-global ledger instance — single shared file.
+_HARVEST_LEDGER = HarvestLedger()
 
 
 class StateRecovery:
@@ -18,6 +112,81 @@ class StateRecovery:
 
     def __init__(self, ctx: Any):
         self.ctx = ctx
+        self._ledger = _HARVEST_LEDGER
+
+    # ------------------------------------------------------------------
+    # Harvest LIMIT lifecycle safety helpers
+    # ------------------------------------------------------------------
+
+    def _audit_harvest(self, etype: str, reason: str,
+                       *, trade_id: str = "", order_id: str = "",
+                       symbol: str = "", strategy: str = "",
+                       gtd_time: str = "", created_at: str = "",
+                       management_profile: str = "") -> None:
+        """Append a harvest-lifecycle event to data/execution-audit.jsonl.
+
+        Reuses the existing ExecutionAudit channel so dashboards and downstream
+        readers don't need a new file. Falls back silently if audit is missing.
+        """
+        audit = getattr(self.ctx, "execution_audit", None)
+        if audit is None:
+            return
+        try:
+            from scrooge_v3.telemetry.execution_audit import AuditEvent
+            extra: dict[str, Any] = {}
+            if order_id:
+                extra["order_id"] = order_id
+            if strategy:
+                extra["strategy"] = strategy
+            if gtd_time:
+                extra["gtd_time"] = gtd_time
+            if created_at:
+                extra["created_at"] = created_at
+            if management_profile:
+                extra["management_profile"] = management_profile
+            if etype.endswith("_cancelled"):
+                extra["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+            audit.record(AuditEvent(
+                type=etype, reason=reason,
+                trade_id=trade_id, symbol=symbol, extra=extra,
+            ))
+        except Exception:
+            log.exception("[HARVEST-AUDIT] record failed (%s)", etype)
+
+    def _cancel_harvest_for_trade(self, tracked: Any, reason: str) -> None:
+        """Cancel a harvest LIMIT for a trade and audit-log it.
+
+        Idempotent: returns silently if the trade has no harvest order.
+        Used by all parent-close paths (vanish reconcile, orphan sweep, and
+        any explicit close path that wires this in).
+        """
+        if not tracked:
+            return
+        order_id = getattr(tracked, "harvest_order_id", "") or ""
+        if not order_id:
+            return
+        ok = False
+        try:
+            ok = bool(self.ctx.broker.cancel_order(order_id))
+        except Exception:
+            log.exception("[RECOVERY] cancel_order raised for %s (trade=%s)",
+                          order_id, getattr(tracked, "trade_id", ""))
+        log.info("[RECOVERY] Harvest LIMIT cancel: order=%s trade=%s ok=%s reason=%s",
+                 order_id, getattr(tracked, "trade_id", ""), ok, reason)
+        # Always clear local pointer + ledger; if broker rejected (already
+        # gone / already filled), GTD will catch any zombie anyway.
+        try:
+            self.ctx.tracker.clear_harvest_order(getattr(tracked, "trade_id", ""))
+        except Exception:
+            pass
+        self._ledger.remove(order_id)
+        self._audit_harvest(
+            "harvest_limit_cancelled", reason,
+            trade_id=getattr(tracked, "trade_id", ""),
+            order_id=order_id,
+            symbol=getattr(tracked, "symbol", ""),
+            strategy=getattr(tracked, "strategy", ""),
+        )
 
     def detect_vanished_trades(self) -> None:
         """Detect trades closed externally between cycles."""
@@ -53,10 +222,12 @@ class StateRecovery:
 
         for tid in vanished:
             tracked = pre_snapshot.get(tid) or ctx.tracker.get(tid)
-            if tracked and hasattr(tracked, 'harvest_order_id') and tracked.harvest_order_id:
-                ctx.broker.cancel_order(tracked.harvest_order_id)
-                log.info("[RECOVERY] Cancelled harvest limit %s for vanished trade %s",
-                         tracked.harvest_order_id, tid)
+            if tracked and getattr(tracked, "harvest_order_id", ""):
+                # Hotfix: parent vanished (SL hit, manual close, full TP, or
+                # any other broker-side exit) -> cancel any outstanding
+                # harvest LIMIT and audit-log it. Must run before tracker
+                # entry is gone or we lose the order_id pointer.
+                self._cancel_harvest_for_trade(tracked, "parent_vanished")
 
             # Phase 4: classify vanish, book realized PnL, cooldown + blacklist.
             try:
@@ -231,6 +402,7 @@ class StateRecovery:
                 (t for t in ctx.broker.get_open_trades() if t.trade_id == tracked.trade_id),
                 None,
             )
+            order_id = tracked.harvest_order_id
             if broker_trade and broker_trade.units < tracked.units:
                 old_units = tracked.units
                 # Sync unit truth BEFORE flag — so downstream reads see the
@@ -238,6 +410,7 @@ class StateRecovery:
                 ctx.tracker.update_units(tracked.trade_id, broker_trade.units)
                 ctx.tracker.mark_tp1_taken(tracked.trade_id)
                 ctx.tracker.clear_harvest_order(tracked.trade_id)
+                self._ledger.remove(order_id)
                 log.info("[RECOVERY] HARVEST LIMIT FILLED: %s units %.0f → %.0f",
                          tracked.trade_id, old_units, broker_trade.units)
                 # Dust check — if the remaining size is below threshold,
@@ -245,8 +418,88 @@ class StateRecovery:
                 self._maybe_flatten_dust(tracked, broker_trade.units)
             else:
                 ctx.tracker.clear_harvest_order(tracked.trade_id)
+                self._ledger.remove(order_id)
                 log.info("[RECOVERY] HARVEST LIMIT CANCELLED: %s order=%s",
-                         tracked.trade_id, tracked.harvest_order_id)
+                         tracked.trade_id, order_id)
+                self._audit_harvest(
+                    "harvest_limit_cancelled", "broker_side_gone",
+                    trade_id=tracked.trade_id, order_id=order_id,
+                    symbol=getattr(tracked, "symbol", ""),
+                    strategy=getattr(tracked, "strategy", ""),
+                )
+
+    def reconcile_orphan_harvests(self) -> None:
+        """Cancel any harvest LIMIT whose parent trade is no longer alive.
+
+        Belt-and-suspenders defence beyond reconcile_tracker:
+          * Walks the persisted harvest ledger (every order_id we ever placed).
+          * For each ledger entry whose parent trade_id is absent from both
+            the broker's open trades AND the tracker AND the order is still
+            pending on the broker -> orphan -> cancel.
+          * Drops dead ledger entries (order already gone) on sight.
+
+        Called from Runtime._run_cycle() each cycle alongside the existing
+        reconcile_pending_orders() call.
+        """
+        ctx = self.ctx
+        ledger = self._ledger.all()
+        if not ledger:
+            return
+
+        try:
+            pending = {o.order_id: o for o in ctx.broker.get_pending_orders()}
+        except Exception:
+            log.exception("[RECOVERY] orphan-harvest sweep: get_pending_orders failed")
+            return
+        try:
+            open_trade_ids = {t.trade_id for t in ctx.broker.get_open_trades()}
+        except Exception:
+            log.exception("[RECOVERY] orphan-harvest sweep: get_open_trades failed")
+            return
+
+        for order_id, entry in ledger.items():
+            trade_id = entry.get("trade_id", "")
+            symbol = entry.get("symbol", "")
+            strategy = entry.get("strategy", "")
+            order_info = pending.get(order_id)
+
+            if order_info is None:
+                # Order is no longer pending (filled/cancelled/expired by
+                # GTD). Drop the ledger entry; tracker hooks already
+                # handle the live-trade case.
+                self._ledger.remove(order_id)
+                continue
+
+            parent_alive_on_broker = trade_id in open_trade_ids
+            parent_in_tracker = ctx.tracker.get(trade_id) is not None
+            if parent_alive_on_broker or parent_in_tracker:
+                continue  # legitimate live harvest LIMIT
+
+            # Parent is gone but the harvest LIMIT is still pending. Naked
+            # entry waiting to fire — exactly the bug the audit caught.
+            log.warning("[RECOVERY] ORPHAN HARVEST LIMIT: order=%s trade=%s "
+                        "symbol=%s -> cancelling", order_id, trade_id, symbol)
+            self._audit_harvest(
+                "orphan_harvest_limit_found", "parent_absent",
+                trade_id=trade_id, order_id=order_id,
+                symbol=symbol, strategy=strategy,
+                gtd_time=entry.get("gtd_time", ""),
+                created_at=entry.get("created_at", ""),
+            )
+            ok = False
+            try:
+                ok = bool(ctx.broker.cancel_order(order_id))
+            except Exception:
+                log.exception("[RECOVERY] orphan cancel raised: %s", order_id)
+            self._ledger.remove(order_id)
+            self._audit_harvest(
+                "orphan_harvest_limit_cancelled",
+                "ok" if ok else "broker_reject",
+                trade_id=trade_id, order_id=order_id,
+                symbol=symbol, strategy=strategy,
+                gtd_time=entry.get("gtd_time", ""),
+                created_at=entry.get("created_at", ""),
+            )
 
     def _dust_threshold(self) -> float:
         """Units below which a residual is considered accounting dust."""
@@ -297,20 +550,45 @@ class StateRecovery:
 
         signed_units = -harvest_units if tracked.direction == "long" else harvest_units
 
+        # Hotfix: bound harvest LIMIT lifetime by strategy holding profile.
+        # 4h direct/box / 12h dbb_trend. Pure GTC was the root cause of
+        # naked-position orphans when the parent closed and the cancel-on-
+        # vanish hook missed.
+        now = datetime.now(timezone.utc)
+        gtd_hours = _harvest_gtd_hours(getattr(tracked, "strategy", ""))
+        gtd_time = _format_gtd(now, gtd_hours)
+
         result = ctx.broker.place_limit_order(
             symbol=tracked.symbol,
             units=signed_units,
             price=tracked.tp1_price,
             stop_loss=None,
             take_profit=None,
-            gtd_time=None,
+            gtd_time=gtd_time,
             position_fill="REDUCE_ONLY",
         )
 
         if result.success and result.order_id:
             ctx.tracker.set_harvest_order(tracked.trade_id, result.order_id)
-            log.info("[RECOVERY] HARVEST LIMIT PLACED: %s order=%s @ %.5f (%d units)",
-                     tracked.trade_id, result.order_id, tracked.tp1_price, harvest_units)
+            self._ledger.add(
+                order_id=result.order_id,
+                trade_id=tracked.trade_id,
+                symbol=tracked.symbol,
+                strategy=getattr(tracked, "strategy", "") or "",
+                gtd_time=gtd_time,
+            )
+            log.info("[RECOVERY] HARVEST LIMIT PLACED: %s order=%s @ %.5f (%d units) GTD=%s",
+                     tracked.trade_id, result.order_id, tracked.tp1_price,
+                     harvest_units, gtd_time)
+            self._audit_harvest(
+                "harvest_limit_created", "tp1_preplaced",
+                trade_id=tracked.trade_id,
+                order_id=result.order_id,
+                symbol=tracked.symbol,
+                strategy=getattr(tracked, "strategy", "") or "",
+                gtd_time=gtd_time,
+                created_at=now.isoformat(),
+            )
         elif result.success and result.trade_id:
             ctx.tracker.mark_tp1_taken(tracked.trade_id)
             log.info("[RECOVERY] HARVEST LIMIT FILLED IMMEDIATELY: %s @ %.5f",

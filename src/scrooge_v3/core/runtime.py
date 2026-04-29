@@ -173,6 +173,10 @@ class Runtime:
         self.recovery.detect_vanished_trades()
         self.recovery.reconcile_tracker()
         self.recovery.reconcile_pending_orders()
+        # Hotfix: orphan harvest LIMIT sweep — belt-and-suspenders
+        # defence so a stale harvest order can't fire as a naked
+        # position with no SL/TP. See state_recovery.reconcile_orphan_harvests.
+        self.recovery.reconcile_orphan_harvests()
 
         # --- Scan cycle ---
         scan = self.scanner.scan_cycle(now)
