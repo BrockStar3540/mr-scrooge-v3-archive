@@ -377,3 +377,134 @@ def test_broker_walk_respects_live_tracker_entry():
     recovery.reconcile_orphan_harvests()
 
     assert broker.cancelled == []
+
+
+# ---------- Hotfix/harvest-same-cycle-race (2026-04-30): 3 new tests ----------
+
+def test_same_cycle_placement_survives_reconcile():
+    """A harvest LIMIT placed during the entry-fill loop of
+    reconcile_pending_orders MUST NOT be cancelled by the harvest-reconcile
+    loop in the same call. The pre-fix race emitted broker_side_gone within
+    ~250ms of every placement because pending_on_broker was snapshotted
+    BEFORE the placement.
+    """
+    tracker = PositionTracker(persist_path=None)
+    tracker.register_pending_entry("USD_JPY", "ORD_ENTRY")
+    tracker.set_pending_entry_meta("USD_JPY", {
+        "tp1_price": 150.5,
+        "strategy": "direct",
+        "direction": "long",
+        "entry_price": 150.0,
+    })
+    broker = _FakeBroker(
+        open_trades=[TradeInfo(
+            trade_id="T_NEW", symbol="USD_JPY", direction="long",
+            units=10000, entry_price=150.0, current_stop=149.5,
+            current_tp=151.0,
+        )],
+        pending=[],
+    )
+    audit = _FakeAudit()
+    recovery = StateRecovery(_ctx(broker, tracker, audit=audit))
+
+    recovery.reconcile_pending_orders()
+
+    assert len(broker.placed) == 1
+    assert broker.placed[0]["position_fill"] == "REDUCE_ONLY"
+    new_pos = tracker.get("T_NEW")
+    assert new_pos is not None
+    assert new_pos.harvest_order_id == "ORD_1", \
+        f"harvest_order_id wiped by same-cycle race; got {new_pos.harvest_order_id}"
+    assert "ORD_1" in sr_mod._HARVEST_LEDGER.all(), \
+        "ledger entry wiped by same-cycle race"
+    cancelled_events = [e for e in audit.events
+                        if e["type"] == "harvest_limit_cancelled"]
+    assert cancelled_events == [], \
+        f"unexpected harvest_limit_cancelled in same cycle: {cancelled_events}"
+    created_events = [e for e in audit.events
+                      if e["type"] == "harvest_limit_created"]
+    assert len(created_events) == 1
+    assert broker.cancelled == []
+
+
+def test_next_cycle_leaves_live_harvest_intact():
+    """Cycle 2: the harvest LIMIT placed in cycle 1 is still alive on the
+    broker. reconcile_pending_orders MUST treat it as 'still pending' and
+    not touch tracker/ledger or emit any cancel event.
+    """
+    tracker = PositionTracker(persist_path=None)
+    tracker.register_entry(
+        trade_id="T_LIVE", symbol="USD_JPY", direction="long",
+        units=10000, entry_price=150.0, stop_price=149.5,
+        tp1_price=150.5, strategy="direct",
+    )
+    tracker.set_harvest_order("T_LIVE", "ORD_HARV")
+    sr_mod._HARVEST_LEDGER.add(
+        order_id="ORD_HARV", trade_id="T_LIVE", symbol="USD_JPY",
+        strategy="direct",
+        gtd_time="2026-12-31T00:00:00.000000000Z",
+    )
+    broker = _FakeBroker(
+        open_trades=[TradeInfo(
+            trade_id="T_LIVE", symbol="USD_JPY", direction="long",
+            units=10000, entry_price=150.0,
+        )],
+        pending=[PendingOrderInfo(
+            order_id="ORD_HARV", symbol="USD_JPY", order_type="LIMIT",
+            units=5000, price=150.5, state="PENDING",
+            time_in_force="GTD", gtd_time="2026-12-31T00:00:00.000000000Z",
+        )],
+    )
+    audit = _FakeAudit()
+    recovery = StateRecovery(_ctx(broker, tracker, audit=audit))
+
+    recovery.reconcile_pending_orders()
+
+    pos = tracker.get("T_LIVE")
+    assert pos is not None
+    assert pos.harvest_order_id == "ORD_HARV"
+    assert "ORD_HARV" in sr_mod._HARVEST_LEDGER.all()
+    assert broker.cancelled == []
+    cancelled_events = [e for e in audit.events
+                        if e["type"] == "harvest_limit_cancelled"]
+    assert cancelled_events == []
+
+
+def test_real_broker_side_gone_still_clears_local_state():
+    """Counter-test: if a harvest LIMIT genuinely vanishes from the broker
+    (e.g. GTD-expired between cycles, pre-existing tracker pointer, NOT
+    placed in this same call), the existing broker_side_gone path MUST
+    still fire to keep local state consistent. Guards against the fix
+    being too permissive.
+    """
+    tracker = PositionTracker(persist_path=None)
+    tracker.register_entry(
+        trade_id="T_STALE", symbol="USD_JPY", direction="long",
+        units=10000, entry_price=150.0, stop_price=149.5,
+        tp1_price=150.5, strategy="direct",
+    )
+    tracker.set_harvest_order("T_STALE", "ORD_STALE")
+    sr_mod._HARVEST_LEDGER.add(
+        order_id="ORD_STALE", trade_id="T_STALE", symbol="USD_JPY",
+        strategy="direct",
+        gtd_time="2026-04-30T00:00:00.000000000Z",
+    )
+    broker = _FakeBroker(
+        open_trades=[TradeInfo(
+            trade_id="T_STALE", symbol="USD_JPY", direction="long",
+            units=10000, entry_price=150.0,
+        )],
+        pending=[],
+    )
+    audit = _FakeAudit()
+    recovery = StateRecovery(_ctx(broker, tracker, audit=audit))
+
+    recovery.reconcile_pending_orders()
+
+    pos = tracker.get("T_STALE")
+    assert pos.harvest_order_id == ""
+    assert "ORD_STALE" not in sr_mod._HARVEST_LEDGER.all()
+    cancelled_events = [e for e in audit.events
+                        if e["type"] == "harvest_limit_cancelled"
+                        and e.get("reason") == "broker_side_gone"]
+    assert len(cancelled_events) == 1
