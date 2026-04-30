@@ -324,6 +324,12 @@ class StateRecovery:
         """Reconcile pending entry and harvest limit orders with OANDA."""
         ctx = self.ctx
         pending_on_broker = {o.order_id for o in ctx.broker.get_pending_orders()}
+        # Hotfix/harvest-same-cycle-race (2026-04-30):
+        # Harvest LIMITs placed by _place_harvest_limit during the entry-fill
+        # loop below are not in `pending_on_broker` (snapshot taken before).
+        # Track them locally and union before the harvest-reconcile loop so
+        # newly-placed orders aren't immediately marked broker_side_gone.
+        freshly_placed: set[str] = set()
 
         # Check pending entries
         for symbol, order_id in list(ctx.tracker.all_pending_entries().items()):
@@ -369,7 +375,11 @@ class StateRecovery:
                         log.exception("[RECOVERY] expiry reset on fill failed")
                 ctx.tracker.clear_pending_entry(symbol)
                 # Place harvest limit for the new trade
-                self._place_harvest_limit(ctx.tracker.get(new_trade.trade_id))
+                new_harvest_id = self._place_harvest_limit(
+                    ctx.tracker.get(new_trade.trade_id)
+                )
+                if new_harvest_id:
+                    freshly_placed.add(new_harvest_id)
             else:
                 # Order expired or was cancelled
                 meta = ctx.tracker.get_pending_entry_meta(symbol) or {}
@@ -394,6 +404,11 @@ class StateRecovery:
                         log.exception("[RECOVERY] expiry tracker hook failed")
 
         # Check harvest orders
+        # Union same-cycle placements into the broker-pending view (see
+        # hotfix note above): orders placed earlier in this function call
+        # are not in the original snapshot and would otherwise misclassify
+        # as broker_side_gone.
+        pending_on_broker |= freshly_placed
         for tracked in ctx.tracker.get_positions_with_harvest_orders():
             if tracked.harvest_order_id in pending_on_broker:
                 continue  # Still pending
@@ -628,17 +643,23 @@ class StateRecovery:
         except Exception:
             log.exception("[RECOVERY] DUST FLATTEN raised: %s", tracked.trade_id)
 
-    def _place_harvest_limit(self, tracked) -> None:
-        """Pre-place a REDUCE_ONLY limit order at TP1 for partial harvest."""
+    def _place_harvest_limit(self, tracked) -> str | None:
+        """Pre-place a REDUCE_ONLY limit order at TP1 for partial harvest.
+
+        Returns the new broker order_id on successful placement, or None
+        if the call is a no-op / fails. Callers within the same cycle
+        (reconcile_pending_orders) use this to union same-cycle placements
+        into the broker-pending view before the harvest-reconcile loop.
+        """
         if not tracked or not tracked.tp1_price or tracked.tp1_taken:
-            return
+            return None
         if hasattr(tracked, 'harvest_order_id') and tracked.harvest_order_id:
-            return
+            return None
 
         ctx = self.ctx
         harvest_units = int(tracked.units * 0.5)
         if harvest_units <= 0:
-            return
+            return None
 
         signed_units = -harvest_units if tracked.direction == "long" else harvest_units
 
@@ -681,10 +702,13 @@ class StateRecovery:
                 gtd_time=gtd_time,
                 created_at=now.isoformat(),
             )
+            return result.order_id
         elif result.success and result.trade_id:
             ctx.tracker.mark_tp1_taken(tracked.trade_id)
             log.info("[RECOVERY] HARVEST LIMIT FILLED IMMEDIATELY: %s @ %.5f",
                      tracked.trade_id, tracked.tp1_price)
+            return None
         else:
             log.warning("[RECOVERY] HARVEST LIMIT FAILED: %s error=%s",
                         tracked.trade_id, result.error)
+            return None
