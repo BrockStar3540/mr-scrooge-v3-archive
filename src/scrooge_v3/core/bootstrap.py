@@ -192,11 +192,16 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.execution.stop_planner import StopPlanner
     from scrooge_v3.telemetry.execution_audit import ExecutionAudit
     from scrooge_v3.telemetry.dbb_candidate_audit import DBBCandidateAudit
+    from scrooge_v3.telemetry.order_attribution import OrderAttributionWriter
 
     mgmt_cfg = config.section("management") if config.get("management") else {}
     exit_cfg = mgmt_cfg.get("exit_manager", {})
     execution_audit = ExecutionAudit(filepath="data/execution-audit.jsonl")
     dbb_audit = DBBCandidateAudit(filepath="data/dbb-candidate-audit.jsonl")
+    # Patch B.right: order_id → strategy attribution map
+    order_attribution = OrderAttributionWriter(
+        filepath="data/order-attribution.jsonl",
+    )
 
     # Subscribe to DBB candidate events
     def _on_dbb_scored(event):
@@ -308,6 +313,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         spread_monitor=spread_monitor,
         execution_audit=execution_audit,
         dbb_audit=dbb_audit,
+        order_attribution=order_attribution,
         live_state=live_state,
         screener=screener,
         cooldown_tracker=cooldown_tracker,
