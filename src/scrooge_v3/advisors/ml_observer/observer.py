@@ -50,6 +50,10 @@ from config import (  # noqa: E402
     PHASE2_MIN_TRADES, RETRAIN_INTERVAL_TRADES, PROTEST_CONFIDENCE,
     TRADE_ASSOCIATION_WINDOW_SEC,
 )
+# Patch B.right: order_id → strategy attribution lookup. Reads the bot's
+# data/order-attribution.jsonl deterministically; no time-window walk.
+ATTRIBUTION_FILE = V3_DATA_DIR / "order-attribution.jsonl"
+from scrooge_v3.telemetry.order_attribution import lookup_attribution  # noqa: E402
 from features import build_scan_row, extract_features, FEATURE_NAMES  # noqa: E402
 from v3_scorer_parser import parse_v3_scorer_line  # noqa: E402
 from journal_reader import iter_journal_events  # noqa: E402
@@ -365,7 +369,38 @@ def poll_oanda_outcomes(state: ObserverState, poller: OandaPoller) -> int:
 
         if ev["kind"] == "open":
             for trade_id in ev["trade_ids_opened"]:
-                matched = _find_scan_for_trade(ev["symbol"], TRADE_ASSOCIATION_WINDOW_SEC)
+                # Patch B.right: order_id → strategy lookup is the primary
+                # attribution path. The bot writes one row per placed order
+                # to data/order-attribution.jsonl; we resolve strategy +
+                # scan_cycle deterministically from the OANDA orderID. Falls
+                # back to the legacy scan window walk only when attribution
+                # is missing (pre-patch backfill / externally placed orders).
+                attribution = None
+                source = "none"
+                ord_id = ev.get("order_id") or ""
+                if ord_id:
+                    attribution = lookup_attribution(ATTRIBUTION_FILE, ord_id)
+                    if attribution:
+                        source = "order_id_lookup"
+                if attribution is None and trade_id:
+                    attribution = lookup_attribution(ATTRIBUTION_FILE, trade_id)
+                    if attribution:
+                        source = "order_id_lookup"
+                matched = None
+                if attribution is None:
+                    matched = _find_scan_for_trade(
+                        ev["symbol"], TRADE_ASSOCIATION_WINDOW_SEC,
+                    )
+                    if matched:
+                        source = "scan_window_fallback"
+                strategy = (
+                    (attribution or {}).get("strategy", "") if attribution
+                    else ((matched or {}).get("strategy", "") if matched else "")
+                )
+                scan_cycle = (
+                    (attribution or {}).get("scan_cycle") if attribution
+                    else ((matched or {}).get("cycle") if matched else None)
+                )
                 _append_jsonl(OUTCOMES_FILE, {
                     "kind": "trade_open",
                     "ts": ev["time"],
@@ -373,13 +408,24 @@ def poll_oanda_outcomes(state: ObserverState, poller: OandaPoller) -> int:
                     "symbol": ev["symbol"],
                     "price": ev["price"],
                     "units": ev["units"],
-                    "matched_scan_ts": matched.get("ts") if matched else None,
-                    "matched_scan_cycle": matched.get("cycle") if matched else None,
+                    "order_id": ord_id,
+                    "strategy": strategy,
+                    "scan_cycle": scan_cycle,
+                    "tier": (attribution or {}).get("tier", "") if attribution else "",
+                    "score": (attribution or {}).get("score", 0) if attribution else 0,
+                    "attribution_source": source,
+                    # Legacy fields preserved for backward compat.
+                    "matched_scan_ts": (
+                        matched.get("ts") if matched
+                        else ((attribution or {}).get("placed_at")
+                              if attribution else None)
+                    ),
+                    "matched_scan_cycle": scan_cycle,
                     "matched_scan_verdict": matched.get("verdict") if matched else None,
                 })
                 state.known_trade_ids.add(trade_id)
-                log.info("[oanda] trade_open %s %s matched=%s",
-                         trade_id, ev["symbol"], bool(matched))
+                log.info("[oanda] trade_open %s %s strategy=%s source=%s",
+                         trade_id, ev["symbol"], strategy or "?", source)
         elif ev["kind"] == "close":
             for trade_id in ev["trade_ids_closed"]:
                 pl = ev["realized_pl_usd"]

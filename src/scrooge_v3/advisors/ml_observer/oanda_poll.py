@@ -173,4 +173,8 @@ def classify_fill(tx: dict) -> dict:
         "realized_pl_usd": round(pl, 4),
         "price": price,
         "units": units,
+        # Patch B.right: surface the parent orderID so observer can resolve
+        # `(order_id) → strategy` from data/order-attribution.jsonl without
+        # walking scans.jsonl backward.
+        "order_id": str(tx.get("orderID", "") or ""),
     }

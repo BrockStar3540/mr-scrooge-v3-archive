@@ -122,6 +122,13 @@ class ExecutionCoordinator:
             gtd_time=gtd_time,
         )
 
+        # Patch B.right: capture (order_id → strategy) at placement so
+        # downstream ml-observer can resolve attribution by orderID from the
+        # OANDA fill transaction, not by walking scans.jsonl backward.
+        attrib = getattr(ctx, "order_attribution", None)
+        cycle = getattr(getattr(ctx, "state", None), "cycle_count", None)
+        tier = best.metadata.get("v3_tier", "") if best.metadata else ""
+
         if result.success and result.trade_id:
             # Immediate fill
             ctx.state.position_count += 1
@@ -142,6 +149,16 @@ class ExecutionCoordinator:
             ctx.state.record_zone_entry(best.symbol, f"{validated_sl:.5f}")
             log.info("[EXEC] LIMIT FILLED IMMEDIATELY: %s %s %d units @ %.5f",
                      result.trade_id, best.symbol, signed_units, result.fill_price)
+            if attrib is not None:
+                # Immediate fills come back with trade_id (no separate order_id);
+                # attribute under the trade_id so ml-observer's tradeID lookup
+                # resolves either way.
+                attrib.record(
+                    order_id=result.trade_id, symbol=best.symbol,
+                    strategy=best.strategy, direction=best.direction.value,
+                    score=best.score, tier=str(tier), scan_cycle=cycle,
+                    order_kind="entry_immediate_fill",
+                )
             self.recovery._place_harvest_limit(ctx.tracker.get(result.trade_id))
             return True
 
@@ -160,6 +177,13 @@ class ExecutionCoordinator:
             })
             log.info("[EXEC] LIMIT ENTRY PLACED: %s %s order=%s @ %.5f",
                      best.symbol, best.direction.value, result.order_id, limit_price)
+            if attrib is not None:
+                attrib.record(
+                    order_id=result.order_id, symbol=best.symbol,
+                    strategy=best.strategy, direction=best.direction.value,
+                    score=best.score, tier=str(tier), scan_cycle=cycle,
+                    order_kind="entry_limit",
+                )
             return True
 
         else:

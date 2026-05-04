@@ -36,6 +36,7 @@ class RuntimeContext:
     live_state: Any
     screener: Any
     cooldown_tracker: Any = None  # Phase 4: risk.CooldownTracker
+    order_attribution: Any = None  # Patch B.right: order_id → strategy writer
 
     # Internal state
     known_trade_ids: set[str] = field(default_factory=set)
