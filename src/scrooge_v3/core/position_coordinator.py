@@ -70,7 +70,9 @@ class PositionCoordinator:
             phase = details.get("phase", "")
             audit_base = dict(
                 trade_id=tracked.trade_id, symbol=tracked.symbol,
-                direction=tracked.direction, profit_r=profit_r,
+                direction=tracked.direction,
+                strategy=getattr(tracked, "strategy", "") or "",
+                profit_r=profit_r,
                 spread=quote.spread, action=action.action,
             )
 

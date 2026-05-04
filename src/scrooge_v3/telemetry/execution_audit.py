@@ -26,6 +26,7 @@ class AuditEvent:
     trade_id: str = ""
     symbol: str = ""
     direction: str = ""
+    strategy: str = "" # dbb_trend, direct, reversal — set from tracked.strategy on emit
     profit_r: float = 0.0
     spread: float = 0.0
     old_sl: float = 0.0
