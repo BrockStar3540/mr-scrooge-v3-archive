@@ -136,8 +136,6 @@ class StateRecovery:
             extra: dict[str, Any] = {}
             if order_id:
                 extra["order_id"] = order_id
-            if strategy:
-                extra["strategy"] = strategy
             if gtd_time:
                 extra["gtd_time"] = gtd_time
             if created_at:
@@ -148,7 +146,9 @@ class StateRecovery:
                 extra["cancelled_at"] = datetime.now(timezone.utc).isoformat()
             audit.record(AuditEvent(
                 type=etype, reason=reason,
-                trade_id=trade_id, symbol=symbol, extra=extra,
+                trade_id=trade_id, symbol=symbol,
+                strategy=strategy or "",
+                extra=extra,
             ))
         except Exception:
             log.exception("[HARVEST-AUDIT] record failed (%s)", etype)
