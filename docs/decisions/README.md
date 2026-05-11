@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds the institutional memory for major design pivots across the Mr. Scrooge bot family. Each ADR captures a decision that's expensive to reverse, plus the alternatives that were considered and rejected.
+This directory holds the institutional memory for major design pivots across the Mr. Scrooge bot family (V1, V2, V3). Other BrockStar projects (Claim Donkey, NRD, etc.) maintain their own decision logs separately if needed. Each ADR captures a decision that's expensive to reverse, plus the alternatives that were considered and rejected.
 
 ## Why this exists
 
@@ -15,12 +15,12 @@ State-of-union notes capture *what's true now*. ADRs capture *how we got here an
 
 Version-bucketed so V1/V2/V3 pivots are easy to identify and backfill:
 
-| Range | Version | Status |
+| Range | Scrooge version | Status |
 |---|---|---|
-| 1001–1999 | V1 (decommissioned 2026-04-15) | Backfill as needed; historical only |
-| 2001–2999 | V2 (decommissioned prior to V1) | Backfill as needed; historical only |
-| 3001–3999 | V3 (active) | Current — adopt as decisions land |
-| 4001+ | reserved for future major version | — |
+| 1001-1999 | Scrooge V1 (decommissioned 2026-04-15) | Backfill as needed; historical only |
+| 2001-2999 | Scrooge V2 (decommissioned prior to V1) | Backfill as needed; historical only |
+| 3001-3999 | Scrooge V3 (active) | Current - adopt as decisions land |
+| 4001+ | Reserved for future Scrooge major version | - |
 
 Within each version, number chronologically by **decision date**, not write date. (Backfilled V1 ADR 1001 may be written in 2026 but covers a 2024 decision.)
 
