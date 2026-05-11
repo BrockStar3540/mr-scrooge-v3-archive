@@ -61,3 +61,61 @@ The implementation had drifted from the doctrine — partly because the original
 - `MASTER_THEORY.md` in `BrockStar3540/mr-scrooge` repo — the single source of truth
 - ADR `1003-six-gate-signal-confirmation.md` — what gates 3 and 4 became
 - `[[scrooge-bug-catalog]]` B-025 through B-032
+
+---
+
+## Conversation evidence — 2026-03-11 session
+
+Source: `/Users/brock-mini-mac/Dropbox/LLM Sessions/Claude Sessions/trading - Mr Scrooge/2026-03-11_d66ae964.md`
+
+Context: this is the MASTER_THEORY realignment day. Claude audited the bots against
+the raw transcripts and concluded a layer of invented quantitative gates was
+filtering out valid setups. Brock pushed for a single source-of-truth document
+extracted directly from the videos, then ordered a full audit of code against it.
+
+**The framing — invented machinery, not from the source:**
+
+> Claude: "The bots are over-engineered relative to the source. The backbone is
+> right, but a layer of invented quantitative machinery sits on top of it that
+> isn't in the transcripts — and that machinery is likely filtering out valid
+> setups." *(early in audit, ~msg around line 2130)*
+
+**Brock's principle — source of truth document, no interpretation:**
+
+> Brock: "first, we need to take the theory, direct quotes and examples and put
+> them in a comprehensive master theory document (without interpretation from us,
+> just unbiased and raw) in each bot file. This way as we make modifactions we
+> can always go back to the unbiased original strategy." *(line ~2171)*
+
+**The specific verdict on ATR and OTR (audit table, line ~2139):**
+
+> | ATR gate = hard 20% minimum | Invented threshold, may block early setups | Soften or remove as hard gate |
+> | OTR ratio gate | Not in transcripts at all | Demote to warning only, not hard block |
+
+**The reasoning for demotion, in Claude's own words:**
+
+> Claude: "Now the ATR gate. The theory says use ATR to *set expectations*, not
+> as a hard block. I'll demote it from a hard rejection to a warning that still
+> allows trades through." *(line ~2531)*
+
+**Audit verdict on each gate (line ~2336, ~2339):**
+
+> | ATR gate (20% min, 60% valid, 80% strong) | Gate 3: hard block below 20% ATR consumed | Theory: use ATR to "set expectations" — no hard gate thresholds given | **OVER-ENGINEERED** |
+> | OTR gate (overhead-to-range ratio) | Gate 6: blocks if overhead > 25% of half-box | Not in the transcripts at all | **ADDED** |
+
+**Alternative considered and rejected:** outright removal. The chosen path was
+demotion to advisory — keep the calculation and log it, but never block:
+
+> Claude (post-patch summary, line ~2834): "ATR gate (Gate 3): Demoted from hard
+> block to advisory — `atr_gate = True` always; still calculates `atr_pct` and
+> `atr_strength` for logging … OTR gate (Gate 6): Demoted to advisory —
+> `otr_gate = True` always; logs warning when category is 'skip' but never
+> blocks"
+
+**Key technical detail informing the decision:** the audit was anchored to
+direct video transcript quotes. The transcripts described ATR as a way to "set
+expectations" and never mentioned an OTR ratio at all, so any hard threshold was
+by definition engineered, not strategy-faithful.
+
+> Brock (closing the audit pass, line ~2648): "yeah, let's be absolutely
+> thorough"

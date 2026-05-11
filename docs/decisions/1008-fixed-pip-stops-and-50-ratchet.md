@@ -64,3 +64,74 @@ V3's `simulate_trade_multi` uses structure-relative stops (`stop_distance = max(
 - `AUDIT.md` 2026-03-19/20 (overhaul section)
 - `[[scrooge-bug-catalog]]` B-040, B-052
 - ADR `1005-master-theory-realignment.md` — stop placement at signal candle extreme
+
+---
+
+## Conversation evidence — 2026-03-24 session
+
+Source: `/Users/brock-mini-mac/Dropbox/LLM Sessions/Claude Sessions/trading - Mr Scrooge/2026-03-24_2766c2e9.md`
+
+> **Note for the ADR author.** This session is *not* primarily about
+> establishing fixed-pip stops + 50% ratchet (that decision is in the 2026-03-20
+> session above). It is about a 4.5-hour diagnostic where V1 stopped entering
+> after a 3:32pm ET restart and V2 had silently been losing every entry all day
+> due to the same `name 'new_stop' is not defined` bug in `oanda_client.py`.
+> The relevance to ADR 1008 is **negative evidence**: it shows why the entry
+> path needs to be defensive — silent name-errors in the order placement layer
+> can disable the bot for an entire session and still log scoring/regime data
+> that *looks* healthy. If ADR 1008 codifies fixed-pip stops + 50% ratchet, the
+> closest in-session material is the regime/coordinator follow-on; the
+> fixed-pip + ratchet decision itself was made on 2026-03-20 (see ADR 1006
+> evidence above).
+
+**Brock's opening question — observed symptom (line ~12):**
+
+> Brock: "what was changed in scrooge around 3pm eastern time, it is no longer
+> taking positions"
+
+**The bug (line ~144):**
+
+> Claude: "Found the bug. In `oanda_client.py`, `place_entry_order()` and
+> `place_market_order()` both use `new_stop` on their decimal calculation line
+> but that variable doesn't exist in those functions — the parameter is called
+> `stop_loss`. This crashes every time a trade fires."
+
+**Why it stayed hidden — the dormant-bug principle (line ~168):**
+
+> Claude: "The backup has the same bug — it was already there before 3pm. The
+> bot restart at 3:32pm ET is what exposed it (previously there was a live
+> position that didn't need to fire new entries, so the bug was dormant)."
+
+**Why V2 had silently produced nothing all day (line ~467, ~489):**
+
+> Claude: "V2 **did** find candidates to fire — GBP_CAD repeatedly, USD_JPY,
+> GBP_USD — but the `new_stop` bug was silently crashing every single one of
+> those entry attempts all day."
+
+> Claude: "The bug killed every entry attempt — V2 found valid candidates
+> (GBP_CAD repeatedly, USD_JPY, GBP_USD) and reached the fire stage, but `name
+> 'new_stop' is not defined` crashed each one."
+
+**Brock's framing/principle for the fix flow (line ~323):**
+
+> Brock: "need to fix V2 also"
+
+**Key technical detail — the dormant-bug + silent-crash pattern motivates a
+fixed-pip, defensive entry path (the eventual V3 ADR 1008 stance):**
+parameter-name errors in `place_entry_order` / `place_market_order` /
+`place_opposing_limit` killed every entry without surfacing in the decision
+log. The decision-log layer kept showing healthy ranking and regime output —
+only the order-placement layer was failing. The takeaway carried forward: the
+SL/TP pip structure must be computed in a single, well-tested place so a typo
+can't silently disable trading.
+
+**Closest in-session material that touches the ratchet behavior the ADR
+codifies (line ~3632, audit of a profitable AUD_CAD trade under the working
+fixed-pip + 50% ratchet structure):**
+
+> Claude: "Stop moved to breakeven (0.95823) at 07:01 when price hit 0.96098
+> (~50% to TP1) … Closed 07:21 via OANDA native close (TP hit) — **+$2,563.87**"
+
+That is the structure performing as designed once the entry path was no longer
+silently crashing — i.e. ADR 1008's structure validated end-to-end on a single
+clean trade after the bug was patched.

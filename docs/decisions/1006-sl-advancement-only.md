@@ -61,3 +61,83 @@ V3's walker (`simulate_trade_multi`) is "Phase-2 minimal": SL, TP, timeout. **Sa
 - `[[scrooge-bug-catalog]]` B-033 (the original loop)
 - `src/execution_simulator.py:simulate_trade_multi` (V3 inheritor)
 - V3 frozen constraint #15 (walker phase-2 minimal)
+
+---
+
+## Conversation evidence — 2026-03-20 session
+
+Source: `/Users/brock-mini-mac/Dropbox/LLM Sessions/Claude Sessions/trading - Mr Scrooge/2026-03-20_1c92abef.md`
+
+Context: the bot had been profitable on the `1c99ae2` commit, then 23 commits
+rolled in over an evening that converted it to a 30-minute rolling box with
+fixed-pip stops anchored to fill price. The bot started bleeding. This session
+identifies the working commit, lists six structural regressions, and walks them
+back while keeping the legitimate additions (scoring, ranking, dashboard).
+
+**The diagnosis (line ~202):**
+
+> Claude: "OK, here's the full picture. There are **major structural changes**
+> between the profitable version and what's running now … The bot is basically
+> running a completely different strategy now."
+
+The six breaking changes (line ~204–224):
+
+> 1. Box mode: Daily → 30m rolling window
+> 2. TP levels: Box-relative → Fixed pips
+> 3. Entry/Stop pricing: Candle-based → Zone-anchored with fixed pip stops
+> 4. Sizing: 50% margin with decompressors → 80% margin, no decompressors
+> 5. Green exit removed
+> 6. high_volatility_atr_mult = 99 — effectively disabled the volatility gate
+
+**Brock's decision (line ~238):**
+
+> Brock: "yeah, lets get rid of the 30 minute bushit, and fix our bot back to
+> making money like it was, 1-6."
+
+**External reviewer alternative considered and partially rejected:** another
+agent suggested keeping the fill-anchored stops but restoring the ATR gate
+(line ~239–246). Claude flagged the review as partly wrong on the facts (line
+~320: "Good analysis from them, but let me fact-check against the actual diff
+before we act") and pursued the wider revert instead.
+
+**The crisis trade that triggered the second pass — ratchet too tight on a
+5-pip TP1 (line ~1963):**
+
+> ```
+> 15:35:33 — ENTRY SHORT @ 0.58407, SL 0.58507 (10p), TP1 0.58357 (5p)
+> 15:45:33 — Stop moved to 0.58407 (breakeven) — "price 0.58380 is 50% of way to TP1"
+> 15:50:23 — OANDA NATIVE CLOSE at SL 0.58407 (breakeven) — +$3.11
+> ```
+
+> Claude: "The harvester's **ratchet stage 1** killed it. Price hit +2.7 pips
+> (0.58380), which is 50% of the way to TP1. The harvester moved the SL to
+> breakeven (0.58407). Then price bounced back to 0.58407 and got stopped out at
+> breakeven … The problem: the ratchet is too aggressive. Moving SL to breakeven
+> at only +2.5 pips means any normal pullback kills the trade before it can
+> reach TP1 at +5 pips."
+
+**Brock's framing — green-exit + harvester resolve the management problem
+without changing the ratchet logic (line ~1065):**
+
+> Brock: "this was what we want in some form, with the harvester and hourly
+> profit taker: SL / TP — Fixed Pip Structure. All SL/TP values are measured
+> from the actual fill price. Stop Loss 10 / TP1 — Ratchet Trigger 5 / TP2 —
+> Full Exit 30. Ratchet stages: 1. At +2.5 pips (50% to TP1): SL advances to
+> break-even. 2. At +5 pips (TP1 hit): SL locks to entry+5. 3. Above TP1:
+> hybrid trailing stop (80% profit lock, hourly candle trail, 1.5×ATR)."
+
+**Alternative considered and rejected** — change the ratchet trigger from "50%
+to TP1" to "TP1 hit" (Claude implemented this first, line ~2037). Brock pushed
+back: keep the ratchet behavior, widen TP1 to 10 pips instead (line ~2057):
+
+> Claude: "Ah — you want to keep the 50% ratchet behavior but make it work
+> correctly. So instead of changing the ratchet logic, change TP1 to 10 pips.
+> Then: at +5 pips (50% of TP1): SL moves to breakeven — **secures the 5 pips
+> you want** … That's cleaner — the ratchet logic was fine, TP1 was just too
+> tight."
+
+**Key technical detail informing the decision:** Claude pulled `1c99ae2` from
+git (line ~158: "The Initial release commit (`1c99ae2`) from March 19 at 2:13
+PM is the version that was making money") and used it as a literal source of
+truth to diff and revert file-by-file, rather than reasoning forward from
+symptoms.
