@@ -62,3 +62,4 @@ data/ml-observer-offline/
 # Ratchet 0.7 experiment audit artifacts (not for merge)
 config/default.json.proposed_diff
 config/default.json.snapshot.pre_ratchet07
+data/ml-observer/observer-state.json.bak.*
