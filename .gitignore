@@ -48,3 +48,17 @@ data/ml-observer/ml-protests.jsonl
 data/ml-observer/model.xgb
 data/ml-observer/journal.cursor
 data/ml-observer/legacy-v1v2/
+
+# Additional runtime state (added 2026-05-11)
+data/alert_state.json
+data/cooldowns.json
+data/daily_circuit.json
+data/harvest-order-ledger.json
+data/limit_expiry_tracker.json
+data/order-attribution.jsonl
+data/zone_blacklist.json
+data/ml-observer-offline/
+
+# Ratchet 0.7 experiment audit artifacts (not for merge)
+config/default.json.proposed_diff
+config/default.json.snapshot.pre_ratchet07
