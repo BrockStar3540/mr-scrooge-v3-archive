@@ -95,6 +95,18 @@ Don't write one for:
 
 | ADR | Title | Status | Date |
 |---|---|---|---|
+| [1001](1001-box-reversal-core-philosophy.md) | Box reversal as core philosophy | Accepted | 2026-02-15 |
+| [1002](1002-three-timeframe-stack.md) | Three-timeframe stack (D / H1 / M5) | Accepted | 2026-02-20 |
+| [1003](1003-six-gate-signal-confirmation.md) | Six-gate signal confirmation | Accepted (gates 3+4 demoted in 1005) | 2026-02-20 |
+| [1004](1004-pitchfork-entry-taxonomy.md) | Pitchfork entry taxonomy | Accepted | 2026-02-20 |
+| [1005](1005-master-theory-realignment.md) | MASTER_THEORY realignment | Accepted | 2026-03-11 |
+| [1006](1006-sl-advancement-only.md) | SL-advancement-only (no market exits) | Accepted | 2026-03-12 |
+| [1007](1007-performance-cutoff-discipline.md) | Performance cutoff discipline | Accepted | 2026-03-05 |
+| [1008](1008-fixed-pip-stops-and-50-ratchet.md) | Fixed-pip stops + 50% ratchet | Accepted | 2026-03-20 |
+| [1009](1009-mr-sprite-removal.md) | Mr. Sprite crypto bot removal | Reverted | 2026-03-25 |
+| [1010](1010-trade-coordinator-multi-actor.md) | TradeCoordinator multi-actor state | Accepted | 2026-04-10 |
+| [2001](2001-modular-rewrite-v2.md) | V2 modular rewrite | Accepted (V2 retired) | 2026-03-21 |
+| [2002](2002-dual-loop-architecture.md) | Dual-loop architecture (5min + 3sec) | Accepted | 2026-04-03 |
+| [2003](2003-v3-scoring-system.md) | V3 Scoring System (WR-Lift Hybrid) | Accepted (superseded primary role by 3001) | 2026-04-15 |
 | [3001](3001-regime-aware-not-global-score.md) | Regime-aware not global score | Accepted | 2026-04-15 |
 
-(Add new entries here when you write them.)
