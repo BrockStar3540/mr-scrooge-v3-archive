@@ -1,0 +1,11 @@
+regime_label,probe_name,discovery_pass,discovery_failure,holdout_pass,holdout_failure,survives
+Alpha-extended,alpha_extended_fade_v2,False,ci,False,ci,False
+Alpha-fresh,alpha_breakout_retest_v2,False,ci,False,ci,False
+Alpha-fresh,alpha_pullback_v2,False,ci,False,ci,False
+Bravo,bravo_expansion_continuation,False,ci,False,ci,False
+Bravo,bravo_failed_momentum,False,year_concentration,False,ci,False
+Charlie,charlie_compression_breakout,False,ci,False,ci,False
+Charlie,charlie_pullback_continuation_v2,False,ci,False,ci,False
+Delta,delta_tag_and_go_v2,False,ci,False,ci,False
+Echo-explosive,echo_failed_breakout_v2,False,ci,False,missing_period,False
+Echo-tight,echo_box_fade_v2,True,,False,"ci,quarter_concentration,pair_concentration",False
