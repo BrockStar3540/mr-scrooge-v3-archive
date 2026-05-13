@@ -6,6 +6,7 @@ from scrooge_v3.features.ema import EMACalculator
 from scrooge_v3.features.otr import OverheadRatioCalculator
 from scrooge_v3.features.range_builder import RangeStateMachine
 from scrooge_v3.features.rsi import RSICalculator
+from scrooge_v3.features.technical_context import TechnicalContextCalculator
 from scrooge_v3.features.volume import VolumeCalculator
 from scrooge_v3.features.zone_detector import ZoneDetector
 

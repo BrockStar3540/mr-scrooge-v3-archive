@@ -82,6 +82,9 @@ FEATURE_NAMES = [
     "score_minus_floor", "score_above_b",
     "natural_stop_pips", "tp_distance_pips", "rr_ratio",
     "spread_pips", "spread_to_stop_ratio",
+    # Shadow raw-M5 survivor context (added 2026-05-13)
+    "m15_trend_id", "h1_regime_id", "h1_range_rank_48",
+    "raw_m5_structural_gate_long", "raw_m5_structural_gate_short",
 ]
 
 # Sanity: must be at least 47 as documented in the scope brief.
@@ -281,6 +284,12 @@ def build_scan_row(
         "hour_utc":      float(hour_utc),
         "day_of_week":   float(day_of_week),
         "minute_of_day": float(minute_of_day),
+        # Shadow raw-M5 survivor context
+        "m15_trend_id": _safe_get(feat, "technical_context", "m15_trend_id"),
+        "h1_regime_id": _safe_get(feat, "technical_context", "h1_regime_id"),
+        "h1_range_rank_48": _safe_get(feat, "technical_context", "h1_range_rank_48"),
+        "raw_m5_structural_gate_long": _safe_get(feat, "technical_context", "raw_m5_structural_gate_long"),
+        "raw_m5_structural_gate_short": _safe_get(feat, "technical_context", "raw_m5_structural_gate_short"),
     }
 
     # === Enriched factors (2026-04-28) — recoverable from existing report dicts ===

@@ -69,7 +69,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # --- Register features ---
     from scrooge_v3.features import (
         ATRCalculator, BollingerCalculator, EMACalculator,
-        OverheadRatioCalculator, RSICalculator, VolumeCalculator, ZoneDetector,
+        OverheadRatioCalculator, RSICalculator, TechnicalContextCalculator,
+        VolumeCalculator, ZoneDetector,
     )
     feat_cfg = config.section("features")
     registry.register("features", "atr", ATRCalculator(feat_cfg.get("atr", {})))
@@ -79,6 +80,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("features", "ema", EMACalculator(feat_cfg.get("ema", {})))
     registry.register("features", "rsi", RSICalculator(feat_cfg.get("rsi", {})))
     registry.register("features", "volume", VolumeCalculator(feat_cfg.get("volume", {})))
+    registry.register(
+        "features",
+        "technical_context",
+        TechnicalContextCalculator(feat_cfg.get("technical_context", {})),
+    )
 
     # --- Register classifiers ---
     from scrooge_v3.classifiers.bb_state import BollingerStateClassifier
