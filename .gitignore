@@ -64,3 +64,4 @@ config/default.json.proposed_diff
 config/default.json.snapshot.pre_ratchet07
 data/ml-observer/observer-state.json.bak.*
 research/raw-m5-winner-factory-v1/raw_m5_candidate_events.parquet
+research/raw-m5-winner-factory-v2/raw_m5_v2_candidate_events.parquet
