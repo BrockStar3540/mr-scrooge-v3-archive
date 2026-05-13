@@ -83,3 +83,15 @@ Criteria: n>=100, clean_2R>=20, Wilson lower bound above baseline, clean2 enrich
 ## Next Step
 
 Take the top candidate cells and build standalone microstrategy specs: entry definition, invalidation, management, and kill tests across discovery/holdout. v1 should generate entries directly from raw M5 bars, not inherited probe candidates.
+
+## Validation Layer Added
+
+Top 25 cells were passed through a discovery/holdout kill test in `microbot_candidate_book.md`.
+
+Verdict:
+- 13 `PROMOTE_TO_RAW_M5_REPLAY`
+- 7 `REWORK_thin_holdout`
+- 4 `KILL_holdout_decay`
+- 1 `REWORK_pair_concentrated`
+
+This converts the winner factory from an interesting cluster report into a queue of standalone microbot builds.
