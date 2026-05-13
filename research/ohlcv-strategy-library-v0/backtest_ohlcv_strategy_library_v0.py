@@ -457,7 +457,7 @@ def enrich_trades(trades: pd.DataFrame) -> pd.DataFrame:
 def summarize_trades(trades: pd.DataFrame, scope: str) -> pd.DataFrame:
     if trades.empty:
         return pd.DataFrame()
-    group = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction']
+    group = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','session_bucket','direction']
     base = trades.groupby(group).agg(
         n=('realized_R','size'),
         win_n=('is_win','sum'),
@@ -489,7 +489,7 @@ def summarize_trades(trades: pd.DataFrame, scope: str) -> pd.DataFrame:
 def finalize_summary(parts: list[pd.DataFrame], catalog: pd.DataFrame, scope: str) -> pd.DataFrame:
     if not parts:
         raise SystemExit('no summary parts generated')
-    group = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction']
+    group = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','session_bucket','direction']
     raw = pd.concat(parts, ignore_index=True)
     summary = raw.groupby(group).agg(
         n=('n','sum'), win_n=('win_n','sum'), sum_R=('sum_R','sum'),
@@ -538,13 +538,13 @@ def finalize_summary(parts: list[pd.DataFrame], catalog: pd.DataFrame, scope: st
         f.write(f'- Candidate cells passing discovery+holdout positive gate: {len(candidates):,}\n\n')
         f.write('## Top Candidate Cells\n\n')
         if len(candidates):
-            cols = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction','n','mean_R','win_rate','n_discovery','mean_R_discovery','n_holdout','mean_R_holdout','profit_factor']
+            cols = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','session_bucket','direction','n','mean_R','win_rate','n_discovery','mean_R_discovery','n_holdout','mean_R_holdout','profit_factor']
             f.write(candidates[cols].head(30).to_markdown(index=False))
         else:
             f.write('No cells passed the positive discovery+holdout gate.\n')
         f.write('\n\n## Top Overall Cells By Mean R (n>=50)\n\n')
         top = summary[summary['n'] >= 50].sort_values('mean_R', ascending=False).head(30)
-        cols = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction','n','mean_R','win_rate','profit_factor','n_holdout','mean_R_holdout']
+        cols = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','session_bucket','direction','n','mean_R','win_rate','profit_factor','n_holdout','mean_R_holdout']
         f.write(top[cols].to_markdown(index=False))
         f.write('\n\n## Notes\n\n')
         f.write('- This is not using the old point score. It uses explicit OHLCV formulas.\n')
