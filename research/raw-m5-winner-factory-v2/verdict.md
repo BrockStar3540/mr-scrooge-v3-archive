@@ -218,3 +218,64 @@ in holdout**.
   report_pair_concentration_top20.csv              (0 fragile)
   verdict.md                                       (this file)
 ```
+
+---
+
+## 2026-05-13T17:55 UPDATE — V_BE05 RETRACTED via order-of-events replay
+
+The management-sensitivity finding above was wrong. It was computed from mfe/mae
+arithmetic that systematically over-credited BE variants:
+
+> if mfe >= 2.0R, assume V_BE05 = +2R
+
+That ignored sequencing — a trade that hits 0.5R (arming BE), retraces to 0
+(BE-stop), then continues to 2R cannot collect the 2R reward because the trade
+already closed at BE.
+
+Re-walked all 6,144 trades in the top-20 cells with explicit state machines
+(`report_oop_replay_top20*.csv`, script `v2_oop_replay.py`):
+
+| Variant | best_disc count | best_hold count | median lift vs V_2R |
+|---|---|---|---|
+| **V_2R** (hold to 2R) | **20/20** | **18/20** | baseline (winner) |
+| V_PART1 (half@1R, runner BE@1R) | 0 | 2 | -0.41 disc |
+| V_1R (close TP) | 0 | 0 | -0.40 disc |
+| V_BE10 (BE at 1R) | 0 | 0 | -0.65 disc |
+| V_BE05 (BE at 0.5R) | 0 | 0 | **-0.89 disc** |
+
+V_BE05 mean lift vs V_2R: **−0.888 disc / −0.821 hold**. Positive in 0 of 20
+cells.
+
+**The corrected finding:**
+
+The edge is entirely in the entry gate — H1 regime = breakout, M15 trend aligned
+with direction, plus the trigger (T1/T2 BB-band primary, T7 PDH/PDL proximity
+secondary). When that gate fires, hold-to-2R cleanly captures +0.61 to +0.91R
+per trade in discovery and +0.39 to +1.03R in holdout. No BE/partial management
+helps; BE actively destroys the trade.
+
+This dovetails with — and explains more cleanly than V3-era sample size alone —
+why the earlier directional BE@0.5R management ADR was rejected. The ADR was
+not just under-powered; the underlying intuition was incorrect. Setups good
+enough to reach 2R need room to oscillate; tightening to BE@0.5R cuts them off.
+
+**Updated recommendations (supersede §6 above):**
+
+1. Management for these cells = **simple hold-to-2R with 1×ATR stop**. No BE.
+2. V_PART1 is a viable alternative if you want lower per-trade variance, paying
+   ~0.2-0.4R in mean for tighter distribution.
+3. The original V3 management-bug atlas v1 finding (BE@0.5R helps shorts) is
+   re-opened as a question: it was derived from the same mfe/mae approximation.
+   Re-validation via bar-by-bar replay is warranted on the broader corpus,
+   not just these 20 cells.
+4. Add a regression test to the research toolbox: any mfe/mae management proxy
+   must be sanity-checked against bar-by-bar state machines before serving as
+   ADR evidence.
+
+The entry-gate finding stands. The management finding is reversed. Net: cleaner,
+stronger result — the edge is real and lives entirely in the entry signal.
+
+Outputs added:
+- `report_oop_replay_top20.csv` — per-trade outcomes under all 5 variants
+- `report_oop_replay_top20_pivot.csv` — per-cell × era variant means
+- `v2_oop_replay.py` — explicit state-machine replay script
