@@ -3,6 +3,7 @@ run_all_*.log
 trade_log_*.csv
 trade_log_*.parquet
 candidate_strategy_regime_cells_*.csv
+candidate_textbook_synchrony_*.csv
 strategy_x_regime_summary_*.csv
 strategy_catalog.csv
 summary_*.md
