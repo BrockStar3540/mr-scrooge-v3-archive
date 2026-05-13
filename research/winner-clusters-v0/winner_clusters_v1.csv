@@ -1,0 +1,53 @@
+cluster_id,strategy,pair_family,session,direction,n_winners,n_broker,n_human,n_ai_curated,median_realized_r,p25_realized_r,p75_realized_r,median_mfe_r,pairs,exit_reasons,is_cluster
+unkn_ant_asi_s,unknown,antipodean_cross,asia,short,8,8,0,0,0.22301991911892163,0.06640486438694965,0.589464740866571,,"AUD_CAD,AUD_CHF,AUD_JPY,CAD_JPY,NZD_JPY",{},True
+dire_ant_asi_s,direct,antipodean_cross,asia,short,7,1,0,6,0.9134,0.89,0.92045,1.3641999999999999,"AUD_CAD,AUD_NZD,CAD_JPY,NZD_JPY","{""stop"": 6}",True
+unkn_usd_lon_s,unknown,usd_base,london,short,7,7,0,0,0.1075268817204198,0.0749108034822245,0.6590909090909436,,"GBP_USD,USD_CHF",{},True
+dire_usd_asi_l,direct,usd_base,asia,long,6,0,0,6,0.8714999999999999,0.8639,0.887875,1.53155,"AUD_USD,EUR_USD,GBP_USD,NZD_USD","{""stop"": 5, ""tp2"": 1}",True
+dire_usd_asi_s,direct,usd_base,asia,short,6,1,0,5,0.8878999999999999,0.875525,0.933125,1.3151,"EUR_USD,NZD_USD,USD_JPY,USD_MXN","{""stop"": 5}",True
+unkn_usd_asi_l,unknown,usd_base,asia,long,5,5,0,0,0.2057416267942215,0.0949999999999561,0.3018867924529465,,"AUD_USD,EUR_USD,USD_JPY",{},True
+unkn_usd_asi_s,unknown,usd_base,asia,short,5,5,0,0,0.5735294117647899,0.5566037735849125,1.2956989247314064,,"AUD_USD,NZD_USD,USD_JPY,USD_MXN",{},True
+dire_ant_asi_l,direct,antipodean_cross,asia,long,4,1,0,3,1.5,1.1500000000000088,1.5,2.0669,"AUD_JPY,NZD_JPY","{""tp2"": 3}",True
+dire_gbp_asi_l,direct,gbp_cross,asia,long,3,2,1,0,0.0824175824175845,0.08102143757880409,0.47132691900803925,1.3290269624023163,"GBP_JPY,GBP_NZD","{""stop"": 1}",True
+unkn_ant_lon_s,unknown,antipodean_cross,london,short,3,3,0,0,0.7954545454545234,0.6595454545454222,1.4967838765009227,,"AUD_JPY,NZD_JPY",{},True
+dbb__usd_ove_s,dbb_trend,usd_base,overlap,short,3,0,3,0,0.9689320388349196,0.9637763642450554,1.1070466645786703,1.5436893203883673,"AUD_USD,USD_CHF,USD_JPY","{""stop"": 3}",True
+unkn_eur_lon_l,unknown,eur_cross,london,long,2,2,0,0,1.1552325581393577,0.6328488372092306,1.6776162790694849,,"EUR_CHF,EUR_JPY",{},True
+dire_ant_ove_l,direct,antipodean_cross,overlap,long,2,0,2,0,0.7282892561983626,0.6391446280991728,0.8174338842975524,1.021617462419489,"CAD_JPY,NZD_JPY","{""stop"": 2}",True
+dbb__ant_ny__s,dbb_trend,antipodean_cross,ny_pm,short,2,0,2,0,0.7064814814815146,0.628240740740758,0.7847222222222712,1.095065496629833,"AUD_CAD,CAD_JPY","{""stop"": 2}",True
+dbb__usd_asi_s,dbb_trend,usd_base,asia,short,2,2,0,0,0.8003788982803755,0.6512532789274117,0.9495045176333391,,USD_JPY,{},True
+box_usd_ny__s,box,usd_base,ny_pm,short,2,0,2,0,1.1799899362629898,1.0199849043944846,1.3399949681314949,1.629930249933956,"AUD_USD,USD_CAD","{""stop"": 1, ""tp2"": 1}",True
+dire_eur_asi_l,direct,eur_cross,asia,long,2,0,0,2,0.89205,0.8881749999999999,0.8959250000000001,1.1201500000000002,"EUR_AUD,EUR_GBP","{""stop"": 2}",True
+unkn_gbp_asi_s,unknown,gbp_cross,asia,short,2,2,0,0,0.1061410538969654,0.10275996794224355,0.10952213985168725,,GBP_JPY,{},True
+unkn_ant_asi_l,unknown,antipodean_cross,asia,long,2,2,0,0,0.4154322836277923,0.412305051947729,0.4185595153078555,,"AUD_CAD,NZD_JPY",{},True
+box_eur_lon_s,box,eur_cross,london,short,2,0,2,0,0.8616336856194718,0.8558844364752143,0.8673829347637294,1.3081433163293723,EUR_CAD,"{""stop"": 2}",True
+unkn_ant_lon_l,unknown,antipodean_cross,london,long,2,2,0,0,0.2778703331995205,0.17478422320354403,0.3809564431954969,,"AUD_CHF,AUD_JPY",{},True
+unkn_eur_asi_l,unknown,eur_cross,asia,long,2,2,0,0,1.2102695308103297,0.6067322094946321,1.8138068521260273,,"EUR_JPY,EUR_NZD",{},True
+unkn_usd_lon_l,unknown,usd_base,london,long,2,2,0,0,0.07910851766253495,0.06360659671852208,0.09461043860654783,,"GBP_USD,USD_MXN",{},True
+dbb__usd_ny__s,dbb_trend,usd_base,ny_pm,short,1,0,1,0,1.5,1.5,1.5,5.618049959708624,USD_CHF,"{""tp2"": 1}",False
+dire_ant_lon_l,direct,antipodean_cross,london,long,1,0,1,0,2.0,2.0,2.0,3.60548556848923,AUD_JPY,"{""tp2"": 1}",False
+dbb__usd_lon_s,dbb_trend,usd_base,london,short,1,1,0,0,1.0689655172413906,1.0689655172413906,1.0689655172413906,,USD_JPY,{},False
+dbb__gbp_lon_s,dbb_trend,gbp_cross,london,short,1,0,1,0,0.8597222222222081,0.8597222222222081,0.8597222222222081,1.041666666666628,GBP_CHF,"{""stop"": 1}",False
+dbb__gbp_ny__l,dbb_trend,gbp_cross,ny_pm,long,1,0,1,0,2.0,2.0,2.0,3.276231263382923,GBP_CHF,"{""tp2"": 1}",False
+box_ant_ove_s,box,antipodean_cross,overlap,short,1,0,1,0,1.0037962670041125,1.0037962670041125,1.0037962670041125,1.4394179057259815,AUD_JPY,"{""stop"": 1}",False
+box_ant_ove_l,box,antipodean_cross,overlap,long,1,0,1,0,0.8598483336659569,0.8598483336659569,0.8598483336659569,1.0281380961884483,CAD_JPY,"{""stop"": 1}",False
+box_eur_ny__s,box,eur_cross,ny_pm,short,1,0,1,0,1.5,1.5,1.5,9.813238770682725,EUR_JPY,"{""tp2"": 1}",False
+box_gbp_ny__s,box,gbp_cross,ny_pm,short,1,0,1,0,1.5,1.5,1.5,3.4594049420074957,GBP_CHF,"{""tp2"": 1}",False
+box_usd_ove_l,box,usd_base,overlap,long,1,0,1,0,0.9704251386321668,0.9704251386321668,0.9704251386321668,1.9408502772643337,USD_CHF,"{""stop"": 1}",False
+dbb__eur_asi_s,dbb_trend,eur_cross,asia,short,1,1,0,0,3.009174311926649,3.009174311926649,3.009174311926649,,EUR_JPY,{},False
+pull_usd_asi_l,pullback,usd_base,asia,long,1,0,1,0,0.5500000000000429,0.5500000000000429,0.5500000000000429,0.6575493852742835,GBP_USD,"{""stop"": 1}",False
+dire_gbp_ny__s,direct,gbp_cross,ny_pm,short,1,0,1,0,0.8527486910993584,0.8527486910993584,0.8527486910993584,1.032286212914304,GBP_CHF,"{""stop"": 1}",False
+unkn_eur_asi_s,unknown,eur_cross,asia,short,1,1,0,0,0.7215815485996518,0.7215815485996518,0.7215815485996518,,EUR_JPY,{},False
+unkn_ant_ove_s,unknown,antipodean_cross,overlap,short,1,1,0,0,0.2803827751196228,0.2803827751196228,0.2803827751196228,,CAD_JPY,{},False
+unkn_ant_ny__s,unknown,antipodean_cross,ny_pm,short,1,1,0,0,0.1102514506769601,0.1102514506769601,0.1102514506769601,,CHF_JPY,{},False
+dire_eur_lon_l,direct,eur_cross,london,long,1,1,0,0,0.1125000000001643,0.1125000000001643,0.1125000000001643,,EUR_JPY,{},False
+dire_gbp_lon_s,direct,gbp_cross,london,short,1,0,1,0,1.1124999999998857,1.1124999999998857,1.1124999999998857,2.0249999999996047,GBP_AUD,"{""stop"": 1}",False
+dire_eur_lon_s,direct,eur_cross,london,short,1,1,0,0,0.1428571428571202,0.1428571428571202,0.1428571428571202,,EUR_GBP,{},False
+unkn_eur_ny__s,unknown,eur_cross,ny_pm,short,1,1,0,0,1.7540983606555238,1.7540983606555238,1.7540983606555238,,EUR_JPY,{},False
+unkn_eur_lon_s,unknown,eur_cross,london,short,1,1,0,0,0.1202531645568049,0.1202531645568049,0.1202531645568049,,EUR_JPY,{},False
+unkn_gbp_lon_s,unknown,gbp_cross,london,short,1,1,0,0,0.5142857142854877,0.5142857142854877,0.5142857142854877,,GBP_CAD,{},False
+unkn_gbp_asi_l,unknown,gbp_cross,asia,long,1,1,0,0,1.701923076922785,1.701923076922785,1.701923076922785,,GBP_JPY,{},False
+unkn_eur_ove_s,unknown,eur_cross,overlap,short,1,1,0,0,0.0989010989012808,0.0989010989012808,0.0989010989012808,,EUR_JPY,{},False
+unkn_eur_ove_l,unknown,eur_cross,overlap,long,1,1,0,0,0.0422794117647175,0.0422794117647175,0.0422794117647175,,EUR_CHF,{},False
+unkn_gbp_ny__s,unknown,gbp_cross,ny_pm,short,1,1,0,0,0.0673758865248102,0.0673758865248102,0.0673758865248102,,GBP_CAD,{},False
+unkn_usd_ny__l,unknown,usd_base,ny_pm,long,1,1,0,0,0.5685131195335225,0.5685131195335225,0.5685131195335225,,AUD_USD,{},False
+unkn_usd_ny__s,unknown,usd_base,ny_pm,short,1,1,0,0,0.0143929269044953,0.0143929269044953,0.0143929269044953,,USD_MXN,{},False
+unkn_usd_ove_l,unknown,usd_base,overlap,long,1,1,0,0,0.0179282868525743,0.0179282868525743,0.0179282868525743,,GBP_USD,{},False
