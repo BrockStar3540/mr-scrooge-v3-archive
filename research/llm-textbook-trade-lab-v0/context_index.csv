@@ -1,0 +1,13 @@
+context_id,pair,timestamp,session_bucket,session_quarter,events
+CTX-001,EUR_USD,2025-12-10T08:25:00+00:00,london,london_q2,upper_band_pressure
+CTX-002,EUR_USD,2025-09-08T04:50:00+00:00,asia,asia_q4,ema20_decision
+CTX-003,EUR_USD,2025-09-25T11:45:00+00:00,london,london_q4,lower_band_pressure
+CTX-004,GBP_USD,2025-11-05T07:35:00+00:00,london,london_q2,ema20_decision
+CTX-005,GBP_USD,2025-04-04T09:55:00+00:00,london,london_q3,ema20_decision
+CTX-006,GBP_USD,2025-10-20T05:05:00+00:00,asia,asia_q4,ema20_decision
+CTX-007,AUD_USD,2025-11-18T02:40:00+00:00,asia,asia_q3,ema20_decision
+CTX-008,AUD_USD,2025-12-01T01:20:00+00:00,asia,asia_q2,upper_band_pressure
+CTX-009,AUD_USD,2025-05-01T05:50:00+00:00,asia,asia_q4,lower_band_pressure
+CTX-010,USD_JPY,2025-03-19T16:40:00+00:00,ny_pm,ny_pm_q1,ema20_decision;near_pdh_rail
+CTX-011,USD_JPY,2025-10-27T15:30:00+00:00,overlap,overlap_q4,ema20_decision
+CTX-012,USD_JPY,2025-11-03T12:05:00+00:00,overlap,overlap_q1,ema20_decision

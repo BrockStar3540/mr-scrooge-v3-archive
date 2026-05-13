@@ -1,0 +1,7 @@
+context_id,pair,timestamp,decision,reason
+CTX-001,EUR_USD,2025-12-10T08:25:00+00:00,SKIP,"London uptrend, H1/M15 up, price pressing upper band near PDH. Fading this short is not textbook; only long pullback would be acceptable."
+CTX-002,EUR_USD,2025-09-08T04:50:00+00:00,SKIP,"Asia q4 tight range, H1 down but price is mid/upper band at EMA20 with no rail rejection. No clean asymmetry."
+CTX-004,GBP_USD,2025-11-05T07:35:00+00:00,SKIP,"London range, EMA20 middle, RSI neutral, no clear rail. The prior dip reclaimed, but current entry is mid-box with no textbook edge."
+CTX-006,GBP_USD,2025-10-20T05:05:00+00:00,SKIP,"Asia q4 tight range slightly above prior high, no clear breakout acceptance or rejection, spread not cheap enough for a micro range bet."
+CTX-009,AUD_USD,2025-05-01T05:50:00+00:00,SKIP,Oversold lower-band pressure but M15/H1 both down and spread high. Do not fade a clean downtrend without reclaim; current candle is too early.
+CTX-012,USD_JPY,2025-11-03T12:05:00+00:00,SKIP,"Tight overlap range, RSI neutral, EMA flat, equal distance to PDH/PDL. No edge; wait for range break or rail rejection."
