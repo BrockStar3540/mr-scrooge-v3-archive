@@ -441,38 +441,99 @@ def run_pair(pair: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
     return pd.concat(trades, ignore_index=True), catalog
 
 
-def summarize(trades: pd.DataFrame, catalog: pd.DataFrame, scope: str) -> None:
-    if trades.empty:
-        return
+
+def enrich_trades(trades: pd.DataFrame) -> pd.DataFrame:
+    trades = trades.copy()
     trades['entry_ts'] = pd.to_datetime(trades['entry_ts'], utc=True)
     trades['era'] = np.where(trades['entry_ts'] < DISCOVERY_END, 'discovery', 'holdout')
     trades['is_win'] = trades['realized_R'] > 0
     trades['clean_2r'] = trades['realized_R'] >= 1.8
     trades['gave_back_green'] = (trades['mfe_R'] >= 0.5) & (trades['realized_R'] < 0)
-    trades.to_parquet(OUT / f'trade_log_{scope}.parquet', index=False)
-    trades.to_csv(OUT / f'trade_log_{scope}.csv', index=False)
+    trades['pos_R'] = trades['realized_R'].clip(lower=0)
+    trades['neg_R_abs'] = (-trades['realized_R'].clip(upper=0))
+    return trades
+
+
+def summarize_trades(trades: pd.DataFrame, scope: str) -> pd.DataFrame:
+    if trades.empty:
+        return pd.DataFrame()
     group = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction']
     base = trades.groupby(group).agg(
-        n=('realized_R','size'), win_rate=('is_win','mean'), mean_R=('realized_R','mean'), median_R=('realized_R','median'),
-        total_R=('realized_R','sum'), clean_2r_rate=('clean_2r','mean'), gave_back_rate=('gave_back_green','mean'),
-        median_mfe=('mfe_R','median'), median_mae=('mae_R','median'), profit_factor=('realized_R', lambda x: x[x>0].sum()/abs(x[x<0].sum()) if abs(x[x<0].sum())>0 else np.inf)
+        n=('realized_R','size'),
+        win_n=('is_win','sum'),
+        sum_R=('realized_R','sum'),
+        pos_R=('pos_R','sum'),
+        neg_R_abs=('neg_R_abs','sum'),
+        clean_2r_n=('clean_2r','sum'),
+        gave_back_n=('gave_back_green','sum'),
+        mean_mfe=('mfe_R','mean'),
+        mean_mae=('mae_R','mean'),
     ).reset_index()
-    disc = trades[trades['era'].eq('discovery')].groupby(group).agg(n_discovery=('realized_R','size'), mean_R_discovery=('realized_R','mean'), win_rate_discovery=('is_win','mean')).reset_index()
-    hold = trades[trades['era'].eq('holdout')].groupby(group).agg(n_holdout=('realized_R','size'), mean_R_holdout=('realized_R','mean'), win_rate_holdout=('is_win','mean')).reset_index()
-    summary = base.merge(disc, on=group, how='left').merge(hold, on=group, how='left').fillna({'n_discovery':0,'n_holdout':0})
-    summary = summary.sort_values(['mean_R_holdout','mean_R_discovery','n'], ascending=[False,False,False])
+    disc = trades[trades['era'].eq('discovery')].groupby(group).agg(
+        n_discovery=('realized_R','size'),
+        sum_R_discovery=('realized_R','sum'),
+        win_n_discovery=('is_win','sum'),
+    ).reset_index()
+    hold = trades[trades['era'].eq('holdout')].groupby(group).agg(
+        n_holdout=('realized_R','size'),
+        sum_R_holdout=('realized_R','sum'),
+        win_n_holdout=('is_win','sum'),
+    ).reset_index()
+    out = base.merge(disc, on=group, how='left').merge(hold, on=group, how='left')
+    for col in ['n_discovery','sum_R_discovery','win_n_discovery','n_holdout','sum_R_holdout','win_n_holdout']:
+        out[col] = out[col].fillna(0)
+    out['scope'] = scope
+    return out
+
+
+def finalize_summary(parts: list[pd.DataFrame], catalog: pd.DataFrame, scope: str) -> pd.DataFrame:
+    if not parts:
+        raise SystemExit('no summary parts generated')
+    group = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction']
+    raw = pd.concat(parts, ignore_index=True)
+    summary = raw.groupby(group).agg(
+        n=('n','sum'), win_n=('win_n','sum'), sum_R=('sum_R','sum'),
+        pos_R=('pos_R','sum'), neg_R_abs=('neg_R_abs','sum'),
+        clean_2r_n=('clean_2r_n','sum'), gave_back_n=('gave_back_n','sum'),
+        mean_mfe_num=('mean_mfe', lambda x: np.nan),
+        mean_mae_num=('mean_mae', lambda x: np.nan),
+        n_discovery=('n_discovery','sum'), sum_R_discovery=('sum_R_discovery','sum'), win_n_discovery=('win_n_discovery','sum'),
+        n_holdout=('n_holdout','sum'), sum_R_holdout=('sum_R_holdout','sum'), win_n_holdout=('win_n_holdout','sum'),
+    ).reset_index()
+    # Recompute weighted MFE/MAE from raw part-level means.
+    weighted = raw.copy()
+    weighted['mfe_weighted'] = weighted['mean_mfe'] * weighted['n']
+    weighted['mae_weighted'] = weighted['mean_mae'] * weighted['n']
+    wm = weighted.groupby(group).agg(mfe_weighted=('mfe_weighted','sum'), mae_weighted=('mae_weighted','sum')).reset_index()
+    summary = summary.drop(columns=['mean_mfe_num','mean_mae_num']).merge(wm, on=group, how='left')
+    summary['win_rate'] = summary['win_n'] / summary['n']
+    summary['mean_R'] = summary['sum_R'] / summary['n']
+    summary['clean_2r_rate'] = summary['clean_2r_n'] / summary['n']
+    summary['gave_back_rate'] = summary['gave_back_n'] / summary['n']
+    summary['mean_mfe'] = summary['mfe_weighted'] / summary['n']
+    summary['mean_mae'] = summary['mae_weighted'] / summary['n']
+    summary['profit_factor'] = np.where(summary['neg_R_abs'] > 0, summary['pos_R'] / summary['neg_R_abs'], np.inf)
+    summary['mean_R_discovery'] = np.where(summary['n_discovery'] > 0, summary['sum_R_discovery'] / summary['n_discovery'], np.nan)
+    summary['win_rate_discovery'] = np.where(summary['n_discovery'] > 0, summary['win_n_discovery'] / summary['n_discovery'], np.nan)
+    summary['mean_R_holdout'] = np.where(summary['n_holdout'] > 0, summary['sum_R_holdout'] / summary['n_holdout'], np.nan)
+    summary['win_rate_holdout'] = np.where(summary['n_holdout'] > 0, summary['win_n_holdout'] / summary['n_holdout'], np.nan)
+    summary = summary.sort_values(['mean_R_holdout','mean_R_discovery','n'], ascending=[False, False, False])
     summary.to_csv(OUT / f'strategy_x_regime_summary_{scope}.csv', index=False)
-    candidates = summary[(summary['n_discovery']>=30)&(summary['n_holdout']>=10)&(summary['mean_R_discovery']>0)&(summary['mean_R_holdout']>0)&(summary['profit_factor']>1.1)].copy()
-    candidates = candidates.sort_values(['mean_R_holdout','n_holdout'], ascending=[False,False])
+    candidates = summary[
+        (summary['n_discovery'] >= 30) &
+        (summary['n_holdout'] >= 10) &
+        (summary['mean_R_discovery'] > 0) &
+        (summary['mean_R_holdout'] > 0) &
+        (summary['profit_factor'] > 1.1)
+    ].copy().sort_values(['mean_R_holdout','n_holdout'], ascending=[False, False])
     candidates.to_csv(OUT / f'candidate_strategy_regime_cells_{scope}.csv', index=False)
     catalog.to_csv(OUT / 'strategy_catalog.csv', index=False)
     with open(OUT / f'summary_{scope}.md', 'w') as f:
         f.write(f'# OHLCV Strategy Library v0 ({scope})\n\n')
-        f.write('Executable formula backtest of Brock\'s strategy library. Each strategy is simulated independently with edge entries: a trade opens when the exact formula flips from false to true; entry formulas are evaluated at each M5 close using past data only. Longs enter at ask and exit at bid; shorts enter at bid and exit at ask, so spread is included.\n\n')
+        f.write('Executable formula backtest of Brock\'s strategy library. Each strategy uses edge entries: a trade opens when the exact formula flips from false to true. Longs enter at ask and exit at bid; shorts enter at bid and exit at ask, so spread is included.\n\n')
         f.write('## Coverage\n\n')
-        f.write(f'- Trades simulated: {len(trades):,}\n')
-        f.write(f'- Pairs: {trades["pair"].nunique()}\n')
-        f.write(f'- Strategy variants: {trades["strategy_id"].nunique()}\n')
+        f.write(f'- Trades screened: {int(summary["n"].sum()):,}\n')
+        f.write(f'- Strategy variants: {catalog["strategy_id"].nunique()}\n')
         f.write(f'- Regime x strategy cells: {len(summary):,}\n')
         f.write(f'- Candidate cells passing discovery+holdout positive gate: {len(candidates):,}\n\n')
         f.write('## Top Candidate Cells\n\n')
@@ -482,34 +543,46 @@ def summarize(trades: pd.DataFrame, catalog: pd.DataFrame, scope: str) -> None:
         else:
             f.write('No cells passed the positive discovery+holdout gate.\n')
         f.write('\n\n## Top Overall Cells By Mean R (n>=50)\n\n')
-        top = summary[summary['n']>=50].sort_values('mean_R', ascending=False).head(30)
-        f.write(top[['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction','n','mean_R','win_rate','profit_factor','n_holdout','mean_R_holdout']].to_markdown(index=False))
+        top = summary[summary['n'] >= 50].sort_values('mean_R', ascending=False).head(30)
+        cols = ['technical_regime_53','technical_regime_desc','strategy_id','pair_family','direction','n','mean_R','win_rate','profit_factor','n_holdout','mean_R_holdout']
+        f.write(top[cols].to_markdown(index=False))
         f.write('\n\n## Notes\n\n')
         f.write('- This is not using the old point score. It uses explicit OHLCV formulas.\n')
-        f.write('- Continuous-state formulas use edge entries in v0: if EMA9 > EMA21 stays true for 80 bars, only the first true bar is tested. This is the practical trigger interpretation of the formula library.\n')
-        f.write('- Candidate cells are hypotheses for microstrategy bots, not production approvals.\n')
+        f.write('- v0 uses conservative path-agnostic screening: if TP and stop are both touched inside the forward window, the trade is scored as a stop.\n')
+        f.write('- Full exact order-of-events replay should be applied only to candidate survivors.\n')
+    return summary
+
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--scope', choices=['smoke','all'], default='smoke')
+    ap.add_argument('--pair', action='append', help='Optional pair override; can be supplied multiple times.')
     args = ap.parse_args()
-    pairs = SMOKE_PAIRS if args.scope == 'smoke' else PAIRS_ALL
-    all_trades = []
+    pairs = args.pair if args.pair else (SMOKE_PAIRS if args.scope == 'smoke' else PAIRS_ALL)
+    summary_parts = []
     catalogs = []
     print(f'OHLCV strategy library v0 starting: scope={args.scope} pairs={pairs}', flush=True)
     for pair in pairs:
         print(f'[{pair}] loading, computing indicators, simulating formulas...', flush=True)
         trades, catalog = run_pair(pair)
         print(f'  trades={len(trades):,} strategies={catalog.strategy_id.nunique() if len(catalog) else 0}', flush=True)
-        if len(trades): all_trades.append(trades)
-        if len(catalog): catalogs.append(catalog)
-    if not all_trades:
+        if len(catalog):
+            catalogs.append(catalog)
+        if trades.empty:
+            continue
+        trades = enrich_trades(trades)
+        safe_pair = pair.lower()
+        trades.to_parquet(OUT / f'trade_log_{args.scope}_{safe_pair}.parquet', index=False)
+        pair_summary = summarize_trades(trades, f'{args.scope}_{safe_pair}')
+        pair_summary.to_csv(OUT / f'strategy_x_regime_summary_{args.scope}_{safe_pair}.csv', index=False)
+        summary_parts.append(pair_summary)
+        del trades
+    if not summary_parts:
         raise SystemExit('no trades generated')
-    trades = pd.concat(all_trades, ignore_index=True)
-    catalog = pd.concat(catalogs, ignore_index=True).drop_duplicates('strategy_id')
-    summarize(trades, catalog, args.scope)
-    print(f'Done: {len(trades):,} trades. Outputs in {OUT}', flush=True)
+    catalog = pd.concat(catalogs, ignore_index=True).drop_duplicates('strategy_id') if catalogs else pd.DataFrame()
+    final = finalize_summary(summary_parts, catalog, args.scope)
+    print(f'Done: {int(final["n"].sum()):,} screened trades. Outputs in {OUT}', flush=True)
 
 if __name__ == '__main__':
     main()
