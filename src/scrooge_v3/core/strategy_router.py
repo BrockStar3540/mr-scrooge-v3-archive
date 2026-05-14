@@ -83,10 +83,22 @@ class StrategyRouter:
                 decisions = table.lookup(r53, ctx.symbol, sess)
                 table_names = [d.strategy for d in decisions]
                 table_families = sorted({d.family for d in decisions})
-                log.info(
-                    "[ROUTING_TABLE] symbol=%s r53=%s session=%s bb_allowed=%s table_strategies=%s table_families=%s mode=%s",
-                    ctx.symbol, r53, sess, allowed, table_names, table_families, mode,
-                )
+                telemetry = getattr(self, "routing_telemetry", None)
+                if telemetry is not None and telemetry.enabled:
+                    telemetry.record(
+                        symbol=ctx.symbol, regime53=r53, session_bucket=sess,
+                        bb_allowed=list(allowed), table_strategies=table_names,
+                        table_families=table_families,
+                    )
+                    log.debug(
+                        "[ROUTING_TABLE] symbol=%s r53=%s session=%s bb_allowed=%s table_strategies=%s mode=%s",
+                        ctx.symbol, r53, sess, allowed, table_names, mode,
+                    )
+                else:
+                    log.info(
+                        "[ROUTING_TABLE] symbol=%s r53=%s session=%s bb_allowed=%s table_strategies=%s table_families=%s mode=%s",
+                        ctx.symbol, r53, sess, allowed, table_names, table_families, mode,
+                    )
                 if mode == "hard":
                     # Hard mode: table is the source of truth. Empty list = death.
                     # Return both family names and probe names (registry holds both).

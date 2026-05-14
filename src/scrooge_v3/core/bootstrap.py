@@ -53,6 +53,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         "[BOOT] routing_table mode=%s stats=%s",
         router.routing_table_mode, router.routing_table.stats,
     )
+
+    # Routing telemetry — rollup + sampled deaths (disabled by default).
+    from scrooge_v3.strategies.routing_telemetry import RoutingTelemetryRollup
+    _tele_cfg = ((config.section("strategies") or {}).get("routing_telemetry") or {})
+    router.routing_telemetry = RoutingTelemetryRollup(
+        data_dir="data",
+        enabled=bool(_tele_cfg.get("enabled", False)),
+        flush_every=int(_tele_cfg.get("flush_every", 1000)),
+        death_sample_rate=int(_tele_cfg.get("death_sample_rate", 10)),
+    )
+    log.info("[BOOT] routing_telemetry stats=%s", router.routing_telemetry.stats)
     scan_pipeline = ScanPipeline(
         registry=registry,
         router=router,
