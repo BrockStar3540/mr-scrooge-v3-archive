@@ -134,7 +134,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # regime_floor and the rest.
     from scrooge_v3.gates import (
         BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate,
-        ExpiryBackoffGate, RegimeCompatGate, RegimeFloorGate, ZoneEntryCapGate,
+        ExpiryBackoffGate, RegimeCompatGate, RegimeStrategyRouterGate, RegimeFloorGate, ZoneEntryCapGate,
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
@@ -158,6 +158,13 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         # (regime × family × dir_vs_hint) recommendation for audit-trail
         # analysis. Promote to HARD only after held-out validation.
         RegimeCompatGate(mode=GateMode.OBSERVE),
+        # Regime → strategy allow-list router (Brock 2026-05-14 architecture).
+        # Each (regime × family × dir_vs_hint) cell must be explicitly attached
+        # to be tradable. Empty/unmapped cells are vetoed.
+        RegimeStrategyRouterGate(
+            config=(gate_cfg.get("regime_strategy_router", {}) if gate_cfg else {}),
+            mode=GateMode.HARD,
+        ),
         # Observe-only shadow of frozen box v3 gate tree (from trainer repo
         # 19ada0e: docs/box_gate_tree.md + data/regimes/box_gate_v3.yaml).
         # Emits would_allow / ranking_score / tier per candidate; never rejects.
