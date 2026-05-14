@@ -43,6 +43,16 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         persist_path=persist_path,
     )
     router = StrategyRouter()
+    # Brock's 2026-05-14 routing-table layer (observe mode).
+    from pathlib import Path as _Path
+    from scrooge_v3.strategies.routing_table import RoutingTable
+    _rt_path = _Path("data/routing_table_v1.parquet")
+    router.routing_table = RoutingTable(str(_rt_path)) if _rt_path.exists() else RoutingTable()
+    router.routing_table_mode = (config.section("strategies") or {}).get("routing_table_mode", "observe")
+    log.info(
+        "[BOOT] routing_table mode=%s stats=%s",
+        router.routing_table_mode, router.routing_table.stats,
+    )
     scan_pipeline = ScanPipeline(
         registry=registry,
         router=router,
@@ -114,6 +124,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("classifiers", "regime", RegimeClassifier())
     registry.register("classifiers", "opening_state", OpeningStateClassifier())
     registry.register("classifiers", "structure", StructureClassifier())
+    from scrooge_v3.classifiers.session_bucket import SessionBucketClassifier
+    registry.register("classifiers", "session_bucket", SessionBucketClassifier())
 
     # --- Register strategies ---
     from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, DBBTrendStrategy, V3HybridScorer

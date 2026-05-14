@@ -64,4 +64,32 @@ class StrategyRouter:
                 "[ROUTER] symbol=%s bb=%s → allowed=%s",
                 ctx.symbol, bb.label, allowed,
             )
+
+        # --- Routing-table observe-mode telemetry (Brock 2026-05-14) ---
+        # Compute the table's decision for (regime53, pair, session) and log
+        # the delta vs the BB-state-based allowed list. Behavior unchanged in
+        # observe mode; flip to 'hard' to let the table actually drive routes.
+        table = getattr(self, "routing_table", None)
+        mode = getattr(self, "routing_table_mode", "observe")
+        if table is not None:
+            r53_feat = ctx.features.get("technical_regime_53")
+            r53 = None
+            if r53_feat is not None:
+                vals = getattr(r53_feat, "values", {}) or {}
+                r53 = vals.get("technical_regime_53")
+            sess_cl = ctx.classifications.get("session_bucket")
+            sess = getattr(sess_cl, "label", None) if sess_cl is not None else None
+            if r53 and sess:
+                decisions = table.lookup(r53, ctx.symbol, sess)
+                table_names = [d.strategy for d in decisions]
+                table_families = sorted({d.family for d in decisions})
+                log.info(
+                    "[ROUTING_TABLE] symbol=%s r53=%s session=%s bb_allowed=%s table_strategies=%s table_families=%s mode=%s",
+                    ctx.symbol, r53, sess, allowed, table_names, table_families, mode,
+                )
+                if mode == "hard":
+                    # Hard mode: table is the source of truth. Empty list = death.
+                    # Return both family names and probe names (registry holds both).
+                    return sorted(set(table_names + table_families))
+
         return allowed
