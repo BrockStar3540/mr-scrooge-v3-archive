@@ -1,0 +1,3 @@
+_cell,n_d,n_h,mean_R_d,ci_d_lo,mean_R_h,ci_h_lo,wr_h,trigger_type,pair,direction,session_quarter,m15_trend_fixed,h1_regime_fixed
+T7_pdh_proximity_reversal|USD_JPY|short|asia_q2|flat|breakout,365,58,0.1485334741113532,0.002876419691009213,0.5469265593023787,0.1856611035901517,0.5344827586206896,T7_pdh_proximity_reversal,USD_JPY,short,asia_q2,flat,breakout
+T2_bb_upper_reject|USD_MXN|short|ny_pm_q4|up|in_range,583,124,0.11939625318051804,0.010564934522924969,0.2644838314978222,0.0007942482735527164,0.4435483870967742,T2_bb_upper_reject,USD_MXN,short,ny_pm_q4,up,in_range

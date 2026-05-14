@@ -1,0 +1,2 @@
+trigger,pair,rule,depth,n_d,wr_d,mean_R_d,ci_d_lo,n_h,wr_h,mean_R_h,ci_h_lo,wf_pos,wf_enough,n_recent,mean_R_recent,ci_lo_recent,base_mean_R_d,base_mean_R_h,lift_R_d,lift_R_h
+T7_pdh_proximity_reversal,EUR_USD,spread_cost_R > 0.1085 AND rsi > 65.23 AND h1_ema_dist > 0.001648 AND m15_atr_pctile <= 0.4427,4,80,0.5375,0.5180208561430754,0.182420797655399,35,0.6285714285714286,0.7960058983048496,0.27800852949739646,4,4,12,1.648160073661692,1.140370839530312,-0.17665394725133746,-0.13379656590383857,0.6946748033944128,0.9298024642086882
