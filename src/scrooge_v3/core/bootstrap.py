@@ -70,6 +70,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.features import (
         ATRCalculator, BollingerCalculator, EMACalculator,
         OverheadRatioCalculator, RSICalculator, TechnicalContextCalculator,
+        TechnicalRegime53Calculator,
         TF6ShortUSDJPYObserver,
         TF6LongUSDMXNObserver,
         VolumeCalculator, ZoneDetector,
@@ -86,6 +87,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         "features",
         "technical_context",
         TechnicalContextCalculator(feat_cfg.get("technical_context", {})),
+    )
+    registry.register(
+        "features",
+        "technical_regime_53",
+        TechnicalRegime53Calculator(feat_cfg.get("technical_regime_53", {})),
     )
     registry.register(
         "features",
@@ -118,6 +124,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
     registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
     registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
+
+    # --- Register trainer-v2 probes as live strategies (disabled by default) ---
+    from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
+    probes_cfg = strat_cfg.get("probes_v2", {}) or {}
+    probe_strategies = build_all_probe_strategies(probes_cfg)
+    enabled_names = [ps.name for ps in probe_strategies if ps.enabled]
+    for ps in probe_strategies:
+        registry.register("strategies", ps.name, ps)
+    log.info("[BOOT] probes_v2: registered=%d enabled=%d (%s)",
+             len(probe_strategies), len(enabled_names),
+             ",".join(enabled_names) if enabled_names else "none")
 
     # --- Build cooldown tracker (Phase 4 Signal Discipline) ---
     from scrooge_v3.risk.cooldown_tracker import CooldownTracker
