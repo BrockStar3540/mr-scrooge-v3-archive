@@ -239,6 +239,8 @@ class TF6ShortUSDJPYObserver:
                                     "weekday": int(now_dt.weekday()),
                                     "hour_utc": int(now_dt.hour),
                                 },
+                                "spread_at_fire_px": float(getattr(snapshot, "spread", 0.0) or 0.0),
+                                "spread_at_fire_pips": float((getattr(snapshot, "spread", 0.0) or 0.0) / (0.01 if self.SYMBOL.endswith("JPY") else 0.0001)),
                             }
                             f.write(json.dumps(payload) + "\n")
                         self._last_emitted_bar_ts = bar_ts_iso

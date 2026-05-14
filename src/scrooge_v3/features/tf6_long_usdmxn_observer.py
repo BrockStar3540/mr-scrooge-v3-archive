@@ -229,6 +229,8 @@ class TF6LongUSDMXNObserver:
                                     "weekday": int(now_dt.weekday()),
                                     "hour_utc": int(now_dt.hour),
                                 },
+                                "spread_at_fire_px": float(getattr(snapshot, "spread", 0.0) or 0.0),
+                                "spread_at_fire_pips": float((getattr(snapshot, "spread", 0.0) or 0.0) / (0.01 if self.SYMBOL.endswith("JPY") else 0.0001)),
                                 "research_methodology": "loosened_regressor_min_leaf_30",
                                 "permutation_p_value": None,
                             }
