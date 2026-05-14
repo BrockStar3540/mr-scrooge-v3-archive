@@ -66,3 +66,4 @@ data/ml-observer/observer-state.json.bak.*
 research/raw-m5-winner-factory-v1/raw_m5_candidate_events.parquet
 research/raw-m5-winner-factory-v2/raw_m5_v2_candidate_events.parquet
 data/observe-tf6-usdjpy.jsonl
+data/observe-tf6-long-usdmxn.jsonl

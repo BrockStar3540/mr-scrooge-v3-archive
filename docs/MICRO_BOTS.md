@@ -167,3 +167,52 @@ Permutation (G10) preliminary: out of 13 shuffled-label runs, max=1 false surviv
 - `reports/stepD_slippage_mc.csv` — slippage MC results
 - `reports/permutation_null_distribution.csv` — null distribution (when complete)
 - `MICRO_BOTS.md` — this file
+
+---
+
+## 2026-05-14 update: TF6_long / USD_MXN added (second observe-mode bot)
+
+### Status
+Observe-mode only. No order placement. Logs to `data/observe-tf6-long-usdmxn.jsonl`.
+
+### Rule
+- Trigger: TF6 long ribbon (EMA9>EMA21>EMA50 ascending, all rising, EMA50 5-bar slope > +0.05%)
+- Regime gate: `rsi14>80.83 AND atr_ratio<=1.355 AND ema50_dist<=0.94%`
+- Hour exclusion: `hour_utc NOT in [21,22,23)`
+
+### Reference performance (research, post all stress)
+- Discovery: n=510, mean R = +0.24
+- Holdout: n=60, mean R = +0.38, CI lower = +0.06
+- Recent 6mo: n=36, mean R = +0.56, CI lower = +0.06
+- Slippage MC: 100% of draws positive, p05 = +0.55
+- Hour concentration: 23.3% at h7 UTC (London pre-open, MXN main session start)
+
+### Critical caveats (vs. TF6_short USDJPY observer)
+- **Discovered via LOOSENED pipeline** (DecisionTreeRegressor on realized_R,
+  min_samples_leaf=30, NO win_rate gate). TF6_short USDJPY was discovered via
+  stricter DecisionTreeClassifier + min_leaf=60 + win_rate>=0.40.
+- **Permutation test NOT run** on the loosened pipeline. Statistical
+  significance unproven (TF6_short USDJPY also unproven; p≈0.2 even on its
+  stricter pipeline).
+- **Sample sizes are small**: ~1.5 fires/week expected.
+- **USD_MXN spread is large** (12 pip dukascopy mid baseline). Vol-conditional
+  spread stress used 3x for 1.8% of fires. Live OANDA spreads at fire time
+  must be monitored; can balloon during US data releases.
+
+### Why NOT shipped: TF6_long USDJPY and TF6_short USDCAD
+Both passed every stress test EXCEPT the 25% hour-concentration gate:
+- TF6_long USDJPY: 25.5% of fires at h15 UTC (NY morning)
+- TF6_short USDCAD: 35.2% of fires at h15 UTC (NY morning)
+
+Hour 15 UTC is a legitimate high-activity window (NY open / US data), not a
+thin-liquidity artifact like the previously-killed h22 UTC cells. Decision to
+hold per Brock 2026-05-13: ship USD_MXN clean-pass only; leave the two
+NY-concentrated cells as research notes pending further validation.
+
+### Next steps
+- Both observers run 4-8 weeks
+- Compare shadow realized R against research holdout for each
+- Run multi-strategy contrast mining on the consolidated foundational dataset
+  (`all_strategies_all_pairs_trades.parquet`, 15M trades, 56 strategies × 26
+  pairs, on the Mac Mini) — this is the proper unbiased regime-discovery pass
+  that has not yet been done

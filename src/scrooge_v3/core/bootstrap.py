@@ -71,6 +71,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         ATRCalculator, BollingerCalculator, EMACalculator,
         OverheadRatioCalculator, RSICalculator, TechnicalContextCalculator,
         TF6ShortUSDJPYObserver,
+        TF6LongUSDMXNObserver,
         VolumeCalculator, ZoneDetector,
     )
     feat_cfg = config.section("features")
@@ -90,6 +91,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         "features",
         "tf6_short_usdjpy_observer",
         TF6ShortUSDJPYObserver(feat_cfg.get("tf6_short_usdjpy_observer", {})),
+    )
+    registry.register(
+        "features",
+        "tf6_long_usdmxn_observer",
+        TF6LongUSDMXNObserver(feat_cfg.get("tf6_long_usdmxn_observer", {})),
     )
 
     # --- Register classifiers ---
