@@ -70,6 +70,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.features import (
         ATRCalculator, BollingerCalculator, EMACalculator,
         OverheadRatioCalculator, RSICalculator, TechnicalContextCalculator,
+        TF6ShortUSDJPYObserver,
         VolumeCalculator, ZoneDetector,
     )
     feat_cfg = config.section("features")
@@ -84,6 +85,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         "features",
         "technical_context",
         TechnicalContextCalculator(feat_cfg.get("technical_context", {})),
+    )
+    registry.register(
+        "features",
+        "tf6_short_usdjpy_observer",
+        TF6ShortUSDJPYObserver(feat_cfg.get("tf6_short_usdjpy_observer", {})),
     )
 
     # --- Register classifiers ---
