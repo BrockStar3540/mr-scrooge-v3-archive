@@ -1,0 +1,85 @@
+{
+  "trained_at": "2026-05-15T04:29:26.785887+00:00",
+  "train_rows": 1006597,
+  "val_rows": 251650,
+  "n_features": 13,
+  "n_strategies": 65,
+  "scale_pos_weight": 8.245522346933152,
+  "best_iteration": 599,
+  "train_metrics": {
+    "n": 1006597,
+    "wr_in_data": 0.10816046540969226,
+    "auc": 0.8297280327770018,
+    "accuracy_thr0.5": 0.7884545652331568,
+    "precision_thr0.5": 0.29744122765015707,
+    "recall_thr0.5": 0.7017928982126127,
+    "logloss": 0.5149801260444414,
+    "mean_p_when_win": 0.6518257856369019,
+    "mean_p_when_loss": 0.34814831614494324
+  },
+  "val_metrics": {
+    "n": 251650,
+    "wr_in_data": 0.10815815616928273,
+    "auc": 0.8161525122585013,
+    "accuracy_thr0.5": 0.7842797536260679,
+    "precision_thr0.5": 0.2891177662127209,
+    "recall_thr0.5": 0.6817179807480344,
+    "logloss": 0.5199630882203519,
+    "mean_p_when_win": 0.6418750882148743,
+    "mean_p_when_loss": 0.3491494655609131
+  },
+  "feature_importance": [
+    {
+      "feature": "strategy_id",
+      "gain": 1038.43
+    },
+    {
+      "feature": "BB_width",
+      "gain": 265.23
+    },
+    {
+      "feature": "hour_utc",
+      "gain": 224.69
+    },
+    {
+      "feature": "pair_id",
+      "gain": 138.56
+    },
+    {
+      "feature": "session_id",
+      "gain": 129.57
+    },
+    {
+      "feature": "ATR14",
+      "gain": 127.49
+    },
+    {
+      "feature": "direction_long",
+      "gain": 121.24
+    },
+    {
+      "feature": "day_of_week",
+      "gain": 102.64
+    },
+    {
+      "feature": "EMA_slope",
+      "gain": 66.94
+    },
+    {
+      "feature": "close_pos",
+      "gain": 57.54
+    },
+    {
+      "feature": "RSI14",
+      "gain": 56.11
+    },
+    {
+      "feature": "ADX14",
+      "gain": 52.1
+    },
+    {
+      "feature": "regime53_id",
+      "gain": 50.09
+    }
+  ]
+}
