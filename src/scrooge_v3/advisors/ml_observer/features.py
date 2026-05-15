@@ -44,6 +44,49 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
+import json as _json
+from pathlib import Path as _Path
+
+# --- 2026-05-15: seed-bank-trained model schema ---
+SEED_FEATURE_NAMES = [
+    "ATR14", "BB_width", "ADX14", "EMA_slope", "RSI14", "close_pos",
+    "regime53_id", "pair_id", "session_id", "direction_long",
+    "hour_utc", "day_of_week",
+]
+
+_ENCODINGS_PATH = _Path(__file__).resolve().parent.parent.parent.parent.parent / "data" / "ml-observer" / "seed_ml_encodings.json"
+_SEED_ENCODINGS = None
+try:
+    if _ENCODINGS_PATH.exists():
+        _SEED_ENCODINGS = _json.loads(_ENCODINGS_PATH.read_text())
+except Exception:
+    _SEED_ENCODINGS = None
+
+
+def _seed_regime_id(code: str) -> int:
+    if _SEED_ENCODINGS:
+        return int(_SEED_ENCODINGS.get("regime53_to_id", {}).get(str(code), -1))
+    return -1
+
+
+def _seed_pair_id(symbol: str) -> int:
+    if _SEED_ENCODINGS:
+        return int(_SEED_ENCODINGS.get("pair_to_id", {}).get(str(symbol), -1))
+    return -1
+
+
+_SESSION_BUCKETS = ["asia","asia_late","london_open","ny_open","ny_mid","ny_close","off_hours"]
+
+
+def _seed_session_id_from_hour(h: int) -> int:
+    if 0 <= h < 4:   return 0
+    if 4 <= h < 6:   return 1
+    if 6 <= h < 9:   return 2
+    if 9 <= h < 13:  return 3
+    if 13 <= h < 17: return 4
+    if 17 <= h < 21: return 5
+    return 6
+
 
 
 # Stable, append-only ordering of ML feature names.
@@ -90,6 +133,11 @@ FEATURE_NAMES = [
 # Sanity: must be at least 47 as documented in the scope brief.
 assert len(FEATURE_NAMES) >= 47, \
     f"FEATURE_NAMES has {len(FEATURE_NAMES)} entries — spec requires >=47"
+
+# --- 2026-05-15: FEATURE_NAMES now references the seed schema for trainer/predict.
+# The full V3-scorer-derived list is preserved as ALL_FEATURE_NAMES for back-compat.
+ALL_FEATURE_NAMES = FEATURE_NAMES
+FEATURE_NAMES = SEED_FEATURE_NAMES
 
 
 def _safe_get(d: dict, *keys, default=0.0) -> float:
@@ -361,6 +409,34 @@ def build_scan_row(
         "rr_ratio":              rr,
         "spread_pips":           spread_pips,
         "spread_to_stop_ratio":  sp_to_stop,
+    })
+
+    # --- 2026-05-15: seed-bank model features ---
+    # Pulled from technical_regime_53 V3 feature (already live).
+    tr53 = (feat.get("technical_regime_53") or {}) if isinstance(feat.get("technical_regime_53"), dict) else {}
+    tr53_vals = tr53 if "technical_regime_53" in tr53 else (tr53.get("values") if isinstance(tr53.get("values"), dict) else tr53)
+    if not isinstance(tr53_vals, dict):
+        tr53_vals = {}
+
+    def _f(k):
+        v = tr53_vals.get(k)
+        try: return float(v) if v is not None else 0.0
+        except (TypeError, ValueError): return 0.0
+
+    regime53_code = str(tr53_vals.get("technical_regime_53") or "unknown")
+    sym_for_seed = str(signal.get("symbol") or "")
+    hour_int = int(hour_utc) if isinstance(hour_utc, (int, float)) else 0
+    ml_features.update({
+        "ATR14":       _f("ATR14"),
+        "BB_width":    _f("BB_width"),
+        "ADX14":       _f("ADX14"),
+        "EMA_slope":   _f("EMA_slope"),
+        "RSI14":       _f("RSI14"),
+        "close_pos":   _f("close_pos"),
+        "regime53_id": float(_seed_regime_id(regime53_code)),
+        "pair_id":     float(_seed_pair_id(sym_for_seed)),
+        "session_id":  float(_seed_session_id_from_hour(hour_int)),
+        # direction_long, hour_utc, day_of_week already populated above
     })
 
     classifications_clean = {
