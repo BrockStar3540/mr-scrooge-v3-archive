@@ -68,3 +68,10 @@ research/raw-m5-winner-factory-v2/raw_m5_v2_candidate_events.parquet
 data/observe-tf6-usdjpy.jsonl
 data/observe-tf6-long-usdmxn.jsonl
 data/ml-observer/
+
+# Routing telemetry — regenerated daily, lives on EC2 only
+data/routing_rollup_*.parquet
+data/routing_death_samples_*.parquet
+
+# Config backup snapshots
+config/default.json.bak.*
