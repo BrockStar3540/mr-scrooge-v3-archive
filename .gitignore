@@ -78,3 +78,6 @@ data/routing_death_samples_*.parquet
 
 # Config backup snapshots
 config/default.json.bak.*
+
+# Seed-family factory row-level loser bank (regenerable from Mini parquet; ~2.4 GB)
+research/ohlcv-strategy-library-v0/seed_family_children_loser_contrast_bank.csv
