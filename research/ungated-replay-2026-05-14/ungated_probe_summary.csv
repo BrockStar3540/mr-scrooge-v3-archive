@@ -1,0 +1,10 @@
+probe_name,n,wins,mean_R,sum_R,wr
+alpha_breakout_retest_v2,10708,4453,0.006,60.0,0.416
+echo_box_fade_v2,22700,9388,0.004,91.0,0.414
+bravo_failed_momentum,4576,1896,0.002,10.0,0.414
+alpha_pullback_v2,11773,4815,-0.018,-207.0,0.409
+bravo_expansion_continuation,8111,3318,-0.02,-165.0,0.409
+delta_tag_and_go_v2,1342,541,-0.025,-34.0,0.403
+charlie_compression_breakout,12327,4983,-0.028,-346.0,0.404
+charlie_pullback_continuation_v2,13772,5152,-0.097,-1337.0,0.374
+alpha_extended_fade_v2,4706,1707,-0.125,-588.0,0.363

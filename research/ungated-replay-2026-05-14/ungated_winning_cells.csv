@@ -1,0 +1,16 @@
+probe_name,technical_regime_53,technical_regime_desc,n,wins,mean_R,sum_R,wr
+echo_box_fade_v2,O04,oversold_trend_caution,57,29,0.284,16.2,0.509
+alpha_breakout_retest_v2,O04,oversold_trend_caution,37,19,0.251,9.28,0.514
+echo_box_fade_v2,O06,moderately_oversold,558,267,0.156,87.02,0.478
+charlie_compression_breakout,O06,moderately_oversold,42,21,0.142,5.96,0.5
+alpha_extended_fade_v2,O04,oversold_trend_caution,78,35,0.098,7.64,0.449
+alpha_breakout_retest_v2,O05,moderately_overbought,161,69,0.063,10.17,0.429
+alpha_breakout_retest_v2,Z01,catch_all,3024,1286,0.032,96.28,0.425
+echo_box_fade_v2,T07,directional_drift_flat,6740,2834,0.025,167.63,0.42
+bravo_failed_momentum,R04,tight_range,1491,629,0.016,23.48,0.422
+alpha_breakout_retest_v2,T07,directional_drift_flat,3831,1607,0.011,42.96,0.419
+delta_tag_and_go_v2,T07,directional_drift_flat,273,112,0.009,2.54,0.41
+echo_box_fade_v2,T05,moderate_uptrend,37,15,0.008,0.31,0.405
+alpha_pullback_v2,Z01,catch_all,3416,1437,0.006,20.41,0.421
+bravo_expansion_continuation,R04,tight_range,2607,1095,0.001,3.06,0.42
+bravo_expansion_continuation,T07,directional_drift_flat,2971,1240,0.001,4.39,0.417
