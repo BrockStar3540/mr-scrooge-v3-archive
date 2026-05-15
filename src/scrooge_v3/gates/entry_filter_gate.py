@@ -98,8 +98,18 @@ class EntryFilterGate(BaseGate):
     # ---- helpers ---------------------------------------------------------
 
     def _classify(self, ctx: SymbolContext, key: str) -> str | None:
+        # session_bucket lives in ctx.classifications; technical_regime_53
+        # lives in ctx.features[...].values[key] (it is a feature in V3,
+        # not a classifier). Try both.
         c = ctx.classifications.get(key)
-        return c.label if c else None
+        if c is not None:
+            return c.label
+        feat = ctx.features.get(key)
+        if feat is None:
+            return None
+        vals = getattr(feat, "values", {}) or {}
+        v = vals.get(key)
+        return str(v) if v is not None else None
 
     def _parse_rule(self, rule: str) -> list[tuple[str, str, Any]]:
         out = []

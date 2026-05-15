@@ -34,7 +34,7 @@ ROOT = Path('/home/ubuntu/mr-scrooge-v3')
 WIN_6YR  = ROOT / 'research' / 'ohlcv-strategy-library-v0' / 'hybrid_winner_islands_6yr.csv'
 LOSE_6YR = ROOT / 'research' / 'ohlcv-strategy-library-v0' / 'hybrid_loser_islands_6yr_top1.csv'
 
-PROBE_WIN_6YR  = ROOT / 'research' / 'ohlcv-strategy-library-v0' / 'hybrid_probe_winner_islands_6yr.csv'
+PROBE_WIN_6YR  = ROOT / 'research' / 'ohlcv-strategy-library-v0' / 'hybrid_probe_winner_islands_6yr_top1.csv'
 PROBE_LOSE_6YR = ROOT / 'research' / 'ohlcv-strategy-library-v0' / 'hybrid_probe_loser_islands_6yr_top1.csv'
 OUT_PARQ = ROOT / 'data' / 'routing_table_v5.parquet'
 OUT_CSV  = ROOT / 'data' / 'routing_table_v5.csv'

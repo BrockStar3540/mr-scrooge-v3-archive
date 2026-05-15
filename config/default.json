@@ -87,7 +87,7 @@
       "stop_buffer_pips": 2,
       "fixed_score": 32
     },
-    "routing_table_path": "data/routing_table_v2.parquet",
+    "routing_table_path": "data/routing_table_v5.parquet",
     "routing_table_mode": "hard",
     "routing_telemetry": {
       "enabled": true,
