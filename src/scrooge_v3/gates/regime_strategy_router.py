@@ -1,4 +1,17 @@
-"""Regime → strategy router gate (v2: 53-regime aware).
+"""Regime → strategy router gate (v3: LABEL-ONLY per Phase D, 2026-05-14).
+
+Phase D (2026-05-14): Gate stops vetoing. Always passes. The routing table
+at the leaf (data/routing_table_v*.parquet) is now the only enforcer. This
+gate is retained for audit-trail continuity — it still emits the labels
+and metrics that downstream telemetry expects, so dashboards/logs do not
+break — but it does not kill trades anymore.
+
+Rationale (ungated 26-pair replay 2026-05-14): per-trade economics are
+identical in dead vs alive regimes (both −0.028 mean R). 8 (probe × regime)
+winning cells totaling +366R live inside the "dead" regimes the previous
+v2 gate vetoed. The veto layer was throwing winners out with losers.
+
+v2 (2026-05-14, superseded): 53-cell allow-list veto.
 
 Implements Brock's 2026-05-14 architecture:
 
@@ -258,18 +271,18 @@ class RegimeStrategyRouterGate(BaseGate):
             key53 = (regime53, family, dir_vs_hint)
             allowed = key53 in self._allow_53
             in_dead = regime53 in DEAD_REGIMES_53
-            passed = allowed if self.mode == GateMode.HARD else True
+            passed = True  # Phase D: label-only, table enforces at leaf
             if allowed:
-                reason = f"r53 {regime53} × {family} × {dir_vs_hint}: ALLOW"
+                reason = f"r53 {regime53} × {family} × {dir_vs_hint}: LABEL-ONLY pass"
             elif in_dead:
                 reason = (
-                    f"r53 {regime53} × {family} × {dir_vs_hint}: VETO "
-                    f"(dead regime — R-math broken)"
+                    f"r53 {regime53} × {family} × {dir_vs_hint}: LABEL-ONLY pass "
+                    f"(dead regime label retained — table is enforcer)"
                 )
             else:
                 reason = (
-                    f"r53 {regime53} × {family} × {dir_vs_hint}: VETO "
-                    f"(no strategy attached to this cell)"
+                    f"r53 {regime53} × {family} × {dir_vs_hint}: LABEL-ONLY pass "
+                    f"(no allow-list match retained — table is enforcer)"
                 )
             return GateResult(
                 gate_name=self.name,
@@ -301,13 +314,13 @@ class RegimeStrategyRouterGate(BaseGate):
         key = (regime_label, family, dir_vs_hint)
         allowed = key in self._allow_binary
         basis = _BASIS_NOTES.get(key, "")
-        passed = allowed if self.mode == GateMode.HARD else True
+        passed = True  # Phase D: label-only, table enforces at leaf
         if allowed:
-            reason = f"binary {regime_label} × {family} × {dir_vs_hint}: ALLOW (regime53 unavailable)"
+            reason = f"binary {regime_label} × {family} × {dir_vs_hint}: LABEL-ONLY pass (binary fallback)"
         else:
             reason = (
-                f"binary {regime_label} × {family} × {dir_vs_hint}: VETO "
-                f"(no strategy attached; regime53 unavailable)"
+                f"binary {regime_label} × {family} × {dir_vs_hint}: LABEL-ONLY pass "
+                f"(binary fallback, no allow-list match)"
             )
         return GateResult(
             gate_name=self.name,

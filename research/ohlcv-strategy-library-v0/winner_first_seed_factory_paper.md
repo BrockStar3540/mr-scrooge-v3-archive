@@ -212,3 +212,113 @@ Three concrete updates to the methodology:
 4. **Death-point dashboard widget.** A live heatmap of `(regime, pair, session, decision_state)` over a rolling window, surfacing the unfilled-demand cells the seed factory should target next.
 
 The seed factory and the parser tree are now coupled. The factory mines new cells; the tree enforces and observes them; the telemetry feeds back the next mining target. This is the expansion loop the doctrine originally specified, now operating on the live runtime rather than the research corpus alone.
+
+
+---
+
+## 2026-05-15 Phase D Live + Routing Table v2
+
+After the 2026-05-14 addendum, Phases D + E + v2-rebuild shipped same session.
+
+### Phase D — `RegimeStrategyRouterGate` is now label-only
+
+The gate stops vetoing. Always passes. Continues to emit the same metrics for audit trail continuity. The routing table at the leaf (`data/routing_table_v2.parquet`) is now the only enforcer.
+
+Patch behavior:
+
+```
+        # Phase D, 2026-05-14:
+        passed = True   # label-only, table enforces at leaf
+        # reason strings prefixed with "LABEL-ONLY pass"
+```
+
+Both the regime53 path and the binary fallback path are patched.
+
+### Routing Table v2 — rebuilt from ungated evidence
+
+The v1 table (2,804 cells) was mined from data that still carried the regime gate's bias (the V3 trainer probes self-vetoed on the old regime_label internally). The v2 rebuild draws from the ungated 26-pair replay for V3 probes, mixing in textbook strategy cells from the foundational corpus.
+
+| Source | Cells |
+|---|---:|
+| V3 trainer probes (ungated replay) | 1,802 |
+| Textbook strategies (foundational) | 79 |
+| **Total v2 attached cells** | **1,881** |
+| Unique (regime, pair, session) leaves | **528** |
+
+Same attachment rule as v1: `n ≥ 10 AND sum_R > 0 AND WR ≥ 0.30`. v2 is smaller (−923 cells vs v1) because the ungated evidence is more honest — the artificial post-gate selection no longer inflates per-cell WR.
+
+The 26 bleeding cells from the ungated replay are auto-excluded by the attachment rule and additionally documented in `routing-table-v2-2026-05-14/routing_table_v2_deny_list.csv` for audit visibility:
+
+```
+charlie_pullback_continuation_v2 × R04   −566.7 R  (7,478 trades)
+charlie_pullback_continuation_v2 × Z01   −430.9 R  (3,076 trades)
+charlie_pullback_continuation_v2 × T07   −334.5 R  (3,197 trades)
+alpha_extended_fade_v2 × T07             −223.6 R
+… and 22 more at sum_R ≤ −10 R
+```
+
+Per-cell granularity matters: `charlie_pullback_continuation_v2` is a global bleeder but at the (pair × session) level there are specific cells where it still works (e.g. `R04 × AUD_CAD × asia × long`, +0.071 R / 42.9% WR / n=14). v2 attaches those cells specifically and rejects the bleeders.
+
+### Mode flip — `routing_table_mode: hard`
+
+`config/default.json` updated:
+
+```json
+"strategies": {
+  "routing_table_path": "data/routing_table_v2.parquet",
+  "routing_table_mode": "hard",
+  "routing_telemetry": {
+    "enabled": true,
+    "flush_every": 100,
+    "death_sample_rate": 10
+  }
+}
+```
+
+The routing table is now the source of truth for which strategies fire on which ticks. The label-only gate continues to populate the audit trail. Telemetry is on, writing to `data/routing_rollup_YYYY-MM-DD.parquet` (heatmap) and `data/routing_death_samples_YYYY-MM-DD.parquet` (drill-in).
+
+Verified live:
+```
+[ROUTING_TABLE] loaded routing_table_v2.parquet — rows=1881 leaves=528
+[BOOT] routing_table mode=hard stats=…
+[BOOT] routing_telemetry stats={'enabled': True, 'flush_every': 100, …}
+```
+
+### What the Parser Tree Looks Like Now
+
+Every tick goes through:
+
+```
+regime parser  (label only, technical_regime_53 feature)
+→ pair parser  (label only, symbol)
+→ session parser (label only, SessionBucketClassifier)
+→ routing table lookup — HARD MODE
+   → has attached strategies? evaluate them, score them
+   → empty cell? die. emit telemetry. record terminal node.
+```
+
+The seven cells in the parser tree are all label/dispatch operations. Veto happens exactly once, implicitly, at the table lookup. Death points are observable.
+
+### Today's Phase-D Commit Set
+
+| commit | content |
+|---|---|
+| (this commit) | Phase D — gate label-only, routing_table_v2 attached, hard mode + telemetry enabled, v2 research artifacts |
+| daa5377 | technical_regime_53 V3 feature port (cleanup) |
+| 04507d8 | ungated 26-pair replay analysis (the evidence) |
+| 0b2e3cc | routing telemetry: tiered rollup + sampled death writer |
+| 6c7bbc4 | routing table v1 + session bucket classifier + observe hook |
+| bc06c4e | moving-regime loser bank extended to 4 buckets |
+| 1a03cec | trainer-v2 probes ported as V3 strategies (10, disabled) |
+| a88edb5 | RegimeStrategyRouterGate v2 (now label-only via Phase D patch) |
+| 7570e1c | 91 moving-regime seeds + initial loser bank |
+| ec47eda | white paper 2026-05-14 addendum |
+
+### Open Items After Phase D
+
+1. **Telemetry data review** — once a session-active morning has logged a full rollup parquet (probably in 6-12 hours from now), inspect the death-point heatmap. Cells with high traffic + `bb_has_only` state are the next seed-factory targets.
+2. **Routing table v3 candidate** — after a week of live hard-mode operation, rebuild v3 incorporating live trade outcomes (not just historical replays). Schedule a weekly mining cadence.
+3. **Death-point dashboard widget** — add a panel to the V3 dashboard rendering the daily rollup parquet as a heatmap of (regime, pair, session) → decision_state. Open `data/routing_rollup_YYYY-MM-DD.parquet`, group by state, display as grid.
+4. **Probe activation review** — the 10 V3 probes are wired but `enabled=false` per-probe; with the routing table now enforcing, consider whether per-probe `enabled` is still useful or if attachment-via-table is sufficient. Probably retire the per-probe flag in v2 cleanup.
+
+This is the architectural cutover point. From here forward the seed factory and the live parser tree operate as a coupled loop: factory mines cells, table absorbs, runtime observes death points, factory remines the gaps.

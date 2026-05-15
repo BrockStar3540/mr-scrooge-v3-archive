@@ -46,9 +46,13 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # Brock's 2026-05-14 routing-table layer (observe mode).
     from pathlib import Path as _Path
     from scrooge_v3.strategies.routing_table import RoutingTable
-    _rt_path = _Path("data/routing_table_v1.parquet")
+    _strat_cfg = config.section("strategies") or {}
+    _rt_filename = _strat_cfg.get("routing_table_path", "data/routing_table_v2.parquet")
+    _rt_path = _Path(_rt_filename)
+    if not _rt_path.exists():
+        _rt_path = _Path("data/routing_table_v1.parquet")  # fallback
     router.routing_table = RoutingTable(str(_rt_path)) if _rt_path.exists() else RoutingTable()
-    router.routing_table_mode = (config.section("strategies") or {}).get("routing_table_mode", "observe")
+    router.routing_table_mode = _strat_cfg.get("routing_table_mode", "hard")
     log.info(
         "[BOOT] routing_table mode=%s stats=%s",
         router.routing_table_mode, router.routing_table.stats,
