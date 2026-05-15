@@ -50,9 +50,11 @@ from pathlib import Path as _Path
 # --- 2026-05-15: seed-bank-trained model schema ---
 SEED_FEATURE_NAMES = [
     "ATR14", "BB_width", "ADX14", "EMA_slope", "RSI14", "close_pos",
-    "regime53_id", "pair_id", "session_id", "direction_long",
-    "hour_utc", "day_of_week",
+    "regime53_id", "pair_id", "session_id", "strategy_id",
+    "direction_long", "hour_utc", "day_of_week",
 ]
+# Categorical features handled with XGBoost native categorical support
+SEED_CATEGORICAL = {"regime53_id", "pair_id", "session_id", "strategy_id"}
 
 _ENCODINGS_PATH = _Path(__file__).resolve().parent.parent.parent.parent.parent / "data" / "ml-observer" / "seed_ml_encodings.json"
 _SEED_ENCODINGS = None
@@ -72,6 +74,12 @@ def _seed_regime_id(code: str) -> int:
 def _seed_pair_id(symbol: str) -> int:
     if _SEED_ENCODINGS:
         return int(_SEED_ENCODINGS.get("pair_to_id", {}).get(str(symbol), -1))
+    return -1
+
+
+def _seed_strategy_id(strategy: str) -> int:
+    if _SEED_ENCODINGS:
+        return int(_SEED_ENCODINGS.get("strategy_to_id", {}).get(str(strategy), -1))
     return -1
 
 
@@ -426,6 +434,10 @@ def build_scan_row(
     regime53_code = str(tr53_vals.get("technical_regime_53") or "unknown")
     sym_for_seed = str(signal.get("symbol") or "")
     hour_int = int(hour_utc) if isinstance(hour_utc, (int, float)) else 0
+    cand_for_seed = signal.get("candidate") or {}
+    if not isinstance(cand_for_seed, dict):
+        cand_for_seed = {}
+    strat_for_seed = str(cand_for_seed.get("strategy") or "unknown")
     ml_features.update({
         "ATR14":       _f("ATR14"),
         "BB_width":    _f("BB_width"),
@@ -436,6 +448,7 @@ def build_scan_row(
         "regime53_id": float(_seed_regime_id(regime53_code)),
         "pair_id":     float(_seed_pair_id(sym_for_seed)),
         "session_id":  float(_seed_session_id_from_hour(hour_int)),
+        "strategy_id": float(_seed_strategy_id(strat_for_seed)),
         # direction_long, hour_utc, day_of_week already populated above
     })
 

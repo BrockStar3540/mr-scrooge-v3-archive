@@ -227,8 +227,20 @@ def predict(features_dict: dict) -> Tuple[float, int]:
         return 0.5, -1
     model = xgb.Booster()
     model.load_model(str(MODEL_FILE))
-    row = [features_dict.get(n, 0.0) for n in FEATURE_NAMES]
-    dmat = xgb.DMatrix(np.array([row]), feature_names=FEATURE_NAMES)
+    # Build a 1-row DataFrame so we can mark categorical columns properly.
+    # The model was trained with enable_categorical=True (regime/pair/session/strategy).
+    import pandas as _pd
+    try:
+        from features import SEED_CATEGORICAL
+    except Exception:
+        SEED_CATEGORICAL = {"regime53_id", "pair_id", "session_id", "strategy_id"}
+    _row = {n: features_dict.get(n, 0.0) for n in FEATURE_NAMES}
+    _df = _pd.DataFrame([_row], columns=FEATURE_NAMES)
+    # XGBoost categorical features must be integer dtype, not float.
+    for _c in SEED_CATEGORICAL:
+        if _c in _df.columns:
+            _df[_c] = _df[_c].astype(int).astype("category")
+    dmat = xgb.DMatrix(_df, enable_categorical=True)
     prob = float(model.predict(dmat)[0])
     label = 1 if prob > 0.5 else 0
     return prob, label
