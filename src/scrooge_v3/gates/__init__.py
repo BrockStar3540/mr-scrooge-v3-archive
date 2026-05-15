@@ -21,6 +21,7 @@ from .exhaustion_filter import ExhaustionFilterGate
 from .regime_compat import RegimeCompatGate
 from .regime_strategy_router import RegimeStrategyRouterGate
 from .box_v3_shadow import BoxV3ShadowGate
+from .entry_filter_gate import EntryFilterGate
 
 # Phase 4 Signal Discipline
 from .cooldown import CooldownGate
@@ -49,6 +50,7 @@ __all__ = [
     "RegimeCompatGate",
     "RegimeStrategyRouterGate",
     "BoxV3ShadowGate",
+    "EntryFilterGate",
     # Phase 4
     "CooldownGate",
     "ExpiryBackoffGate",

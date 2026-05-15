@@ -42,6 +42,33 @@ class RoutingDecision:
     basis: dict[str, Any] = field(default_factory=dict)
 
 
+def _build_basis(r) -> dict:
+    """Construct the basis dict from a parquet row.
+
+    Carries audit metadata (n/wins/sum_R/mean_R/wr/source) plus optional
+    per-cell rules introduced in routing_table_v4:
+      - shave_rule      : winner-side entry filter (string, AND-conjunction)
+      - loser_skip_rule : death-by-presence rule (string, AND-conjunction)
+    Missing/null values are skipped so v2/v3 parquets continue to load.
+    """
+    basis = {
+        "n": int(r.get("n", 0)),
+        "wins": int(r.get("wins", 0)),
+        "sum_R": float(r.get("sum_R", 0.0)),
+        "mean_R": float(r.get("mean_R", 0.0)),
+        "wr": float(r.get("wr", 0.0)),
+        "source": str(r.get("source", "")),
+    }
+    for key in ("shave_rule", "loser_skip_rule"):
+        val = r.get(key) if hasattr(r, "get") else (r[key] if key in r else None)
+        if val is None or (isinstance(val, float) and val != val):  # skip NaN
+            continue
+        sval = str(val).strip()
+        if sval and sval.lower() not in ("nan", "none"):
+            basis[key] = sval
+    return basis
+
+
 class RoutingTable:
     """In-memory routing table loaded from parquet.
 
@@ -84,14 +111,7 @@ class RoutingTable:
                 direction=str(r["direction"]) if r.get("direction") else None,
                 r_target=float(r.get("r_target", 1.5)),
                 score_boost=float(r.get("score_boost", 0.0)),
-                basis={
-                    "n": int(r.get("n", 0)),
-                    "wins": int(r.get("wins", 0)),
-                    "sum_R": float(r.get("sum_R", 0.0)),
-                    "mean_R": float(r.get("mean_R", 0.0)),
-                    "wr": float(r.get("wr", 0.0)),
-                    "source": str(r.get("source", "")),
-                },
+                basis=_build_basis(r),
             ))
         self._loaded_path = str(p)
         self._rows = int(len(df))

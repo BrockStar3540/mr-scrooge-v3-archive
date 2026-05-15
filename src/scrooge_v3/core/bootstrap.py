@@ -177,7 +177,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # cooldown / debounce / expiry_backoff (risk-discipline vetoes), then
     # regime_floor and the rest.
     from scrooge_v3.gates import (
-        BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate,
+        BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate, EntryFilterGate,
         ExpiryBackoffGate, RegimeCompatGate, RegimeStrategyRouterGate, RegimeFloorGate, ZoneEntryCapGate,
     )
     from scrooge_v3.core.types import GateMode
@@ -208,6 +208,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         RegimeStrategyRouterGate(
             config=(gate_cfg.get("regime_strategy_router", {}) if gate_cfg else {}),
             mode=GateMode.HARD,
+        ),
+        # Per-cell entry-filter (shave_rule) enforcement -- the validated
+        # band-rule from the hybrid shaver. OBSERVE for first 24-48h to
+        # verify firing-rate; flip to HARD via config when telemetry is clean.
+        # Closes the routing_table_v3 "validated artifact not fully enforced"
+        # gap. Reads RoutingDecision.basis[shave_rule] populated by
+        # routing_table_v4+ parquet schema.
+        EntryFilterGate(
+            routing_table=router.routing_table,
+            config=(gate_cfg.get("entry_filter", {}) if gate_cfg else {}),
+            mode=GateMode(gate_cfg.get("entry_filter", {}).get("mode", "observe")) if gate_cfg else GateMode.OBSERVE,
         ),
         # Observe-only shadow of frozen box v3 gate tree (from trainer repo
         # 19ada0e: docs/box_gate_tree.md + data/regimes/box_gate_v3.yaml).
