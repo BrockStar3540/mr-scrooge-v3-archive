@@ -322,3 +322,107 @@ The seven cells in the parser tree are all label/dispatch operations. Veto happe
 4. **Probe activation review** — the 10 V3 probes are wired but `enabled=false` per-probe; with the routing table now enforcing, consider whether per-probe `enabled` is still useful or if attachment-via-table is sufficient. Probably retire the per-probe flag in v2 cleanup.
 
 This is the architectural cutover point. From here forward the seed factory and the live parser tree operate as a coupled loop: factory mines cells, table absorbs, runtime observes death points, factory remines the gaps.
+
+
+---
+
+## 2026-05-15 ML Observer Wipe + Seed-Bank Retrain
+
+**Operation:** wipe the old live-trade-trained model; train new model on seed-bank corpus; deploy + restart.
+
+### Why
+
+The previous ML observer was learning a moving target:
+- 143 training outcomes captured across 10+ bot config changes in 3 weeks
+- Each batch carried different enforcement logic (ratchet experiment, harvest hotfixes, attribution patches, parser-tree shift, etc.)
+- Reported `cv_accuracy: 0.9912` (in-sample) → actual recall on losses (live cross-check) was 25%
+- 7,449 MISSED_OPPORTUNITY protests at P(win)≥0.70 in a window where bot's actual fires lost 74% — pure noise
+
+V3 is now stable as of Phase D+E (routing table is data not code). Forward live trades are the first stationary test set we'll ever have. Time to clean house.
+
+### Wipe
+
+Archived to `mr-scrooge-v3/data/ml-observer-archive-pre-seed-retrain-2026-05-15/`:
+- `model.xgb` (overfit)
+- `outcomes.jsonl` (162 mixed-config trades)
+- `ml-protests.jsonl` (16 MB of noise)
+- `observer-state.json` (phase=3, cv_accuracy=0.9912)
+
+Live `actions.jsonl`, `scans.jsonl`, `bot-logs.jsonl`, `account.jsonl` — kept intact (those are raw V3 logs, useful regardless).
+
+### Retrain
+
+Corpus: **54,829 moving-regime trades** over last 6 months
+- 47,665 textbook strategies + 7,164 V3 trainer probes
+- Non-dead regimes only (excludes R04/T07/Z01)
+- 6,779 W / 48,050 L / WR 12.4%
+
+Feature schema (12 features, all computable at V3 inference):
+| Group | Features |
+|---|---|
+| Market (from `technical_regime_53` V3 feature) | `ATR14`, `BB_width`, `ADX14`, `EMA_slope`, `RSI14`, `close_pos` |
+| Categorical IDs | `regime53_id`, `pair_id`, `session_id`, `direction_long` |
+| Temporal | `hour_utc`, `day_of_week` |
+
+XGBoost: 600 rounds, ES=30, max_depth=5, eta=0.05, scale_pos_weight=7.09.
+
+### Validation (held-out 20% / 10,966 rows)
+
+| metric | seed model | old model |
+|---|---:|---:|
+| AUC | **0.779** | 0.99 (in-sample, overfit) |
+| Recall @ 0.5 | **66.4%** | 25% (live) |
+| Precision @ 0.5 | 28.5% | — |
+
+**Calibration — monotonic, clean:**
+
+| P_predicted bucket | n | actual WR | mean P_predicted |
+|---|---:|---:|---:|
+| <0.3 | 3,933 | **3.1%** | 0.174 |
+| 0.3-0.5 | 3,869 | 8.6% | 0.398 |
+| 0.5-0.7 | 2,564 | 23.8% | 0.587 |
+| 0.7-0.85 | 566 | 47.0% | 0.751 |
+| ≥0.85 | 34 | **73.5%** | 0.880 |
+
+Baseline WR is 12.4%. At P≥0.85, actual WR is **73.5% — 6× lift**.
+
+### Feature importance (top 5)
+
+```
+close_pos       27.0
+BB_width        24.5
+direction_long  22.5
+day_of_week     21.8
+hour_utc        20.9
+```
+
+Tight spread — no single feature dominates. Model is using the full schema.
+
+### Auto-retrain disabled
+
+`config.py`: `RETRAIN_INTERVAL_TRADES = 999999`. The model stays fixed-config until manual retrain. Prevents the live-trade-overfit failure mode that motivated this wipe. Manual retrain via `research/routing-table-v2-2026-05-14/train_seed_ml_on_ec2.py`.
+
+### Code changes (commit 576cfe0)
+
+| Path | Change |
+|---|---|
+| `src/scrooge_v3/advisors/ml_observer/config.py` | RETRAIN_INTERVAL_TRADES → 999999 |
+| `src/scrooge_v3/advisors/ml_observer/features.py` | SEED_FEATURE_NAMES + encoder loader + ml_features extension |
+| `data/ml-observer/model.xgb` | seed-bank-trained replacement |
+| `data/ml-observer/seed_ml_encodings.json` | regime53/pair/session integer maps |
+| `data/ml-observer/seed_ml_metrics.json` | held-out metrics record |
+| `data/ml-observer/observer-state.json` | reset to phase=3, cv_accuracy=0.779 |
+
+### Verified live
+
+```
+ml-observer INFO Feature count: 12
+ml-observer INFO Resumed phase=3 scans=11 actions=0 acct=1 outcomes=0
+ml-observer INFO Cycle: phase=3 acc=0.78
+```
+
+### Next iterations
+
+1. **Weekly cadence:** as forward live trades accumulate (now from stable V3), they go to a validation set, not training. Training stays the seed bank. Validation tells us how well the seed-bank-trained model generalizes to live.
+2. **Seed bank expansion:** every time we add new seeds to the routing table, regenerate the training corpus and retrain. The training set grows monotonically.
+3. **Threshold tuning:** the model is well-calibrated; pick a threshold for "veto" signal (probably P≤0.3 since that's 3.1% actual WR — very low edge). Wire into the routing table as a score_boost penalty.
