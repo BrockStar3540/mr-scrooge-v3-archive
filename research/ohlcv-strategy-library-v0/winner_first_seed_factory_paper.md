@@ -102,3 +102,113 @@ If that claim continues to hold as the seed bank grows, then the project will ha
 5. Only after the inventory is materially larger should the project shift emphasis toward bar-by-bar replay, execution realism, and deployment selection.
 
 The program is therefore best described as a winner-first seed factory. Its success criterion is not whether one strategy survives everywhere. Its success criterion is whether repeated mining, mutation, and sibling preservation can manufacture a large enough population of micro-bot seeds to trade through most market conditions with continual specialization rather than broad universal rules.
+
+
+---
+
+## 2026-05-14 Addendum — Parser-Tree Architecture + Ungated Replay Validation
+
+This addendum extends the original paper with two developments from 2026-05-14:
+
+1. A new architectural pattern for the live trading runtime: the **parser tree** (dispatch-only, veto-by-absence at the leaf).
+2. An ungated 26-pair / 6-month replay that validates the core inversion claim with direct cell-level evidence.
+
+### Parser-Tree Architecture
+
+The earlier production design used a stack of veto gates — each gate decided whether a candidate trade should pass or fail. The new design replaces the gate stack with a routing tree where every node is a parser/dispatcher:
+
+```
+tick → regime parser  (label: technical_regime_53)
+     → pair parser    (label: symbol)
+     → session parser (label: session_bucket, 7 UTC-stable wall-clock buckets)
+     → routing table lookup
+        → list of attached strategies + per-cell parameter overrides
+        → empty list = nothing fires = "death by absence"
+```
+
+Three properties make this pattern materially different from the gate stack.
+
+**1. No intermediate veto.** The regime parser does not kill any tick; it labels it. The pair parser does not kill; it dispatches. Only at the leaf — the (regime, pair, session) cell — does enforcement happen, and it happens implicitly through the absence of an attached strategy. This is a strict generalization of the gate stack because any gate veto can be expressed as "no strategy is attached at this leaf for this family / direction."
+
+**2. The routing table is data, not code.** Cells are rows in a parquet file, hot-loaded at boot. Each row carries: strategy, family, direction-constraint, r_target, score_boost, and basis evidence (n, wins, sum_R, mean_R, WR). Adding a new (cell × strategy) attachment requires no code change — only a new row.
+
+**3. The dispatch tree generates death-point telemetry as a first-class signal.** Every tick that fails to fire records its terminal node `(regime, pair, session, decision_state)`. Aggregated over time this is a heatmap of unmet structural demand. If a cell that historically had attached strategies starts producing many "no-fire" outcomes, it is an early signal that the strategy is decoupling from the underlying microstructure. If a previously empty cell begins to accumulate dense traffic, it is an early signal that the seed factory has a new target. Under a stable gate stack, both of these signals are invisible by construction.
+
+### Implementation Snapshot
+
+The parser tree is live in the V3 runtime in observe mode as of the commits below:
+
+| Layer | Mechanism | Status |
+|---|---|---|
+| Regime parser | `TechnicalRegime53Calculator` feature (V3 port of the research classifier) | live |
+| Pair parser | Symbol is already known per tick | inherent |
+| Session parser | `SessionBucketClassifier` (7 UTC buckets, DST-stable) | live |
+| Lookup | `RoutingTable` class, hot-loaded from `data/routing_table_v1.parquet` | live (observe) |
+| Veto-by-absence enforcement | Routing-table `lookup()` returning empty list | observe-mode (flips with `routing_table_mode: hard`) |
+| Telemetry | `RoutingTelemetryRollup` with two tiers (~10KB/day rollup + 1-in-N sampled deaths) | shipped disabled |
+
+Initial routing table v1: **2,804 attached cells across 613 unique (regime, pair, session) leaves**, mined from 1.26M trades (textbook + V3 trainer probes, last 6 months). Cells require n ≥ 10 AND sum_R > 0 AND WR ≥ 0.30 to be attached. **1,553 cells with historical traffic remain unattached** — these are the next seed-factory targets, surfaced automatically by the build.
+
+### Ungated 26-Pair Replay — Direct Evidence
+
+To answer the open question "what does V3 look like without any regime gating," we ran the full V3 probe library against all 26 pairs over the last 6 months with the regime filter disabled. The result is 90,015 filled trades at r_target = 1.5.
+
+**Headline.** Without gating, the bot is mildly red: WR 40.6%, mean R −0.027, sum R −2,415 over 6 months. This sets the unfiltered baseline.
+
+**The decisive finding for the parser-tree thesis.** When trades are split by whether they land in "dead" regimes (R04, T07, Z01 — the ones the previous gate vetoed) versus "alive" regimes, the per-trade economics are *identical*:
+
+| Bucket | n | WR | mean R |
+|---|---:|---:|---:|
+| DEAD regimes (R04 + T07 + Z01) | 86,420 | 40.3% | −0.028 |
+| ALIVE regimes | 3,595 | 40.0% | −0.028 |
+
+The dead regimes are not structurally worse on a per-trade basis. They are merely where 96% of trade volume happens to land. The previous gate-based design, which vetoed dead regimes wholesale, was throwing out productive cells along with the losing ones.
+
+**The throwaway cost.** Eight (probe × regime53) cells inside the so-called "dead" regimes were positive across the full 6-month corpus and would have been vetoed by the existing gate. They total +366 R of forgone edge:
+
+| probe | regime53 | n | sum R | WR |
+|---|---|---:|---:|---:|
+| echo_box_fade_v2 | T07 | 6,740 | +167.6 | 42.0% |
+| alpha_breakout_retest_v2 | Z01 | 3,024 | +96.3 | 42.5% |
+| alpha_breakout_retest_v2 | T07 | 3,831 | +43.0 | 41.9% |
+| bravo_failed_momentum | R04 | 1,491 | +23.5 | 42.2% |
+| alpha_pullback_v2 | Z01 | 3,416 | +20.4 | 42.1% |
+| bravo_expansion_continuation | T07 | 2,971 | +4.4 | 41.7% |
+| bravo_expansion_continuation | R04 | 2,607 | +3.1 | 42.0% |
+| delta_tag_and_go_v2 | T07 | 273 | +2.5 | 41.0% |
+
+**Confirmed bleeders.** Twenty-six (probe × regime53) cells lost more than 10 R over the 6-month corpus. The worst was `charlie_pullback_continuation_v2 × R04` at −566.7 R across 7,478 trades; the same probe also lost −430.9 R in Z01 and −334.5 R in T07. `alpha_extended_fade_v2` similarly bleeds in T07 (−223.6 R), Z01 (−178.7 R), and R04 (−80.3 R). Under the parser-tree, these are non-attached cells; under the gate stack, they were vetoed as a side effect of a coarser rule.
+
+**Same-probe-different-cell signal.** A specific probe can be globally negative and yet contain strongly positive cells. `alpha_extended_fade_v2` averages −0.125 R across the full corpus but its `T06 × off_hours` slice is +0.434 R / 58.6% WR over 29 trades, and its `O06 × off_hours` slice is +0.413 R / 56.5% WR over 23 trades. No global filter on `alpha_extended_fade_v2` would have caught this. Only per-cell routing surfaces it.
+
+### What This Means for the Methodology
+
+The ungated evidence reinforces — and sharpens — the central claim of this paper. Useful structure is fragmented across narrow context cells. Coarse classifications (regime taxonomies, family-level routes, BB-state heuristics) are valuable as dispatch labels but are too blunt to be used as enforcement layers. The seed factory's role is to mine these narrow cells; the parser tree's role is to enforce them in production.
+
+Three concrete updates to the methodology:
+
+1. **Routing-table population is now a primary research deliverable.** Each seed in the seed bank carries its (strategy, regime, pair, session) cell. The routing table is the union of attached seeds, refreshed periodically.
+2. **Death-point telemetry replaces "filter accuracy" as the key live metric.** Instead of asking "did the gate correctly filter?" we ask "which cells produce traffic with no attached strategy?" and "which previously-attached cells are losing their fire rate?"
+3. **Regime taxonomy is downgraded from enforcement device to context label.** It still organizes the dispatch tree, but it no longer controls the kill decision directly.
+
+### Today's Commits (mr-scrooge-v3)
+
+| commit | content |
+|---|---|
+| daa5377 | Port `technical_regime_53` as V3 live feature |
+| 04507d8 | Ungated 26-pair replay analysis — validates parser-tree |
+| 0b2e3cc | Routing telemetry: tiered rollup + sampled death writer |
+| 6c7bbc4 | Routing table v1 + session bucket classifier + observe hook |
+| bc06c4e | Moving-regime loser bank extended to all 4 buckets |
+| 1a03cec | Trainer-v2 probes ported as V3 live strategies (10, disabled) |
+| a88edb5 | `RegimeStrategyRouterGate` v2: 53-regime allow-list (to be retired in Phase D) |
+| 7570e1c | 91 last-6mo moving-regime seeds + initial loser bank |
+
+### Open Items (Phase D and Beyond)
+
+1. **Phase D — regime gate → label-only.** Stop vetoing the eight in-dead-regime winning cells. The current `RegimeStrategyRouterGate v2` should pass-through always and record its label; the routing table is the only enforcer.
+2. **Routing table v2.** Rebuild from the ungated evidence (not the narrower seed-factory lens). Attach the eight throwaway cells, explicitly kill the 26 bleeders. Add per-cell `r_target` and `score_boost` overrides for the "same probe, different cell" signal.
+3. **Mode flip.** Move `routing_table_mode` from `observe` to `hard` once v2 lands. Enable `routing_telemetry`. Begin accumulating the death-point heatmap.
+4. **Death-point dashboard widget.** A live heatmap of `(regime, pair, session, decision_state)` over a rolling window, surfacing the unfilled-demand cells the seed factory should target next.
+
+The seed factory and the parser tree are now coupled. The factory mines new cells; the tree enforces and observes them; the telemetry feeds back the next mining target. This is the expansion loop the doctrine originally specified, now operating on the live runtime rather than the research corpus alone.
