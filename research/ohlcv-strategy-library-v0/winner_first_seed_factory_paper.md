@@ -505,3 +505,93 @@ The 80-sub-regime layer is exactly this principle taken one level deeper. The 53
 ---
 
 The bot has shifted from "trade everywhere the routing table allows" to "only trade in OOS-validated factor pockets within proven sub-regimes." Both layers run in HARD mode as of 2026-05-16T04:43 UTC. The forex market is closed for the weekend; first live enforcement happens Sunday evening UTC.
+
+---
+
+## Addendum 2: Tier system + management overhaul (2026-05-16 evening)
+
+The morning's deploy (routing_table_v7 + SubRegimeFilterGate live) reduced the routing surface to OOS-validated sub-regime cells. The evening session added the layer needed to actually translate that into per-trade profitability: **a tiered cell taxonomy combined with a management chain that doesn't strangle winners**.
+
+### The diagnostic that drove the changes
+
+Pulled the bot's last 7 days from OANDA (35 trades, −$5,182.72). Cross-referenced with execution-audit.jsonl (10,444 events including 8,325 "early_hold", 78 "harvest_limit_cancelled parent_vanished", 235 sl_moved). Plus per-cell MFE/MAE analysis on the 14.97M-trade textbook corpus. Five issues surfaced:
+
+1. **Effective R:R was 1:2, not 2:1.** Winners averaged $113 (~6 pips), losers averaged $238 (~13 pips). Cause: `partial_harvest.tp1_fraction=0.5` closing half the position at +1R, then the remaining half retracing to BE at ~0R contribution. Net winner = +0.5R. At 26% WR this needs 96% to break even.
+
+2. **BE was firing late.** Configured at +0.5R, actually fired at +0.6-1.0R. The `be_trigger_min_pips=2.0` floor was binding on tight-R trades — 0.5×R was less than 2 pips when R was 3-4 pips wide.
+
+3. **Ratchet was blocked.** After BE moved stop to entry, ratchet wanted to lock 50% of MFE at +0.5R = 2 pips. The `min_sl_step_pips=3.0` filter rejected it. Ratchet effectively dead on tight stops.
+
+4. **FavorableExitManager was dead code.** Class file existed in `src/scrooge_v3/management/favorable_exit.py`. PositionPipeline had a `favorable_exit_manager` parameter. But bootstrap never constructed one and pipeline never called it. The "limit-order exit when conditions reverse" mechanism had been silently disabled since the V3 launch.
+
+5. **EntryFilterGate family-fallback strategy match.** Live bot emits `candidate.strategy` as a family name (`dbb_trend`/`direct`/`reversal`/`trend`). Routing table has specific strategy_ids (`echo_box_fade_v2`/`TF4_sar_long`/etc.). EntryFilterGate's exact-strategy match was failing every time, falling through to pass-through. Tier flag and shave_rule were dead code for live candidates.
+
+### Five fixes shipped
+
+```
+config:
+  management.harvest.tp1_fraction:           0.5  -> 0.0       # no partial harvest
+  management.break_even.be_trigger_min_pips: 2.0  -> 1.0       # BE fires at 0.5R
+  management.exit_manager.min_sl_step_pips:  3.0  -> 1.0       # ratchet unblocked
+  management.favorable_exit:                                     # newly enabled
+    enabled: true
+    peak_retrace_pct: 0.5
+    min_peak_r: 1.0
+  gates.entry_filter.min_tier:               (new) "Pro"        # Elite+Pro only
+
+code:
+  src/scrooge_v3/core/bootstrap.py:           construct FavorableExitManager
+  src/scrooge_v3/core/position_pipeline.py:   call favorable_exit between BE and ratchet checks
+  src/scrooge_v3/gates/entry_filter_gate.py:  family-fallback strategy match + tier-rank ordering
+  src/scrooge_v3/strategies/routing_table.py: load tier into RoutingDecision.basis
+```
+
+### The tier system (routing_table_v8)
+
+126 routing cells classified by validated winner-leaf statistics:
+
+```
+Elite:        wr >= 0.65 AND n >= 30   ->  3 cells, mean WR 0.76
+Pro:          wr >= 0.50 AND n >= 30   -> 23 cells, mean WR 0.55
+Standard:     wr >= 0.40 AND n >= 30   -> 50 cells, mean WR 0.43
+Probationary: wr >= 0.33 AND n >= 30   -> 50 cells, mean WR 0.36
+```
+
+Tier rank: Probationary < Standard < Pro < Elite. Config knob `gates.entry_filter.min_tier` selects the floor. Default deployed: Pro (Elite + Pro = 26 cells active).
+
+### Expected per-trade economics
+
+At Brock's sizing ($5K account, 80 percent margin, 50:1 leverage, typical 5-pip stop):
+- 1R ≈ $90 ≈ 1.8 percent of equity
+- 2 percent per trade target = +1.1R per trade
+- Elite tier (76 percent WR, 2:1 R:R) = +1.28R per trade = $115 per trade
+- Pro tier (55 percent WR, 2:1 R:R) = +0.65R per trade = $58 per trade
+
+### Frequency
+
+Elite tier modeled fires (V3-probe corpus, last 6 months):
+- echo_box_fade_v2 NZD_JPY short C01_29: 56 trades / 6mo = 2.15/wk @ 80.4 percent WR
+- echo_box_fade_v2 NZD_JPY short C01_27: 42 trades / 6mo = 1.62/wk @ 76.2 percent WR
+
+Pro+Elite combined estimate: 15-25 trades per week after live family-match filtering.
+
+### What this enables
+
+The bot transitioned from "structurally vetoes dead pockets" (sub-regime SKIP alone) to a fully-functional gate stack where:
+- Cell selection narrows to validated high-WR pockets (tier filter)
+- Per-cell entry conditions enforce (shave_rule via EntryFilterGate)
+- Winners ride full position to 2R (no partial harvest)
+- BE protects downside at +0.5R (was +0.7R+)
+- Ratchet locks gains incrementally (was blocked on tight stops)
+- FavorableExit captures givebacks (was dead code)
+
+If the modeled WR holds within 10 percentage points of corpus values in 2026 live conditions, the bot prints at +$800-$1,300 per week on a $5K account. First verification is Sunday evening UTC when forex reopens.
+
+### Commits (evening session)
+
+- f78c1cf: routing_table_v8 + tier-aware EntryFilterGate
+- 5a21d64: no partial harvest + family-fallback match  
+- ab7a972: min_tier flipped to Pro (current HEAD)
+
+The bot you have now is meaningfully different from the one losing $740/day last week. The structural disconnect between offline research and live behavior (the family-name match bug) was the single biggest unlock — without it the tier system and shave_rule enforcement were both inert. With it, the full gate stack is operational.
+
