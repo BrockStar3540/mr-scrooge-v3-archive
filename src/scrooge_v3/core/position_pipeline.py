@@ -250,6 +250,43 @@ class PositionPipeline:
                     details={"new_stop": be_plan.new_stop, **phase_info},
                 )
 
+        # 2b. Favorable exit -- fire when MFE peaked >= 1R then retraced 50%+
+        # This catches "gave back green" trades that didn't trigger ratchet
+        # (e.g. tight-R trades where step filter blocked ratchet moves).
+        if self.favorable_exit and peak_price > 0 and risk_distance > 0:
+            cfg = getattr(self.favorable_exit, '_pipeline_cfg', None)
+            min_peak_r = 1.0
+            retrace_pct = 0.5
+            if direction == TradeDirection.LONG:
+                peak_profit_r = (peak_price - entry_price) / risk_distance
+                current_profit_r = profit_r
+            else:
+                peak_profit_r = (entry_price - peak_price) / risk_distance
+                current_profit_r = profit_r
+            # Only fire if peak was meaningful AND current is well below peak AND still positive
+            if (peak_profit_r >= min_peak_r and current_profit_r > 0.2
+                and current_profit_r < peak_profit_r * retrace_pct):
+                fav_plan = self.favorable_exit.plan_exit(
+                    position_id=pos_id,
+                    direction=direction,
+                    bid=bid, ask=ask,
+                    is_fast_market=(spread > 3 * mean_spread if mean_spread > 0 else False),
+                    reason=f"peak_{peak_profit_r:.2f}R_retraced_to_{current_profit_r:.2f}R",
+                )
+                return ManagementAction(
+                    position_id=pos_id,
+                    action="favorable_exit",
+                    details={
+                        "method": fav_plan.method,
+                        "limit_price": fav_plan.limit_price,
+                        "reason": fav_plan.reason,
+                        "expiry_seconds": fav_plan.expiry_seconds,
+                        "peak_r": round(peak_profit_r, 3),
+                        "current_r": round(current_profit_r, 3),
+                        **phase_info,
+                    },
+                )
+
         # 3. Phase gate — EARLY_HOLD skips ratchet and trail
         if phase == "EARLY_HOLD":
             return ManagementAction(

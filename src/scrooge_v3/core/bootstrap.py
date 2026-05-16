@@ -279,6 +279,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.management.be_manager import BreakEvenManager
     from scrooge_v3.management.partial_harvest import PartialHarvestManager
     from scrooge_v3.management.emergency_close import EmergencyCloseManager
+    from scrooge_v3.management.favorable_exit import FavorableExitManager
     from scrooge_v3.execution.stop_planner import StopPlanner
     from scrooge_v3.telemetry.execution_audit import ExecutionAudit
     from scrooge_v3.telemetry.dbb_candidate_audit import DBBCandidateAudit
@@ -313,6 +314,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         be_manager=BreakEvenManager(mgmt_cfg.get("break_even", {})),
         harvest_manager=PartialHarvestManager(mgmt_cfg.get("harvest", {})),
         emergency_manager=EmergencyCloseManager(mgmt_cfg.get("emergency", {})),
+        favorable_exit_manager=FavorableExitManager(mgmt_cfg.get("favorable_exit", {})) if mgmt_cfg.get("favorable_exit", {}).get("enabled") else None,
         stop_planner=StopPlanner(config.section("execution")),
         event_bus=event_bus,
         exit_config=exit_cfg,
