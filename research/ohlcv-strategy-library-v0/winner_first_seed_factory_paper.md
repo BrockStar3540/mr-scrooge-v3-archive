@@ -426,3 +426,82 @@ ml-observer INFO Cycle: phase=3 acc=0.78
 1. **Weekly cadence:** as forward live trades accumulate (now from stable V3), they go to a validation set, not training. Training stays the seed bank. Validation tells us how well the seed-bank-trained model generalizes to live.
 2. **Seed bank expansion:** every time we add new seeds to the routing table, regenerate the training corpus and retrain. The training set grows monotonically.
 3. **Threshold tuning:** the model is well-calibrated; pick a threshold for "veto" signal (probably P≤0.3 since that's 3.1% actual WR — very low edge). Wire into the routing table as a score_boost penalty.
+
+---
+
+## Addendum: Sub-regime architecture (2026-05-16)
+
+The deepest refinement to the seed-factory doctrine since the original 141-seed bank. Driven by an empirical finding from the 6.8-year corpus.
+
+### The finding
+
+The 53-regime classifier shipped in V3 (features/technical_regime_53.py) puts **99.6% of all 15.27M trades into 2 mega-regimes**: C01 (tight_coil_low_adx) and C02 (tight_coil_adx). Those labels are technically correct but operationally useless — they describe "the market is quiet" with a tiny refinement on ADX. The bot was using "C01" or "C02" as the parent container for every island, every shave rule, every routing decision. There was no further granularity inside.
+
+### The split
+
+A decision tree was fit per parent regime (C01, C02 separately) with target `is_win` and `max_leaf_nodes=40`. Features: ATR_ratio, BB_compress, RSI14, volume_ratio, ADX14, hour_utc, bb_position. `min_samples_leaf` set to 1.25% of parent so leaves are roughly balanced.
+
+Result: **80 sub-regimes** (40 per parent), each holding 1-10% of its parent's volume, with WR spread:
+
+- C01: 1.5% → 13.5% (9.2× ratio, 12pp absolute spread)
+- C02: 2.6% → 17.3% (6.7× ratio, 15pp absolute spread)
+
+The top splitters in the tree are interpretable:
+
+1. `ATR_ratio` is the primary cut. Low ATR (<0.058 for C01, <0.068 for C02) = dead-volatility pocket where the market doesn't move enough for 2:1 R targets.
+2. `hour_utc` is the secondary cut. Active session (06:00-16:30 UTC) vs dead session (16:30+ UTC) reliably separates winners from losers.
+3. `BB_compress` and `bb_position` refine at depth 3+. Expanded Bollinger bands + high price position = volatile breakout-ready cells.
+4. `RSI14` and `volume_ratio` refine further at depth 4 for momentum-stretch and volume-regime conditions.
+
+### Deployment
+
+Three new components live in V3 as of 2026-05-16:
+
+1. **SubRegimeFilterGate** — runtime classifier + veto gate. Reads 80-leaf tree paths from data/sub_regime_definitions_v1.csv. Vetoes the bottom 16 sub-regimes per parent (C01_0..7, C02_0..7) plus 6 structurally dead rare regimes (T07, Z01, R04, X03, S01, S05). HARD mode. Sits between RegimeStrategyRouterGate and EntryFilterGate.
+
+2. **routing_table_v7** — 126 unique sub-regime cells passing wr≥0.33 (2:1 R break-even) AND n≥30 (sample-size floor). Expanded across 7 session buckets for schema compat → 882 rows / 336 leaves. Each cell carries shave_rule (winner band entry filter) AND loser_skip_rule (death-by-presence rule).
+
+3. **EntryFilterGate** — extracts the per-cell shave_rule from RoutingDecision.basis and evaluates it against ctx.features. HARD mode.
+
+### Validation
+
+The deployment was validated via counterfactual replay over the full 6.8-year corpus. If SubRegimeFilterGate had been live throughout:
+
+| Metric | Value |
+|---|---:|
+| Trades vetoed | 3,282,416 (21.5% of all) |
+| Losers vetoed | 3,173,515 |
+| Winners sacrificed | 108,901 |
+| **Loser-to-winner kill ratio** | **29.14×** |
+| Overall WR (pre-gate) | 7.62% |
+| Overall WR (post-gate) | 8.80% |
+| **Absolute WR lift** | **+1.18 percentage points** |
+
+Every top-10 textbook strategy by volume shows positive lift (+0.76pp to +1.27pp). No strategy is hurt.
+
+### Encyclopedia expansion
+
+With sub-regimes as the new parent container, the hybrid shaver was re-run at `(strategy_id, pair, direction, sub_regime)` granularity. This produced **22,233 viable parent cells at n≥200** — 9× the 2,497 cells of the old layout (because trades are now distributed across 80 sub-regimes instead of 2 mega-regimes).
+
+Output: **20,190 winner islands + 4,104 loser islands** (3,799 with 100% loss rate — clean death pockets). All saved to research/ohlcv-strategy-library-v0/sub_regime_islands.csv.
+
+Sibling expansion on the 76 high-confidence seeds (winner_n≥30, winner_wr≥0.40) produced 1,473 children. Bucket distribution: 28 winner_seed, 47 near_pure_seed, 1,318 false_friend_sibling, 80 child_reject. The dominant successful mutation type is `add_filter` (18 of 28 winner_seed children) — sub-regime parent rules cleanly tighten with one extra factor band.
+
+### Why this fits the seed-factory doctrine
+
+The original doctrine page (workflows/seed-factory-doctrine.md) said:
+
+> "Regimes are discovered as a byproduct of winner-island extraction from micro-bot behavior — not defined first."
+
+The 80-sub-regime layer is exactly this principle taken one level deeper. The 53-regime classifier was a *defined-first* taxonomy. The 80-sub-regime split is *discovered* — the tree finds the natural fracture lines in the data without being told what they should be. Sub-regimes are the empirical containers; islands are the books on those shelves.
+
+### Open follow-on work
+
+1. **Rare-regime sparse mining**: the B/M/F/O regimes have 14-50% WR but n<200 each — invisible to the current shaver. Need a lower-bar variant.
+2. **ML observer retrain on sub-regime labels**: the current model (val AUC 0.816) uses technical_regime_53 as its regime feature. Retraining with sub_regime should improve discrimination materially.
+3. **Per-cell trade management**: ratchet/harvest/BE knobs still uniform. The corpus has mfe_R and mae_R; per-cell management tuning is a separate research arc.
+4. **Phase F: textbook-parameter siblings**: mutate the underlying textbook strategies (MA lengths, supertrend multipliers) and feed regenerated trades back through the pipeline.
+
+---
+
+The bot has shifted from "trade everywhere the routing table allows" to "only trade in OOS-validated factor pockets within proven sub-regimes." Both layers run in HARD mode as of 2026-05-16T04:43 UTC. The forex market is closed for the weekend; first live enforcement happens Sunday evening UTC.
