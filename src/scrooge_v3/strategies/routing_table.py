@@ -59,6 +59,14 @@ def _build_basis(r) -> dict:
         "wr": float(r.get("wr", 0.0)),
         "source": str(r.get("source", "")),
     }
+    # v8: include tier alongside the rule
+    if 'tier' in (r.index if hasattr(r, 'index') else r):
+        try:
+            tval = r.get('tier') if hasattr(r, 'get') else r['tier']
+            if tval is not None and (not isinstance(tval, float) or tval == tval):
+                basis['tier'] = str(tval)
+        except Exception:
+            pass
     for key in ("shave_rule", "loser_skip_rule"):
         val = r.get(key) if hasattr(r, "get") else (r[key] if key in r else None)
         if val is None or (isinstance(val, float) and val != val):  # skip NaN

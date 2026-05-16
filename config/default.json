@@ -87,7 +87,7 @@
       "stop_buffer_pips": 2,
       "fixed_score": 32
     },
-    "routing_table_path": "data/routing_table_v7.parquet",
+    "routing_table_path": "data/routing_table_v8.parquet",
     "routing_table_mode": "hard",
     "routing_telemetry": {
       "enabled": true,
@@ -120,6 +120,9 @@
     ],
     "sub_regime_filter": {
       "mode": "hard"
+    },
+    "entry_filter": {
+      "min_tier": "Probationary"
     }
   },
   "execution": {

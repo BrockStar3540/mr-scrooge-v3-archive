@@ -21,9 +21,13 @@ Missing-feature policy:
   doesn't compute, allow the trade and log telemetry. Flip to 'veto' once
   the feature map is verified comprehensive.
 """
+
 from __future__ import annotations
 
 import re
+import logging
+
+log = logging.getLogger("scrooge_v3.gate.entry_filter")
 from typing import Any
 
 from scrooge_v3.core.types import GateMode, GateResult, SymbolContext, TradeCandidate
@@ -55,7 +59,14 @@ class EntryFilterGate(BaseGate):
                  mode: GateMode = GateMode.OBSERVE) -> None:
         super().__init__(config=config, mode=mode)
         self._table = routing_table
-        self._missing_policy = (config or {}).get('missing_policy', 'allow')
+        cfg = config or {}
+        self._missing_policy = cfg.get('missing_policy', 'allow')
+        # Tier-gating: only accept candidates whose cell tier >= min_tier
+        # Tier order: Probationary < Standard < Pro < Elite
+        self._tier_rank = {'Probationary': 0, 'Standard': 1, 'Pro': 2, 'Elite': 3}
+        self._min_tier_rank = self._tier_rank.get(cfg.get('min_tier', 'Probationary'), 0)
+        log.info('[ENTRY_FILTER] min_tier=%s (rank=%d)',
+                 cfg.get('min_tier', 'Probationary'), self._min_tier_rank)
 
     def evaluate(self, candidate: TradeCandidate, ctx: SymbolContext) -> GateResult:
         regime53 = self._classify(ctx, 'technical_regime_53')
@@ -71,6 +82,12 @@ class EntryFilterGate(BaseGate):
         if match is None:
             return self._pass('no_routing_match_for_strategy')
 
+        # Tier check: read tier from RoutingDecision.basis
+        cell_tier = (match.basis or {}).get('tier', 'Probationary')
+        cell_tier_rank = self._tier_rank.get(cell_tier, 0)
+        if cell_tier_rank < self._min_tier_rank:
+            return self._veto(f'below_min_tier:{cell_tier}_rank{cell_tier_rank}<{self._min_tier_rank}',
+                              metrics={'cell_tier': cell_tier})
         rule = (match.basis or {}).get('shave_rule') or ''
         if not rule.strip():
             return self._pass('no_shave_rule_in_cell')
