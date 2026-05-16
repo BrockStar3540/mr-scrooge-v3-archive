@@ -178,7 +178,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # regime_floor and the rest.
     from scrooge_v3.gates import (
         BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate, EntryFilterGate,
-        ExpiryBackoffGate, RegimeCompatGate, RegimeStrategyRouterGate, RegimeFloorGate, ZoneEntryCapGate,
+        ExpiryBackoffGate, RegimeCompatGate, RegimeStrategyRouterGate, RegimeFloorGate,
+        SubRegimeFilterGate, ZoneEntryCapGate,
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
@@ -208,6 +209,15 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         RegimeStrategyRouterGate(
             config=(gate_cfg.get("regime_strategy_router", {}) if gate_cfg else {}),
             mode=GateMode.HARD,
+        ),
+        # Sub-regime SKIP gate: vetoes bottom-8-of-each-parent sub-regimes
+        # (C01_0..7 and C02_0..7 -- ~22% of total volume at 2-5%% WR)
+        # and structurally dead rare regimes (T07, Z01, R04, X03, S01, S05).
+        # Runs in OBSERVE first; flip to hard via gates.sub_regime_filter.mode.
+        SubRegimeFilterGate(
+            definitions_path="data/sub_regime_definitions_v1.csv",
+            config=(gate_cfg.get("sub_regime_filter", {}) if gate_cfg else {}),
+            mode=GateMode(gate_cfg.get("sub_regime_filter", {}).get("mode", "observe")) if gate_cfg else GateMode.OBSERVE,
         ),
         # Per-cell entry-filter (shave_rule) enforcement -- the validated
         # band-rule from the hybrid shaver. OBSERVE for first 24-48h to
