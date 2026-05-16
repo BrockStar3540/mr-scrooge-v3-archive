@@ -179,6 +179,10 @@
       "favorable_exit_expiry_seconds": 600,
       "peak_retrace_pct": 0.5,
       "min_peak_r": 1.0
+    },
+    "harvest": {
+      "tp1_fraction": 0.0,
+      "_note": "tp1_fraction=0 means no partial harvest. Full position runs to TP2/ratchet/favorable_exit. Brock 2026-05-16: 1:2 effective R:R was crushing winners."
     }
   },
   "scoring": {

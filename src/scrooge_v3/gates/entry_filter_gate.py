@@ -78,7 +78,25 @@ class EntryFilterGate(BaseGate):
             regime53, ctx.symbol, session,
             direction=candidate.direction.value,
         )
+        # Try exact strategy match first (offline replay strategy IDs).
+        # Fall back to family match — the live bot's candidate.strategy is
+        # the FAMILY name (dbb_trend/direct/reversal/trend), not the specific
+        # strategy_id (echo_box_fade_v2, TF4_sar_long, etc.). Without this
+        # fallback the gate pass-through-ed every candidate.
+        # Among multiple family matches, prefer highest tier.
         match = next((d for d in decisions if d.strategy == candidate.strategy), None)
+        if match is None:
+            family_matches = [d for d in decisions if d.family == candidate.strategy]
+            if family_matches:
+                # Sort by tier (Elite > Pro > Standard > Probationary), then by score_boost
+                family_matches.sort(
+                    key=lambda d: (
+                        self._tier_rank.get((d.basis or {}).get('tier', 'Probationary'), 0),
+                        d.score_boost,
+                    ),
+                    reverse=True,
+                )
+                match = family_matches[0]
         if match is None:
             return self._pass('no_routing_match_for_strategy')
 
