@@ -87,7 +87,7 @@
       "stop_buffer_pips": 2,
       "fixed_score": 32
     },
-    "routing_table_path": "data/routing_table_v5.parquet",
+    "routing_table_path": "data/routing_table_v7.parquet",
     "routing_table_mode": "hard",
     "routing_telemetry": {
       "enabled": true,
@@ -117,7 +117,10 @@
       "exhaustion",
       "nat_stop_validity",
       "spread_vs_stop"
-    ]
+    ],
+    "sub_regime_filter": {
+      "mode": "hard"
+    }
   },
   "execution": {
     "trigger_side_validation": true,

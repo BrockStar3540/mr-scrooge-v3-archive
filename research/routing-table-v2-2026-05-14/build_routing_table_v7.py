@@ -66,34 +66,43 @@ def main():
     now_iso = dt.datetime.now(dt.timezone.utc).isoformat()
 
     rows = []
+    sessions = ['asia','asia_late','london_open','ny_open','ny_mid','ny_close','off_hours']
     for _, r in sel.iterrows():
         winner_wr = float(r['winner_wr'])
         parent_wr = float(r['parent_wr'])
         r_target = float(r['r_target'])
         score_boost = max(0.5, min(2.0, (winner_wr / parent_wr - 1.0) if parent_wr > 0 else 0.5))
         mean_R_est = winner_wr * r_target - (1.0 - winner_wr)
-        rows.append({
-            'sub_regime':            r['sub_regime'],
-            'parent_regime':         r['parent_regime'],
-            'pair':                  r['pair'],
-            'strategy':              r['strategy_id'],
-            'family':                r['family'],
-            'direction':             r['direction'],
-            'r_target':              r_target,
-            'score_boost':           round(score_boost, 3),
-            'n':                     int(r['winner_n']),
-            'wins':                  int(r['winner_wins']),
-            'sum_R':                 round(mean_R_est * int(r['winner_n']), 3),
-            'mean_R':                round(mean_R_est, 3),
-            'wr':                    round(winner_wr, 4),
-            'source':                'sub_regime_islands_v1',
-            'last_updated':          now_iso,
-            'shave_rule':            r['winner_rule'],
-            'loser_skip_rule':       r['loser_rule'] if pd.notna(r.get('loser_rule')) and float(r.get('loser_lr', 0)) >= 0.85 else None,
-            'winner_lift':           float(r['winner_lift']),
-            'parent_n':              int(r['parent_n']),
-            'parent_wr':             round(parent_wr, 4),
-        })
+        # Schema-compat: routing_table.py keys on (technical_regime_53, pair, session_bucket).
+        # technical_regime_53 = parent_regime (C01/C02). Session expanded across all 7 buckets;
+        # the shave_rule itself encodes sub-regime AND hour conditions so the EntryFilterGate
+        # naturally enforces both at evaluate-time.
+        for sess in sessions:
+            rows.append({
+                'sub_regime':            r['sub_regime'],
+                'technical_regime_53':   r['parent_regime'],
+                'technical_regime_desc': 'tight_coil_low_adx' if r['parent_regime']=='C01' else 'tight_coil_adx',
+                'parent_regime':         r['parent_regime'],
+                'session_bucket':        sess,
+                'pair':                  r['pair'],
+                'strategy':              r['strategy_id'],
+                'family':                r['family'],
+                'direction':             r['direction'],
+                'r_target':              r_target,
+                'score_boost':           round(score_boost, 3),
+                'n':                     int(r['winner_n']),
+                'wins':                  int(r['winner_wins']),
+                'sum_R':                 round(mean_R_est * int(r['winner_n']), 3),
+                'mean_R':                round(mean_R_est, 3),
+                'wr':                    round(winner_wr, 4),
+                'source':                'sub_regime_islands_v1',
+                'last_updated':          now_iso,
+                'shave_rule':            r['winner_rule'],
+                'loser_skip_rule':       r['loser_rule'] if pd.notna(r.get('loser_rule')) and float(r.get('loser_lr', 0)) >= 0.85 else None,
+                'winner_lift':           float(r['winner_lift']),
+                'parent_n':              int(r['parent_n']),
+                'parent_wr':             round(parent_wr, 4),
+            })
 
     out = pd.DataFrame(rows)
     out.to_parquet(OUT_PARQ, index=False)
