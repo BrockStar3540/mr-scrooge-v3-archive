@@ -1,0 +1,102 @@
+{
+  "train_rows": 99489,
+  "test_rows": 161364,
+  "feature_cols": [
+    "technical_regime_53",
+    "parent_regime",
+    "pair",
+    "direction",
+    "session_bucket",
+    "cell_tier",
+    "cell_source_bank",
+    "hour_utc",
+    "day_of_week",
+    "ATR_ratio",
+    "BB_compress",
+    "ADX14",
+    "RSI14",
+    "close_pos",
+    "bb_position",
+    "volume_ratio",
+    "z_score",
+    "ema20_dist_pct",
+    "ema50_dist_pct",
+    "sma20_dist_signed_bps",
+    "cell_tier_rank",
+    "cell_n_unique",
+    "cell_wr",
+    "cell_wilson_lb"
+  ],
+  "train_wr": 0.2023339263637186,
+  "test_wr": 0.37865323120398603,
+  "head_a": {
+    "auc_test": 0.49700240618364355,
+    "brier_test": 0.2544582784175873,
+    "calibration": [
+      {
+        "decile": 0,
+        "n": 16137,
+        "mean_pred": 0.13923010230064392,
+        "actual_wr": 0.3765879655450208
+      },
+      {
+        "decile": 1,
+        "n": 16136,
+        "mean_pred": 0.23444613814353943,
+        "actual_wr": 0.3775409023301934
+      },
+      {
+        "decile": 2,
+        "n": 16136,
+        "mean_pred": 0.28984716534614563,
+        "actual_wr": 0.38138324243926625
+      },
+      {
+        "decile": 3,
+        "n": 16137,
+        "mean_pred": 0.3328993320465088,
+        "actual_wr": 0.3826609654830514
+      },
+      {
+        "decile": 4,
+        "n": 16136,
+        "mean_pred": 0.3707132637500763,
+        "actual_wr": 0.3830565195835399
+      },
+      {
+        "decile": 5,
+        "n": 16136,
+        "mean_pred": 0.405733585357666,
+        "actual_wr": 0.37747892910262765
+      },
+      {
+        "decile": 6,
+        "n": 16137,
+        "mean_pred": 0.44061827659606934,
+        "actual_wr": 0.3864410980975398
+      },
+      {
+        "decile": 7,
+        "n": 16136,
+        "mean_pred": 0.47832855582237244,
+        "actual_wr": 0.38578334159643035
+      },
+      {
+        "decile": 8,
+        "n": 16136,
+        "mean_pred": 0.5248889327049255,
+        "actual_wr": 0.3765493306891423
+      },
+      {
+        "decile": 9,
+        "n": 16137,
+        "mean_pred": 0.6144723892211914,
+        "actual_wr": 0.3590506289892793
+      }
+    ]
+  },
+  "head_b": {
+    "rmse_test": 1.2520896151377061,
+    "pearson_test": 0.015535405122555824
+  }
+}

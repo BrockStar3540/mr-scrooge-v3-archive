@@ -1,0 +1,109 @@
+{
+  "feature_cols": [
+    "technical_regime_53",
+    "parent_regime",
+    "pair",
+    "direction",
+    "session_bucket",
+    "cell_tier",
+    "cell_source_bank",
+    "hour_utc",
+    "day_of_week",
+    "ATR_ratio",
+    "BB_compress",
+    "ADX14",
+    "RSI14",
+    "close_pos",
+    "bb_position",
+    "volume_ratio",
+    "z_score",
+    "ema20_dist_pct",
+    "ema50_dist_pct",
+    "sma20_dist_signed_bps",
+    "cell_tier_rank",
+    "cell_n_unique",
+    "cell_wr",
+    "cell_wilson_lb"
+  ],
+  "categorical_maps": {
+    "technical_regime_53": {
+      "C01": 0,
+      "C02": 1
+    },
+    "parent_regime": {
+      "C01": 0,
+      "C02": 1
+    },
+    "pair": {
+      "AUD_CAD": 0,
+      "AUD_CHF": 1,
+      "AUD_JPY": 2,
+      "AUD_NZD": 3,
+      "AUD_USD": 4,
+      "CAD_JPY": 5,
+      "CHF_JPY": 6,
+      "EUR_AUD": 7,
+      "EUR_CAD": 8,
+      "EUR_CHF": 9,
+      "EUR_GBP": 10,
+      "EUR_JPY": 11,
+      "EUR_NZD": 12,
+      "EUR_USD": 13,
+      "GBP_AUD": 14,
+      "GBP_CAD": 15,
+      "GBP_CHF": 16,
+      "GBP_JPY": 17,
+      "GBP_NZD": 18,
+      "GBP_USD": 19,
+      "NZD_JPY": 20,
+      "NZD_USD": 21,
+      "USD_CAD": 22,
+      "USD_CHF": 23,
+      "USD_JPY": 24,
+      "USD_MXN": 25
+    },
+    "direction": {
+      "long": 0,
+      "short": 1
+    },
+    "session_bucket": {
+      "asia": 0,
+      "asia_late": 1,
+      "london_open": 2,
+      "ny_close": 3,
+      "ny_mid": 4,
+      "ny_open": 5,
+      "off_hours": 6
+    },
+    "cell_tier": {
+      "Elite": 0,
+      "Pro": 1,
+      "Seed": 2,
+      "Seed-Pro": 3
+    },
+    "cell_source_bank": {
+      "probe": 0,
+      "textbook": 1
+    }
+  },
+  "numeric_cols": [
+    "hour_utc",
+    "day_of_week",
+    "ATR_ratio",
+    "BB_compress",
+    "ADX14",
+    "RSI14",
+    "close_pos",
+    "bb_position",
+    "volume_ratio",
+    "z_score",
+    "ema20_dist_pct",
+    "ema50_dist_pct",
+    "sma20_dist_signed_bps",
+    "cell_tier_rank",
+    "cell_n_unique",
+    "cell_wr",
+    "cell_wilson_lb"
+  ],
+  "trained_at": "2026-05-18T19:54:24.340612+00:00"
+}
