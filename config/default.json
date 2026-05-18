@@ -122,7 +122,8 @@
       "mode": "hard"
     },
     "entry_filter": {
-      "min_tier": "Pro"
+      "min_tier": "Pro",
+      "mode": "hard"
     }
   },
   "execution": {
