@@ -262,6 +262,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
                 default="observe",
                 gate_name="sub_regime_filter",
             ),
+            # Brock 2026-05-18: pass the LIVE trade routing_table so explicit
+            # Pro+/Seed-Pro+ cells can override the default sub_regime SKIP map.
+            # Shadow's v9_observe is intentionally NOT wired in -- observe-only
+            # cells must not bypass hard vetoes.
+            routing_table=router.routing_table,
         ),
         # Per-cell entry-filter (shave_rule) enforcement -- the validated
         # band-rule from the hybrid shaver. OBSERVE for first 24-48h to

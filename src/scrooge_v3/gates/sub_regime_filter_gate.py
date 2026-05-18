@@ -57,21 +57,69 @@ DEFAULT_SKIP_SUBS = {f'C01_{i}' for i in range(8)} | {f'C02_{i}' for i in range(
 DEFAULT_SKIP_RARE = {'T07', 'Z01', 'R04', 'X03', 'S01', 'S05'}
 
 
+# Tiers that trump the sub_regime SKIP list (Brock 2026-05-18).
+# v9_observe (Seed) explicitly does NOT override -- only the curated live
+# trade surface gets veto power over the default-veto sub_regime map.
+TRADE_TIER_OVERRIDE = {"Seed-Pro", "Pro", "Elite"}
+
+
 class SubRegimeFilterGate(BaseGate):
     name = 'sub_regime_filter'
 
     def __init__(self,
                  definitions_path: str | Path,
                  config: dict[str, Any] | None = None,
-                 mode: GateMode = GateMode.OBSERVE) -> None:
+                 mode: GateMode = GateMode.OBSERVE,
+                 routing_table: Any = None) -> None:
         super().__init__(config=config, mode=mode)
         cfg = config or {}
         self._skip_subs: set[str] = set(cfg.get('skip_subs', DEFAULT_SKIP_SUBS))
         self._skip_rare: set[str] = set(cfg.get('skip_rare', DEFAULT_SKIP_RARE))
         self._definitions = self._load_definitions(Path(definitions_path))
-        log.info('[SUB_REGIME_FILTER] loaded %d sub-regime rules; SKIP=%d sub + %d rare',
+        self._routing_table = routing_table
+        log.info('[SUB_REGIME_FILTER] loaded %d sub-regime rules; SKIP=%d sub + %d rare; '
+                 'routing_override=%s',
                  sum(len(v) for v in self._definitions.values()),
-                 len(self._skip_subs), len(self._skip_rare))
+                 len(self._skip_subs), len(self._skip_rare),
+                 'on' if routing_table is not None else 'off')
+
+    def _classify_session(self, ctx) -> str | None:
+        c = ctx.classifications.get('session_bucket')
+        return c.label if c is not None else None
+
+    def _routing_cell_overrides(self, parent: str, sub_id: str,
+                                ctx, candidate) -> tuple[bool, str]:
+        """If a routing cell exists at the (regime53, pair, session, direction)
+        leaf with tier in TRADE_TIER_OVERRIDE, allow the candidate through
+        despite the sub_regime being in the SKIP list.
+
+        Returns (override, reason).
+        """
+        if self._routing_table is None:
+            return False, "no_routing_table_wired"
+        session = self._classify_session(ctx)
+        if not session:
+            return False, "no_session_bucket"
+        try:
+            decisions = self._routing_table.lookup(
+                parent, ctx.symbol, session,
+                direction=getattr(candidate.direction, "value", str(candidate.direction)),
+            )
+        except Exception as exc:
+            return False, f"lookup_error:{exc}"
+        if not decisions:
+            return False, f"no_routing_match"
+        # Try exact family match first (most evidence), then any cell
+        family = getattr(candidate, "strategy", None)
+        for d in decisions:
+            cell_tier = (d.basis or {}).get("tier")
+            if cell_tier in TRADE_TIER_OVERRIDE and (d.family == family or d.strategy == family):
+                return True, (f"override_by={d.strategy}|tier={cell_tier}")
+        for d in decisions:
+            cell_tier = (d.basis or {}).get("tier")
+            if cell_tier in TRADE_TIER_OVERRIDE:
+                return True, (f"override_by={d.strategy}|tier={cell_tier}|family_loose")
+        return False, "only_observe_tier_cells"
 
     def _load_definitions(self, p: Path) -> dict[str, list[tuple[str, list]]]:
         """Parse CSV into {parent_regime: [(sub_regime_id, clauses), ...]}."""
@@ -187,8 +235,34 @@ class SubRegimeFilterGate(BaseGate):
                               metrics={'parent': parent, 'snapshot': snap})
 
         if sub_id in self._skip_subs:
+            # Routing-cell override: if the live trade table has a Pro+/Seed-Pro+
+            # cell at this exact (regime, pair, session, direction) leaf,
+            # let the candidate through despite the default sub_regime SKIP.
+            # Per Brock 2026-05-18: explicit routing evidence trumps the
+            # blanket old skip map.
+            override, ov_reason = self._routing_cell_overrides(parent, sub_id, ctx, candidate)
+            if override:
+                log.info(
+                    '[SUB_REGIME_FILTER] sub_regime_skip_overridden_by_routing_cell '
+                    'symbol=%s direction=%s sub_regime=%s parent=%s session=%s %s',
+                    ctx.symbol, getattr(candidate.direction, "value", str(candidate.direction)),
+                    sub_id, parent, self._classify_session(ctx), ov_reason,
+                )
+                return self._pass(
+                    f'sub_regime_skip_overridden_by_routing_cell:{sub_id}',
+                    metrics={'parent': parent, 'sub_regime': sub_id,
+                             'override_reason': ov_reason, 'snapshot': snap},
+                )
+            log.info(
+                '[SUB_REGIME_FILTER] sub_regime_skip_enforced '
+                'symbol=%s direction=%s sub_regime=%s reason=%s',
+                ctx.symbol, getattr(candidate.direction, "value", str(candidate.direction)),
+                sub_id, ov_reason,
+            )
             return self._veto(f'sub_regime_skip:{sub_id}',
-                              metrics={'parent': parent, 'sub_regime': sub_id, 'snapshot': snap})
+                              metrics={'parent': parent, 'sub_regime': sub_id,
+                                       'override_decline_reason': ov_reason,
+                                       'snapshot': snap})
 
         return self._pass(f'sub_regime_take:{sub_id}',
                           metrics={'parent': parent, 'sub_regime': sub_id})
