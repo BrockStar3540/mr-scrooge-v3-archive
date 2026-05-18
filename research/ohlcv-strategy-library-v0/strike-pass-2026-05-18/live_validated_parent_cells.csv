@@ -1,0 +1,8 @@
+regime53,pair,cell_strategy,direction,session_bucket,live_passes,shave_rule,family,cell_tier,live_vetos,pass_rate,current_live_block,v9_tier,v9_n_unique,v9_wr,v9_wilson_lb
+C02,EUR_CAD,charlie_compression_breakout,long,ny_mid,41,hour_utc>=12 AND hour_utc<=19 AND ATR_ratio>=0.0615569 AND ATR_ratio<=0.0783838 AND session_bucket==ny_mid,direct,Seed,4,0.9111111111111111,below_min_tier:Seed_rank1<3,Seed,13,0.9230769230769231,0.7747805207642964
+C01,EUR_GBP,charlie_compression_breakout,long,ny_open,37,ATR_ratio>=0.0644183 AND ATR_ratio<=0.0776277 AND hour_utc>=9.6 AND hour_utc<=16 AND volume_ratio<=0.910126,direct,Seed,0,1.0,below_min_tier:Seed_rank1<3,Seed,11,0.8181818181818182,0.6320676690741815
+C02,USD_CHF,alpha_breakout_retest_v2,long,ny_mid,36,ADX14<=23.7788 AND session_bucket==ny_mid,direct,Seed-Pro,32,0.5294117647058824,shave_rule_satisfied,Seed-Pro,17,0.8823529411764706,0.7474768461721965
+C01,USD_CHF,alpha_breakout_retest_v2,short,ny_open,24,ADX14>=18.0726 AND ATR_ratio<=0.0469802,direct,Seed,6,0.8,below_min_tier:Seed_rank1<3,Seed,11,0.8181818181818182,0.6320676690741815
+C02,GBP_CHF,alpha_breakout_retest_v2,short,ny_open,6,ADX14>=37.7796 AND volume_ratio<=0.826075,direct,Seed,146,0.039473684210526314,below_min_tier:Seed_rank1<3,Seed,10,0.9,0.7178303480809901
+C02,EUR_NZD,charlie_pullback_continuation_v2,short,ny_open,2,ATR_ratio>=0.0665839 AND ATR_ratio<=0.0785241 AND volume_ratio>=1.28597,dbb_trend,Seed,10,0.16666666666666666,below_min_tier:Seed_rank1<3,Seed,11,0.8181818181818182,0.6320676690741815
+C01,EUR_CHF,charlie_compression_breakout,long,ny_open,2,BB_compress<=0.0353186 AND RSI14>=51.2284 AND RSI14<=52.7285,direct,Seed,50,0.038461538461538464,below_min_tier:Seed_rank1<3,Seed,17,0.7058823529411765,0.5514846338300472
