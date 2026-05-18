@@ -208,6 +208,18 @@ class EntryFilterGate(BaseGate):
         cell_strategy = match.strategy
         cell_family = match.family
         if verdict:
+            # Stamp routing-cell info on the candidate so downstream
+            # stages (V3 scorer, telemetry, monitor) can attribute the
+            # approval to a specific live-trade cell. Brock 2026-05-18:
+            # required for surgical scorer demotion.
+            try:
+                candidate.metadata["routing_cell_label"] = cell_label
+                candidate.metadata["routing_cell_strategy"] = cell_strategy
+                candidate.metadata["routing_cell_family"] = cell_family
+                candidate.metadata["routing_cell_tier"] = cell_tier
+                candidate.metadata["routing_match_kind"] = match_kind
+            except Exception:
+                pass
             return self._pass('shave_rule_satisfied',
                               metrics={'rule': rule, 'cell': cell_label,
                                        'snapshot': snap,

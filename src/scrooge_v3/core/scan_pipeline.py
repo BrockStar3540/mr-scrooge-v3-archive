@@ -215,22 +215,21 @@ class ScanPipeline:
             return None
 
         # 7. V3 Scorer — re-score gate-approved candidates.
-        # Brock 2026-05-18: the V3 scorer is the OLD bot's judge. With
-        # routing/island/shave_rule now the primary decision authority,
-        # the scorer is demoted from hard veto to soft ranker for
-        # candidates that already cleared routing+gates. BLOCKED (hard
-        # physical issues like spread) still drops; REJECT (score below
-        # old floor) no longer drops -- the candidate stays with its V3
-        # score so best-by-score can still apply a comparison among
-        # multiple routing-approved options.
-        # Default ON. To revert, set ScanPipeline.demote_old_scorer = False
-        # at construction (or wire a config knob through later).
-        demote_old = getattr(self, "demote_old_scorer", True)
+        # Brock 2026-05-18: SURGICAL demotion. The V3 scorer can still
+        # veto candidates that DON'T map to a live trade-tier cell
+        # (legacy/observe path). For routing-approved candidates (cell
+        # in v10_fast* at Seed-Pro+ tier), the scorer is demoted to
+        # ranker-only. BLOCKED tier (physical hard-blocks like spread)
+        # always drops regardless of routing approval.
+        TRADE_TIERS = {"Seed-Pro", "Pro", "Elite"}
 
         if self.scorer is not None:
             scored: list[TradeCandidate] = []
             for candidate in approved:
                 result = self.scorer.score(ctx, candidate)
+                routing_cell_tier = candidate.metadata.get("routing_cell_tier")
+                routing_approved = routing_cell_tier in TRADE_TIERS
+
                 if result.tier == "BLOCKED":
                     self._emit(
                         CANDIDATE_REJECTED,
@@ -239,8 +238,10 @@ class ScanPipeline:
                         reason=f"V3_BLOCKED:{','.join(result.blocks)}",
                     )
                     continue
+
                 if result.tier == "REJECT":
-                    if not demote_old:
+                    if not routing_approved:
+                        # Legacy / observe / no-cell path: keep old hard veto.
                         self._emit(
                             CANDIDATE_REJECTED,
                             symbol=symbol,
@@ -248,15 +249,31 @@ class ScanPipeline:
                             reason=f"V3_REJECT:score={result.score}",
                         )
                         continue
-                    # Demoted: keep candidate, mark, log loudly. The
-                    # routing/island layer already approved it; the old
-                    # scorer no longer vetoes.
+                    # Routing-approved candidate at trade-tier cell:
+                    # scorer cannot veto. Log loudly with full context
+                    # so we know exactly what the old scorer would have
+                    # killed. Per Brock 2026-05-18 spec.
+                    _floor = getattr(result, "base_floor", None)
+                    if _floor is None:
+                        try:
+                            _st = _synthesize_session_thresholds(self.scorer, "default")
+                            _floor = _st.get("floor", 0)
+                        except Exception:
+                            _floor = 0
                     log.info(
-                        "[V3_SCORER] DEMOTED-REJECT symbol=%s strategy=%s "
-                        "score=%d base=%d (routing-approved; scorer no longer vetoes)",
-                        symbol, candidate.strategy, result.score, result.base_score,
+                        "[V3_SCORER] scorer_bypassed_by_routing_cell "
+                        "scorer_soft_rank_only symbol=%s direction=%s "
+                        "strategy=%s cell_label=%s cell_tier=%s "
+                        "raw_score=%d base_score=%d old_floor=%d",
+                        symbol,
+                        getattr(candidate.direction, "value", str(candidate.direction)),
+                        candidate.strategy,
+                        candidate.metadata.get("routing_cell_label", "?"),
+                        routing_cell_tier,
+                        result.score, result.base_score, _floor,
                     )
-                    candidate.metadata["v3_demoted_reject"] = True
+                    candidate.metadata["v3_bypassed_by_routing"] = True
+                    candidate.metadata["v3_would_have_rejected_at"] = result.score
                 # Replace strategy's fixed score with V3 score
                 candidate.score = float(result.score)
                 candidate.metadata["v3_tier"] = result.tier
