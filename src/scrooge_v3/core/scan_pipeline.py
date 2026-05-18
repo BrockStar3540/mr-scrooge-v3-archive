@@ -214,7 +214,19 @@ class ScanPipeline:
         if not approved:
             return None
 
-        # 7. V3 Scorer — re-score gate-approved candidates
+        # 7. V3 Scorer — re-score gate-approved candidates.
+        # Brock 2026-05-18: the V3 scorer is the OLD bot's judge. With
+        # routing/island/shave_rule now the primary decision authority,
+        # the scorer is demoted from hard veto to soft ranker for
+        # candidates that already cleared routing+gates. BLOCKED (hard
+        # physical issues like spread) still drops; REJECT (score below
+        # old floor) no longer drops -- the candidate stays with its V3
+        # score so best-by-score can still apply a comparison among
+        # multiple routing-approved options.
+        # Default ON. To revert, set ScanPipeline.demote_old_scorer = False
+        # at construction (or wire a config knob through later).
+        demote_old = getattr(self, "demote_old_scorer", True)
+
         if self.scorer is not None:
             scored: list[TradeCandidate] = []
             for candidate in approved:
@@ -228,13 +240,23 @@ class ScanPipeline:
                     )
                     continue
                 if result.tier == "REJECT":
-                    self._emit(
-                        CANDIDATE_REJECTED,
-                        symbol=symbol,
-                        strategy=candidate.strategy,
-                        reason=f"V3_REJECT:score={result.score}",
+                    if not demote_old:
+                        self._emit(
+                            CANDIDATE_REJECTED,
+                            symbol=symbol,
+                            strategy=candidate.strategy,
+                            reason=f"V3_REJECT:score={result.score}",
+                        )
+                        continue
+                    # Demoted: keep candidate, mark, log loudly. The
+                    # routing/island layer already approved it; the old
+                    # scorer no longer vetoes.
+                    log.info(
+                        "[V3_SCORER] DEMOTED-REJECT symbol=%s strategy=%s "
+                        "score=%d base=%d (routing-approved; scorer no longer vetoes)",
+                        symbol, candidate.strategy, result.score, result.base_score,
                     )
-                    continue
+                    candidate.metadata["v3_demoted_reject"] = True
                 # Replace strategy's fixed score with V3 score
                 candidate.score = float(result.score)
                 candidate.metadata["v3_tier"] = result.tier
