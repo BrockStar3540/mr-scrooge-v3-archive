@@ -118,6 +118,7 @@ class EntryFilterGate(BaseGate):
         # fallback the gate pass-through-ed every candidate.
         # Among multiple family matches, prefer highest tier.
         match = next((d for d in decisions if d.strategy == candidate.strategy), None)
+        match_kind = "exact_strategy" if match is not None else None
         if match is None:
             family_matches = [d for d in decisions if d.family == candidate.strategy]
             if family_matches:
@@ -130,6 +131,38 @@ class EntryFilterGate(BaseGate):
                     reverse=True,
                 )
                 match = family_matches[0]
+                match_kind = "exact_family"
+        # Brock 2026-05-18: family-loose override. When no exact-family cell
+        # exists at this (regime, pair, session, direction) leaf, allow the
+        # routing table to choose a cell from a DIFFERENT family -- the
+        # generator overproduces 'direct' but the best-fit cell for the leaf
+        # may be 'dbb_trend' / 'reversal'. Only cells at trade-tier (Seed-Pro+)
+        # qualify. Logs loudly when invoked.
+        if match is None and decisions and self._min_tier_rank >= self._tier_rank["Seed-Pro"]:
+            trade_tier_decisions = [
+                d for d in decisions
+                if self._tier_rank.get((d.basis or {}).get("tier", "Probationary"), 0)
+                   >= self._tier_rank["Seed-Pro"]
+            ]
+            if trade_tier_decisions:
+                trade_tier_decisions.sort(
+                    key=lambda d: (
+                        self._tier_rank.get((d.basis or {}).get("tier", "Probationary"), 0),
+                        d.score_boost,
+                    ),
+                    reverse=True,
+                )
+                match = trade_tier_decisions[0]
+                match_kind = "family_loose_override"
+                log.info(
+                    "[ENTRY_FILTER] entry_filter_family_override "
+                    "symbol=%s direction=%s candidate_family=%s -> cell_strategy=%s "
+                    "cell_family=%s tier=%s leaf=%s|%s|%s",
+                    ctx.symbol, candidate.direction.value, candidate.strategy,
+                    match.strategy, match.family,
+                    (match.basis or {}).get("tier"),
+                    regime53, ctx.symbol, session,
+                )
         if match is None:
             # No cell in the routing table covers this (regime, pair, session,
             # direction, family). Under tier-gating that means the candidate is
@@ -180,13 +213,15 @@ class EntryFilterGate(BaseGate):
                                        'snapshot': snap,
                                        'cell_strategy': cell_strategy,
                                        'cell_family': cell_family,
-                                       'cell_tier': cell_tier})
+                                       'cell_tier': cell_tier,
+                                       'match_kind': match_kind})
         return self._veto(f'shave_rule_violated: {reason}',
                           metrics={'rule': rule, 'cell': cell_label,
                                    'snapshot': snap,
                                    'cell_strategy': cell_strategy,
                                    'cell_family': cell_family,
-                                   'cell_tier': cell_tier})
+                                   'cell_tier': cell_tier,
+                                   'match_kind': match_kind})
 
     # ---- helpers ---------------------------------------------------------
 
