@@ -160,6 +160,19 @@ class SubRegimeFilterGate(BaseGate):
         snap = self._snapshot_features(ctx)
         sub_id = self._classify_sub_regime(parent, snap)
         if sub_id is None:
+            try:
+                hour = int(snap.get('hour_utc', -1))
+            except Exception:
+                hour = -1
+            key = (parent, hour)
+            if not hasattr(self, '_unmatched_seen'):
+                self._unmatched_seen = set()
+            if key not in self._unmatched_seen:
+                self._unmatched_seen.add(key)
+                log.info('[SUB_REGIME_FILTER] unmatched diag parent=%s hour=%d snap=%s',
+                         parent, hour,
+                         {k: (round(v, 6) if isinstance(v, float) else v)
+                          for k, v in snap.items()})
             return self._pass(f'sub_regime_unmatched:{parent}',
                               metrics={'parent': parent, 'snapshot': snap})
 

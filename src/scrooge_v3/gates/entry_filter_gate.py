@@ -72,6 +72,12 @@ class EntryFilterGate(BaseGate):
         regime53 = self._classify(ctx, 'technical_regime_53')
         session  = self._classify(ctx, 'session_bucket')
         if not regime53 or not session:
+            # When tier-gating is active, we cannot verify the candidate is in a
+            # qualifying cell — fail closed. Without min_tier we keep the original
+            # observe-friendly pass.
+            if self._min_tier_rank > 0:
+                return self._veto('cell_key_unavailable_tier_gated',
+                                  metrics={'regime53': regime53, 'session': session})
             return self._pass('cell_key_unavailable')
 
         decisions = self._table.lookup(
@@ -98,6 +104,17 @@ class EntryFilterGate(BaseGate):
                 )
                 match = family_matches[0]
         if match is None:
+            # No cell in the routing table covers this (regime, pair, session,
+            # direction, family). Under tier-gating that means the candidate is
+            # NOT in a qualifying tier — fail closed. Bug discovered 2026-05-18
+            # after a Sunday-open bleed where the fail-open path bypassed
+            # min_tier=Pro and let direct-counter trades fire.
+            if self._min_tier_rank > 0:
+                return self._veto('no_routing_match_for_strategy_tier_gated',
+                                  metrics={'strategy': candidate.strategy,
+                                           'direction': candidate.direction.value,
+                                           'regime53': regime53,
+                                           'session': session})
             return self._pass('no_routing_match_for_strategy')
 
         # Tier check: read tier from RoutingDecision.basis
