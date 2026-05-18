@@ -22,6 +22,7 @@ from .regime_compat import RegimeCompatGate
 from .regime_strategy_router import RegimeStrategyRouterGate
 from .box_v3_shadow import BoxV3ShadowGate
 from .entry_filter_gate import EntryFilterGate
+from .entry_filter_shadow_gate import EntryFilterShadowGate
 from .sub_regime_filter_gate import SubRegimeFilterGate
 
 # Phase 4 Signal Discipline
@@ -52,6 +53,7 @@ __all__ = [
     "RegimeStrategyRouterGate",
     "BoxV3ShadowGate",
     "EntryFilterGate",
+    "EntryFilterShadowGate",
     "SubRegimeFilterGate",
     # Phase 4
     "CooldownGate",

@@ -71,8 +71,25 @@ class EntryFilterGate(BaseGate):
         self._missing_policy = cfg.get('missing_policy', 'allow')
         # Tier-gating: only accept candidates whose cell tier >= min_tier
         # Tier order: Probationary < Standard < Pro < Elite
-        self._tier_rank = {'Probationary': 0, 'Standard': 1, 'Pro': 2, 'Elite': 3}
-        self._min_tier_rank = self._tier_rank.get(cfg.get('min_tier', 'Probationary'), 0)
+        # Tier hierarchy aligned with build_routing_table_v9.tier_for():
+        #   Probationary  (weak)     < Seed (small-but-pure, unvalidated) <
+        #   Standard      (broad, mid evidence) < Seed-Pro (small-but-very-pure) <
+        #   Pro           (strong evidence) < Elite (very strong evidence)
+        # Unknown tier names raise rather than silently return 0 — the
+        # 2026-05-18 bleed pattern was a `min_tier="Pro"` with the gate
+        # silently passing because nothing matched the rank map.
+        self._tier_rank = {
+            'Probationary': 0, 'Seed': 1, 'Standard': 2,
+            'Seed-Pro': 3, 'Pro': 4, 'Elite': 5,
+        }
+        _raw_min = cfg.get('min_tier', 'Probationary')
+        if _raw_min not in self._tier_rank:
+            raise ValueError(
+                f"min_tier={_raw_min!r} not in known tiers "
+                f"{list(self._tier_rank)} — config typo? "
+                "Default to 'Probationary' explicitly to disable tier-gating."
+            )
+        self._min_tier_rank = self._tier_rank[_raw_min]
         log.info('[ENTRY_FILTER] min_tier=%s (rank=%d)',
                  cfg.get('min_tier', 'Probationary'), self._min_tier_rank)
 

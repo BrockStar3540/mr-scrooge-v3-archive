@@ -87,7 +87,7 @@
       "stop_buffer_pips": 2,
       "fixed_score": 32
     },
-    "routing_table_path": "data/routing_table_v8.parquet",
+    "routing_table_path": "data/routing_table_v9_trade.parquet",
     "routing_table_mode": "hard",
     "routing_telemetry": {
       "enabled": true,
@@ -122,8 +122,13 @@
       "mode": "hard"
     },
     "entry_filter": {
-      "min_tier": "Pro",
+      "min_tier": "Seed-Pro",
       "mode": "hard"
+    },
+    "entry_filter_shadow": {
+      "routing_table_path": "data/routing_table_v9_observe.parquet",
+      "min_tier": "Seed",
+      "mode": "observe"
     }
   },
   "execution": {

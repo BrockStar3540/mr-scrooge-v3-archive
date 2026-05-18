@@ -212,8 +212,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # regime_floor and the rest.
     from scrooge_v3.gates import (
         BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate, EntryFilterGate,
-        ExpiryBackoffGate, RegimeCompatGate, RegimeStrategyRouterGate, RegimeFloorGate,
-        SubRegimeFilterGate, ZoneEntryCapGate,
+        EntryFilterShadowGate, ExpiryBackoffGate, RegimeCompatGate,
+        RegimeStrategyRouterGate, RegimeFloorGate, SubRegimeFilterGate, ZoneEntryCapGate,
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
@@ -277,6 +277,33 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         # Emits would_allow / ranking_score / tier per candidate; never rejects.
         BoxV3ShadowGate(mode=GateMode.OBSERVE),
     ])
+
+    # Observe-only shadow EntryFilter against the broader routing surface
+    # (routing_table_v9_observe.parquet — includes Seed tier). Brock
+    # 2026-05-18: keep Seed cells OUT of live execution but record which
+    # ones would have fired, so we can promote them based on live evidence
+    # rather than corpus replay alone. Mode is forced to OBSERVE inside
+    # EntryFilterShadowGate; the config mode value is informational only.
+    shadow_cfg = gate_cfg.get("entry_filter_shadow") if gate_cfg else None
+    if shadow_cfg:
+        from scrooge_v3.strategies.routing_table import RoutingTable as _RT
+        _shadow_path = shadow_cfg.get(
+            "routing_table_path", "data/routing_table_v9_observe.parquet",
+        )
+        try:
+            _shadow_table = _RT(_shadow_path)
+            log.info(
+                "[BOOT] entry_filter_shadow routing_table loaded path=%s rows=%d leaves=%d",
+                _shadow_path, _shadow_table._rows, _shadow_table._unique_leaves,
+            )
+            gate_pipeline.register(EntryFilterShadowGate(
+                routing_table=_shadow_table,
+                config=shadow_cfg,
+            ))
+        except Exception as exc:
+            log.warning(
+                "[BOOT] entry_filter_shadow disabled — load failed: %s", exc,
+            )
 
     # --- Wire scorer and gate pipeline into scan pipeline ---
     scorer = V3HybridScorer(config.section("scoring"))
