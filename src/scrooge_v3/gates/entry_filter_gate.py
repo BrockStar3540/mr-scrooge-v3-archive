@@ -39,13 +39,21 @@ from .base import BaseGate
 # Maps rule-grammar feature names (from the offline corpus / shaver) to the
 # live bot's (ctx.features[FEAT].values[KEY]) access pattern.
 # This is the ONLY place the offline/live name divergence is resolved.
+#
+# 2026-05-18 audit: ATR_ratio/BB_compress/ADX14/RSI14 were pointing at
+# non-existent features (`atr`/`bollinger.bb_compress`/`adx`/`rsi.rsi`).
+# Live values for these live on the technical_regime_53 feature with
+# matching key names. Without this fix shave_rule clauses on those
+# features fell through to `missing_feature:<name>` and (under the default
+# `missing_policy: allow`) silently passed the candidate.
 _FEATURE_MAP: dict[str, tuple[str, str]] = {
-    'ATR_ratio':    ('atr',          'atr_ratio'),
-    'BB_compress':  ('bollinger',    'bb_compress'),
-    'RSI14':        ('rsi',          'rsi'),
-    'price_pos':    ('zone_detector','price_pos'),
-    'volume_ratio': ('volume',       'volume_ratio'),
-    'ADX14':        ('adx',          'adx14'),
+    'ATR_ratio':    ('technical_regime_53', 'ATR_ratio'),
+    'BB_compress':  ('technical_regime_53', 'BB_compress'),
+    'ADX14':        ('technical_regime_53', 'ADX14'),
+    'RSI14':        ('technical_regime_53', 'RSI14'),
+    'bb_position':  ('bollinger',           'bb_position'),
+    'price_pos':    ('zone_detector',       'price_pos'),
+    'volume_ratio': ('volume',              'volume_ratio'),
 }
 
 _RULE_RE = re.compile(r'^([\w_]+)\s*(<=|>=|<|>|==|=)\s*(.+?)\s*$')
@@ -183,8 +191,11 @@ class EntryFilterGate(BaseGate):
         snap: dict[str, Any] = {}
         for n in set(names):
             if n == 'hour_utc':
-                ts = getattr(ctx.snapshot, 'ts', None)
-                snap[n] = ts.hour if ts else None
+                # MarketSnapshot exposes `timestamp`, not `ts`. Same bug as
+                # SubRegimeFilterGate — hour_utc shave clauses silently never
+                # matched, falling through to `missing_feature:hour_utc`.
+                ts = getattr(ctx.snapshot, 'timestamp', None)
+                snap[n] = ts.hour if ts is not None else None
             elif n == 'session_bucket':
                 snap[n] = self._classify(ctx, 'session_bucket')
             elif n in _FEATURE_MAP:

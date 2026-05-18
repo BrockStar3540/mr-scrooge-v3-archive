@@ -87,6 +87,23 @@ class GatePipeline:
                 gate_result.reason,
             )
 
+        # Aggregate decision — load-bearing for execution control. Before this
+        # log existed, an OBSERVE-mode "FAILED" was indistinguishable from a
+        # real HARD veto, and the 2026-05-18 bleed went unnoticed until orders
+        # placed. Now any caller (or operator tailing logs) can see whether the
+        # pipeline as a whole APPROVED or BLOCKED the candidate.
+        if result.all_passed:
+            logger.info(
+                "[PIPELINE] APPROVED symbol=%s strategy=%s direction=%s",
+                candidate.symbol, candidate.strategy,
+                candidate.direction.value if hasattr(candidate.direction, "value") else candidate.direction,
+            )
+        else:
+            logger.info(
+                "[PIPELINE] BLOCKED symbol=%s rejection=%s",
+                candidate.symbol, result.rejection_reason,
+            )
+
         return result
 
     def _run_one(

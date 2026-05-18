@@ -33,14 +33,21 @@ from .base import BaseGate
 
 log = logging.getLogger('scrooge_v3.gate.sub_regime_filter')
 
-# Live feature accessor map (rule grammar -> ctx.features path)
+# Live feature accessor map (rule grammar -> ctx.features path).
+#
+# The sub-regime rule corpus was built from features computed by
+# TechnicalRegime53Calculator (atr14_M5 / d_atr20_avg semantics, etc.).
+# Earlier this map pointed ATR_ratio/BB_compress/ADX14 at non-existent
+# features (`atr`/`bb_compress`/`adx`) so 80%+ of sub-regime conditions
+# never matched and the gate silently passed through with sub_regime_unmatched.
+# 2026-05-18 diagnostic confirmed: snap had only RSI14/bb_position/volume_ratio.
 _FEATURE_MAP: dict[str, tuple[str, str]] = {
-    'ATR_ratio':    ('atr',          'atr_ratio'),
-    'BB_compress':  ('bollinger',    'bb_compress'),
-    'RSI14':        ('rsi',          'rsi'),
-    'bb_position':  ('bollinger',    'bb_position'),
-    'volume_ratio': ('volume',       'volume_ratio'),
-    'ADX14':        ('adx',          'adx14'),
+    'ATR_ratio':    ('technical_regime_53', 'ATR_ratio'),
+    'BB_compress':  ('technical_regime_53', 'BB_compress'),
+    'ADX14':        ('technical_regime_53', 'ADX14'),
+    'RSI14':        ('technical_regime_53', 'RSI14'),
+    'bb_position':  ('bollinger',           'bb_position'),
+    'volume_ratio': ('volume',              'volume_ratio'),
 }
 
 _RULE_RE = re.compile(r'^([\w_]+)\s*(<=|>=|<|>|==|=)\s*(.+?)\s*$')
@@ -118,8 +125,11 @@ class SubRegimeFilterGate(BaseGate):
                 snap[name] = float(v)
             except (TypeError, ValueError):
                 continue
-        ts = getattr(ctx.snapshot, 'ts', None)
-        snap['hour_utc'] = float(ts.hour) if ts else float('nan')
+        # MarketSnapshot exposes `timestamp`, not `ts`. The earlier `ts`
+        # lookup always returned None and emitted hour_utc=nan, which broke
+        # every C01/C02 rule that conditions on hour_utc (151 of 81 rules).
+        ts = getattr(ctx.snapshot, 'timestamp', None)
+        snap['hour_utc'] = float(ts.hour) if ts is not None else float('nan')
         return snap
 
     def _classify_sub_regime(self, parent: str, snap: dict[str, float]) -> str | None:

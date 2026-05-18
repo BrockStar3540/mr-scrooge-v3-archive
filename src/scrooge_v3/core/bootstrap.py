@@ -28,6 +28,40 @@ class BootFailure(Exception):
     pass
 
 
+def _resolve_gate_mode(
+    gate_cfg: dict[str, Any] | None,
+    default: str,
+    gate_name: str,
+) -> "GateMode":
+    """Resolve a gate's mode from its config block.
+
+    A *missing* `mode` key inside a present config block is treated as an
+    operator slip — the Sunday-open 2026-05-18 bleed happened because
+    `gates.entry_filter` was `{"min_tier": "Pro"}` with no `mode`,
+    defaulting to OBSERVE silently. We WARN so it shows up in the boot log.
+    Unknown values raise BootFailure rather than falling back.
+    """
+    from scrooge_v3.core.types import GateMode
+
+    if not gate_cfg:
+        return GateMode(default)
+    if "mode" not in gate_cfg:
+        log.warning(
+            "[BOOT] gates.%s has no 'mode' key — defaulting to %s. "
+            "Add explicit mode to config to silence this warning.",
+            gate_name, default,
+        )
+        return GateMode(default)
+    raw = gate_cfg["mode"]
+    try:
+        return GateMode(raw)
+    except ValueError as exc:
+        raise BootFailure(
+            f"gates.{gate_name}.mode={raw!r} is not a valid GateMode "
+            f"(expected one of: hard, soft, observe)"
+        ) from exc
+
+
 def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext:
     """Boot all engines, validate config, return a fully wired RuntimeContext.
 
@@ -217,7 +251,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         SubRegimeFilterGate(
             definitions_path="data/sub_regime_definitions_v1.csv",
             config=(gate_cfg.get("sub_regime_filter", {}) if gate_cfg else {}),
-            mode=GateMode(gate_cfg.get("sub_regime_filter", {}).get("mode", "observe")) if gate_cfg else GateMode.OBSERVE,
+            mode=_resolve_gate_mode(
+                gate_cfg.get("sub_regime_filter") if gate_cfg else None,
+                default="observe",
+                gate_name="sub_regime_filter",
+            ),
         ),
         # Per-cell entry-filter (shave_rule) enforcement -- the validated
         # band-rule from the hybrid shaver. OBSERVE for first 24-48h to
@@ -228,7 +266,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         EntryFilterGate(
             routing_table=router.routing_table,
             config=(gate_cfg.get("entry_filter", {}) if gate_cfg else {}),
-            mode=GateMode(gate_cfg.get("entry_filter", {}).get("mode", "observe")) if gate_cfg else GateMode.OBSERVE,
+            mode=_resolve_gate_mode(
+                gate_cfg.get("entry_filter") if gate_cfg else None,
+                default="observe",
+                gate_name="entry_filter",
+            ),
         ),
         # Observe-only shadow of frozen box v3 gate tree (from trainer repo
         # 19ada0e: docs/box_gate_tree.md + data/regimes/box_gate_v3.yaml).
@@ -391,6 +433,16 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     log.info("[BOOT] Complete — dry_run=%s, %d features, %d gates",
              dry_run, len(list(registry.get_active("features"))),
              len(gate_pipeline.gates) if hasattr(gate_pipeline, 'gates') else 0)
+
+    # Gate mode audit — make every gate's effective mode visible at boot.
+    # Helps catch OBSERVE-default slips (cf. 2026-05-18 bleed).
+    if hasattr(gate_pipeline, "gates"):
+        rows = [(g.name, g.mode.value if hasattr(g.mode, "value") else str(g.mode))
+                for g in gate_pipeline.gates]
+        log.info("[BOOT] Gate mode summary (%d gates):", len(rows))
+        for name, mode_str in rows:
+            tag = "HARD " if mode_str == "hard" else "obs  " if mode_str == "observe" else mode_str
+            log.info("[BOOT]   %s  %s", tag, name)
 
     return RuntimeContext(
         config=config,
