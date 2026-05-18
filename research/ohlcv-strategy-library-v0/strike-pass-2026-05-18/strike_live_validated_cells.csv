@@ -1,0 +1,8 @@
+regime53,pair,cell_strategy,direction,session_bucket,live_passes
+C02,EUR_CAD,charlie_compression_breakout,long,ny_mid,41
+C01,EUR_GBP,charlie_compression_breakout,long,ny_open,37
+C02,USD_CHF,alpha_breakout_retest_v2,long,ny_mid,36
+C01,USD_CHF,alpha_breakout_retest_v2,short,ny_open,24
+C02,GBP_CHF,alpha_breakout_retest_v2,short,ny_open,6
+C01,EUR_CHF,charlie_compression_breakout,long,ny_open,2
+C02,EUR_NZD,charlie_pullback_continuation_v2,short,ny_open,2
