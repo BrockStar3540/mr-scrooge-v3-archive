@@ -200,6 +200,31 @@ def score(matched: pd.DataFrame) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Tier classification — Brock 2026-05-18:
+#   strict (deployable winner): n_unique >= 10 AND wr_unique >= 0.65–0.70
+#   near_miss (research queue):  n_unique >=  8 AND wr_unique >= 0.55
+#   dead (skip):                 below either bar
+# ---------------------------------------------------------------------------
+
+STRICT_MIN_N = 10
+STRICT_MIN_WR_LIVE_GAP = 0.70    # higher bar -- no parent rule, synthesized fresh
+STRICT_MIN_WR_BOUNDARY = 0.65    # cell already had wr_unique >= ~0.70 pre-widening
+STRICT_MIN_WR_SESSION  = 0.65    # session swap preserves the band rule
+
+NEAR_MIN_N = 8
+NEAR_MIN_WR = 0.55
+
+
+def classify_outcome(score: dict, strict_min_n: int, strict_min_wr: float) -> str:
+    n, wr = score["n_unique"], score["wr_unique"]
+    if n >= strict_min_n and wr >= strict_min_wr:
+        return "strict_winner"
+    if n >= NEAR_MIN_N and wr >= NEAR_MIN_WR:
+        return "near_miss_candidate"
+    return "dead"
+
+
+# ---------------------------------------------------------------------------
 # Queue A: live_gap (no_match)
 # ---------------------------------------------------------------------------
 
@@ -224,14 +249,16 @@ def expand_live_gap(targets: pd.DataFrame, corpus: pd.DataFrame, min_n: int = 10
             sub = sub[sub["session_bucket"] == t["session_bucket"]]
         if len(sub) < min_n:
             continue
-        # depth-2 split: find best single-factor threshold that maximizes WR
-        # within the tuple, subject to n >= min_n in the kept side
-        best = None
+        # depth-1 split-search: find the best single-factor threshold that
+        # passes either strict (wr>=0.70) or near-miss (wr>=0.55) bars.
+        # We keep BOTH so dead/near-miss/strict are visible.
+        best_strict = None
+        best_near = None
         for feat in NUMERIC_FACTORS:
             if feat not in sub.columns:
                 continue
             vals = pd.to_numeric(sub[feat], errors="coerce").dropna()
-            if len(vals) < min_n * 2:
+            if len(vals) < NEAR_MIN_N * 2:
                 continue
             for q in [0.25, 0.50, 0.75]:
                 thr = float(vals.quantile(q))
@@ -241,23 +268,40 @@ def expand_live_gap(targets: pd.DataFrame, corpus: pd.DataFrame, min_n: int = 10
                     else:
                         cm = pd.to_numeric(sub[feat], errors="coerce") > thr
                     kept = sub[cm]
-                    if len(kept) < min_n:
+                    if len(kept) < NEAR_MIN_N:
                         continue
                     s = score(kept)
-                    if s["wr_unique"] < min_wr:
-                        continue
                     cand = {**s, "feat": feat, "op": op, "thr": thr}
-                    if best is None or s["wilson_lb"] > best["wilson_lb"]:
-                        best = cand
-        if best:
+                    if s["n_unique"] >= STRICT_MIN_N and s["wr_unique"] >= STRICT_MIN_WR_LIVE_GAP:
+                        if best_strict is None or s["wilson_lb"] > best_strict["wilson_lb"]:
+                            best_strict = cand
+                    elif s["wr_unique"] >= NEAR_MIN_WR:
+                        if best_near is None or s["wilson_lb"] > best_near["wilson_lb"]:
+                            best_near = cand
+        chosen, tier = (best_strict, "strict_winner") if best_strict else (
+            (best_near, "near_miss_candidate") if best_near else (None, "dead")
+        )
+        if chosen:
             out.append({
                 "queue": "live_gap",
+                "outcome_tier": tier,
                 "regime53": t["regime53"], "pair": t["symbol"],
                 "session_bucket": t["session_bucket"], "direction": t["direction"],
                 "family": t["candidate_family"],
-                "child_rule": f"{best['feat']}{best['op']}{best['thr']:.6g}",
-                "n_unique": best["n_unique"], "wins_unique": best["wins_unique"],
-                "wr_unique": best["wr_unique"], "wilson_lb": best["wilson_lb"],
+                "child_rule": f"{chosen['feat']}{chosen['op']}{chosen['thr']:.6g}",
+                "n_unique": chosen["n_unique"], "wins_unique": chosen["wins_unique"],
+                "wr_unique": chosen["wr_unique"], "wilson_lb": chosen["wilson_lb"],
+                "source_strategy": "synthesized_from_corpus",
+            })
+        else:
+            out.append({
+                "queue": "live_gap", "outcome_tier": "dead",
+                "regime53": t["regime53"], "pair": t["symbol"],
+                "session_bucket": t["session_bucket"], "direction": t["direction"],
+                "family": t["candidate_family"],
+                "child_rule": None,
+                "n_unique": 0, "wins_unique": 0,
+                "wr_unique": 0.0, "wilson_lb": 0.0,
                 "source_strategy": "synthesized_from_corpus",
             })
     return pd.DataFrame(out)
@@ -318,6 +362,7 @@ def expand_boundary_thin(targets: pd.DataFrame, corpus: pd.DataFrame,
             sub = sub.copy()
             sub["session_bucket"] = sub["hour_utc"].map(session_bucket_for_hour)
 
+        best_for_target = None
         for pct in (0.05, 0.10, 0.15):
             widened = []
             for f, op, val in clauses:
@@ -329,20 +374,35 @@ def expand_boundary_thin(targets: pd.DataFrame, corpus: pd.DataFrame,
             mask = apply_rule(sub, widened)
             matched = sub[mask]
             s = score(matched)
-            if s["n_unique"] >= min_n and s["wr_unique"] >= min_wr:
-                out.append({
-                    "queue": "boundary_thin",
-                    "regime53": t["regime53"], "pair": t["symbol"],
-                    "session_bucket": t["session_bucket"], "direction": t["direction"],
-                    "family": t["candidate_family"],
-                    "child_rule": serialize_rule(widened),
-                    "n_unique": s["n_unique"], "wins_unique": s["wins_unique"],
-                    "wr_unique": s["wr_unique"], "wilson_lb": s["wilson_lb"],
-                    "source_strategy": "boundary_widen",
-                    "widen_pct": pct,
-                    "parent_rule": rule,
-                })
-                break  # take the tightest widening that works
+            tier = classify_outcome(s, STRICT_MIN_N, STRICT_MIN_WR_BOUNDARY)
+            cand = {
+                "queue": "boundary_thin",
+                "outcome_tier": tier,
+                "regime53": t["regime53"], "pair": t["symbol"],
+                "session_bucket": t["session_bucket"], "direction": t["direction"],
+                "family": t["candidate_family"],
+                "cell_strategy": t.get("shadow_cell_strategy"),
+                "child_rule": serialize_rule(widened),
+                "n_unique": s["n_unique"], "wins_unique": s["wins_unique"],
+                "wr_unique": s["wr_unique"], "wilson_lb": s["wilson_lb"],
+                "source_strategy": "boundary_widen",
+                "widen_pct": pct,
+                "parent_rule": rule,
+            }
+            # Take the strictest tier reached, breaking ties by Wilson LB
+            if tier == "strict_winner":
+                best_for_target = cand
+                break
+            elif tier == "near_miss_candidate" and (
+                best_for_target is None or
+                best_for_target.get("outcome_tier") == "dead" or
+                cand["wilson_lb"] > best_for_target.get("wilson_lb", 0.0)
+            ):
+                best_for_target = cand
+            elif best_for_target is None:
+                best_for_target = cand  # fall back to dead so we still record
+        if best_for_target is not None:
+            out.append(best_for_target)
     return pd.DataFrame(out)
 
 
@@ -387,19 +447,21 @@ def expand_session_sibling(targets: pd.DataFrame, corpus: pd.DataFrame,
         mask = apply_rule(sub, sibling)
         matched = sub[mask]
         s = score(matched)
-        if s["n_unique"] >= min_n and s["wr_unique"] >= min_wr:
-            out.append({
-                "queue": "session_sibling",
-                "regime53": t["regime53"], "pair": t["symbol"],
-                "session_bucket": new_session, "direction": t["direction"],
-                "family": t["candidate_family"],
-                "child_rule": serialize_rule(sibling),
-                "n_unique": s["n_unique"], "wins_unique": s["wins_unique"],
-                "wr_unique": s["wr_unique"], "wilson_lb": s["wilson_lb"],
-                "source_strategy": "session_substitute",
-                "parent_rule": rule,
-                "parent_session": t.get("cell_session"),
-            })
+        tier = classify_outcome(s, STRICT_MIN_N, STRICT_MIN_WR_SESSION)
+        out.append({
+            "queue": "session_sibling",
+            "outcome_tier": tier,
+            "regime53": t["regime53"], "pair": t["symbol"],
+            "session_bucket": new_session, "direction": t["direction"],
+            "family": t["candidate_family"],
+            "cell_strategy": t.get("shadow_cell_strategy"),
+            "child_rule": serialize_rule(sibling),
+            "n_unique": s["n_unique"], "wins_unique": s["wins_unique"],
+            "wr_unique": s["wr_unique"], "wilson_lb": s["wilson_lb"],
+            "source_strategy": "session_substitute",
+            "parent_rule": rule,
+            "parent_session": t.get("cell_session"),
+        })
     return pd.DataFrame(out)
 
 
@@ -448,14 +510,25 @@ def main():
     c = expand_session_sibling(session_t, corpus)
     print(f"  -> {len(c)} winners")
 
-    a.to_csv(out / "expansion_winners_live_gap.csv", index=False)
-    b.to_csv(out / "expansion_winners_boundary_thin.csv", index=False)
-    c.to_csv(out / "expansion_winners_session_sibling.csv", index=False)
+    a.to_csv(out / "expansion_all_live_gap.csv", index=False)
+    b.to_csv(out / "expansion_all_boundary_thin.csv", index=False)
+    c.to_csv(out / "expansion_all_session_sibling.csv", index=False)
     non_empty = [df for df in [a, b, c] if not df.empty]
-    all_w = pd.concat(non_empty, ignore_index=True) if non_empty else pd.DataFrame()
-    all_w.to_csv(out / "expansion_winners_all.csv", index=False)
-    print(f"\nTotal winners: {len(all_w)}")
-    print(f"  -> {out}/expansion_winners_all.csv")
+    all_rows = pd.concat(non_empty, ignore_index=True) if non_empty else pd.DataFrame()
+    if not all_rows.empty:
+        strict = all_rows[all_rows.outcome_tier == "strict_winner"]
+        near   = all_rows[all_rows.outcome_tier == "near_miss_candidate"]
+        dead   = all_rows[all_rows.outcome_tier == "dead"]
+        strict.to_csv(out / "strict_expansion_winners.csv", index=False)
+        near.to_csv(out / "near_miss_expansion_candidates.csv", index=False)
+        dead.to_csv(out / "dead_expansion_holes.csv", index=False)
+        all_rows.to_csv(out / "expansion_all.csv", index=False)
+        print(f"\nResults by outcome_tier:")
+        print(f"  strict_winner       : {len(strict)} -> strict_expansion_winners.csv")
+        print(f"  near_miss_candidate : {len(near)}   -> near_miss_expansion_candidates.csv")
+        print(f"  dead                : {len(dead)}   -> dead_expansion_holes.csv")
+    else:
+        print("No candidates generated.")
 
 
 if __name__ == "__main__":
