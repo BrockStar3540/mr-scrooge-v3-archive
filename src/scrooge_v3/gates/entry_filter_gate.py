@@ -64,9 +64,11 @@ class EntryFilterGate(BaseGate):
 
     def __init__(self, routing_table: RoutingTable,
                  config: dict[str, Any] | None = None,
-                 mode: GateMode = GateMode.OBSERVE) -> None:
+                 mode: GateMode = GateMode.OBSERVE,
+                 ledger: Any = None) -> None:
         super().__init__(config=config, mode=mode)
         self._table = routing_table
+        self._ledger = ledger
         cfg = config or {}
         self._missing_policy = cfg.get('missing_policy', 'allow')
         # Tier-gating: only accept candidates whose cell tier >= min_tier
@@ -166,11 +168,25 @@ class EntryFilterGate(BaseGate):
                 return self._veto(reason, metrics={'rule': rule, 'cell': cell_label})
             return self._pass(reason, metrics={'rule': rule, 'cell': cell_label, 'snapshot': snap})
 
+        # carry the cell's strategy_id + family so downstream telemetry
+        # can filter the corpus to the exact strategy this rule was fit on
+        # (rather than the broader family). Required for sane offline
+        # expansion -- see Brock 2026-05-18 telemetry diagnostic.
+        cell_strategy = match.strategy
+        cell_family = match.family
         if verdict:
             return self._pass('shave_rule_satisfied',
-                              metrics={'rule': rule, 'cell': cell_label, 'snapshot': snap})
+                              metrics={'rule': rule, 'cell': cell_label,
+                                       'snapshot': snap,
+                                       'cell_strategy': cell_strategy,
+                                       'cell_family': cell_family,
+                                       'cell_tier': cell_tier})
         return self._veto(f'shave_rule_violated: {reason}',
-                          metrics={'rule': rule, 'cell': cell_label, 'snapshot': snap})
+                          metrics={'rule': rule, 'cell': cell_label,
+                                   'snapshot': snap,
+                                   'cell_strategy': cell_strategy,
+                                   'cell_family': cell_family,
+                                   'cell_tier': cell_tier})
 
     # ---- helpers ---------------------------------------------------------
 
@@ -252,3 +268,33 @@ class EntryFilterGate(BaseGate):
     def _veto(self, reason: str, metrics: dict | None = None) -> GateResult:
         return GateResult(gate_name=self.name, passed=False, mode=self.mode,
                           reason=reason, metrics=metrics or {})
+
+    # Brock 2026-05-18: write structured row per candidate so the offline
+    # expansion pipeline can drive sibling/seed mining off live telemetry.
+    def safe_evaluate(self, candidate, ctx):  # type: ignore[override]
+        result = super().safe_evaluate(candidate, ctx)
+        if self._ledger is not None:
+            try:
+                m = result.metrics or {}
+                regime53 = m.get('regime53') or self._classify(ctx, 'technical_regime_53')
+                session = m.get('session') or self._classify(ctx, 'session_bucket')
+                self._ledger.record(
+                    gate=self.name,
+                    symbol=ctx.symbol,
+                    regime53=regime53,
+                    session_bucket=session,
+                    direction=candidate.direction.value,
+                    candidate_strategy=candidate.strategy,
+                    block_reason=result.reason,
+                    passed=bool(result.passed),
+                    mode=result.mode.value if hasattr(result.mode, 'value') else str(result.mode),
+                    cell_tier=m.get('cell_tier'),
+                    cell_label=m.get('cell'),
+                    cell_strategy=m.get('cell_strategy'),
+                    cell_family=m.get('cell_family'),
+                    shave_rule=m.get('rule'),
+                    factors=m.get('snapshot'),
+                )
+            except Exception:
+                log.exception("[%s] ledger write failed", self.name)
+        return result

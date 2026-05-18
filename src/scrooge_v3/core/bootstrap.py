@@ -217,8 +217,14 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
+    from scrooge_v3.telemetry.seed_telemetry_ledger import SeedTelemetryLedger
 
     gate_cfg = config.section("gates")
+
+    # Seed-tier telemetry ledger: appends one JSONL row per EntryFilter
+    # (live + shadow) evaluation so the offline expansion pipeline can
+    # drive sibling/seed mining off live blocked candidates. Brock 2026-05-18.
+    seed_telemetry_ledger = SeedTelemetryLedger("data/seed-telemetry.jsonl")
     gate_pipeline = GatePipeline()
     gate_pipeline.register_many([
         DailyCircuitGate(),
@@ -271,6 +277,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
                 default="observe",
                 gate_name="entry_filter",
             ),
+            ledger=seed_telemetry_ledger,
         ),
         # Observe-only shadow of frozen box v3 gate tree (from trainer repo
         # 19ada0e: docs/box_gate_tree.md + data/regimes/box_gate_v3.yaml).
@@ -299,6 +306,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
             gate_pipeline.register(EntryFilterShadowGate(
                 routing_table=_shadow_table,
                 config=shadow_cfg,
+                ledger=seed_telemetry_ledger,
             ))
         except Exception as exc:
             log.warning(

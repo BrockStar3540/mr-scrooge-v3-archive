@@ -37,9 +37,11 @@ class EntryFilterShadowGate(EntryFilterGate):
         # mode argument accepted for symmetry with bootstrap call site but
         # always coerced to OBSERVE -- shadow gates never block.
         mode: GateMode = GateMode.OBSERVE,
+        ledger: Any = None,
     ) -> None:
         super().__init__(
             routing_table=routing_table,
             config=config,
             mode=GateMode.OBSERVE,
+            ledger=ledger,
         )
