@@ -46,7 +46,11 @@ class TestSpreadGate:
     def test_jpy_uses_wider_threshold(self):
         from scrooge_v3.gates.spread import SpreadGate
         gate = SpreadGate({"max_spread_jpy": 5.0})
-        ctx = _ctx(symbol="USD_JPY", mid=150.0, spread=4.0)
+        # MarketSnapshot.spread is in price units. JPY pip = 0.01, so
+        # 0.04 = 4 pips (below the 5-pip JPY threshold). The previous value
+        # of 4.0 was a unit confusion -- the gate converted it to 400 pips
+        # and rejected, masking the JPY-threshold logic this test exercises.
+        ctx = _ctx(symbol="USD_JPY", mid=150.0, spread=0.04)
         result = gate.evaluate(_candidate(symbol="USD_JPY"), ctx)
         assert result.passed
 
