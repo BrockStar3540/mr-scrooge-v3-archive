@@ -100,8 +100,24 @@ class StrategyRouter:
                         ctx.symbol, r53, sess, allowed, table_names, table_families, mode,
                     )
                 if mode == "hard":
-                    # Hard mode: table is the source of truth. Empty list = death.
-                    # Return both family names and probe names (registry holds both).
-                    return sorted(set(table_names + table_families))
+                    # Hard mode: table is the source of truth.
+                    table_allowed = sorted(set(table_names + table_families))
+                    if table_allowed:
+                        ctx.metadata["router_fallback"] = False
+                        return table_allowed
+                    # Fallback (Brock 2026-05-19, Option B): when the table
+                    # has no cell for (regime, pair, session), don't silently
+                    # kill — emit the BB-allowed candidates with a fallback
+                    # flag so downstream gates (entry_filter still hard) can
+                    # block them while telemetry records the would-fire
+                    # event. Without this, shadow can't observe what the
+                    # router silently killed.
+                    ctx.metadata["router_fallback"] = True
+                    log.info(
+                        "[ROUTER] hard_mode_fallback symbol=%s r53=%s session=%s bb_allowed=%s reason=table_empty",
+                        ctx.symbol, r53, sess, allowed,
+                    )
+                    return allowed
+                ctx.metadata["router_fallback"] = False
 
         return allowed
