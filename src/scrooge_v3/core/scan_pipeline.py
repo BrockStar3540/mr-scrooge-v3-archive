@@ -554,13 +554,39 @@ class ScanPipeline:
                         "floor": _st.get("floor", 0), "b": _st.get("b", 0),
                         "a": _st.get("a", 0), "cap": _st.get("cap", 0),
                     }
-                    if sr.tier in ("A", "B"):
-                        candidate.score = float(sr.score)
-                        candidate.metadata["v3_tier"] = sr.tier
-                        candidate.metadata["v3_breakdown"] = sr.breakdown
-                        scored.append(candidate)
+                    # Surgical V3 scorer demotion (Brock 2026-05-18,
+                    # mirrored from scan_symbol). BLOCKED always drops.
+                    # REJECT drops only if the candidate is NOT routing-
+                    # approved at trade tier. Routing-approved REJECT
+                    # bypasses the veto and continues as a soft rank.
+                    TRADE_TIERS = {"Seed-Pro", "Pro", "Elite"}
+                    routing_cell_tier = candidate.metadata.get("routing_cell_tier")
+                    routing_approved = routing_cell_tier in TRADE_TIERS
+                    if sr.tier == "BLOCKED":
+                        continue
+                    if sr.tier == "REJECT" and not routing_approved:
+                        continue
+                    if sr.tier == "REJECT" and routing_approved:
+                        log.info(
+                            "[V3_SCORER] scorer_bypassed_by_routing_cell "
+                            "scorer_soft_rank_only symbol=%s direction=%s "
+                            "strategy=%s cell_label=%s cell_tier=%s "
+                            "raw_score=%d base_score=%d",
+                            candidate.symbol,
+                            getattr(candidate.direction, "value", str(candidate.direction)),
+                            candidate.strategy,
+                            candidate.metadata.get("routing_cell_label", "?"),
+                            routing_cell_tier,
+                            sr.score, sr.base_score,
+                        )
+                        candidate.metadata["v3_bypassed_by_routing"] = True
+                        candidate.metadata["v3_would_have_rejected_at"] = sr.score
+                    candidate.score = float(sr.score)
+                    candidate.metadata["v3_tier"] = sr.tier
+                    candidate.metadata["v3_breakdown"] = sr.breakdown
+                    scored.append(candidate)
                 except Exception:
-                    pass
+                    log.exception("[SCAN_FULL] scorer step failed for %s", candidate.symbol)
 
             if not scored:
                 # All candidates blocked/rejected by scorer
