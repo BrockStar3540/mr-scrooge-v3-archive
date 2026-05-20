@@ -11,7 +11,10 @@ Flow:
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+import random
 from typing import Any
 
 from .events import (
@@ -34,6 +37,40 @@ from .types import (
 )
 
 log = logging.getLogger("scrooge_v3.core.scan_pipeline")
+
+
+# Soft-deprioritize cache (Brock 2026-05-20): tuples with no bank coverage
+# get a 20% sampling rate to save scan effort while preserving telemetry.
+# File is reloaded automatically when mtime changes.
+_DEPRIO_CACHE: dict = {"mtime": 0.0, "tuples": set(), "sample_rate": 1.0,
+                       "logged_skips": 0}
+
+
+def _load_deprioritize() -> tuple[set, float]:
+    """Return (deprioritize_tuples, sample_rate). Empty on missing/error."""
+    path = "data/router_deprioritize.json"
+    try:
+        mt = os.path.getmtime(path)
+    except OSError:
+        return set(), 1.0
+    if _DEPRIO_CACHE["mtime"] != mt:
+        try:
+            with open(path) as f:
+                cfg = json.load(f)
+            tuples = {(t["regime53"], t["pair"], t["direction"])
+                      for t in cfg.get("tuples", [])}
+            rate = float(cfg.get("sample_rate", 0.20))
+            _DEPRIO_CACHE["tuples"] = tuples
+            _DEPRIO_CACHE["sample_rate"] = rate
+            _DEPRIO_CACHE["mtime"] = mt
+            log.info(
+                "[ROUTER] deprioritize list loaded: %d tuples, sample_rate=%.2f",
+                len(tuples), rate,
+            )
+        except Exception as exc:
+            log.exception("[ROUTER] failed to load deprioritize list: %s", exc)
+            return set(), 1.0
+    return _DEPRIO_CACHE["tuples"], _DEPRIO_CACHE["sample_rate"]
 
 
 
@@ -416,6 +453,36 @@ class ScanPipeline:
                         candidates.append(candidate)
             except Exception:
                 pass
+
+        # 4.5 Soft-deprioritize (Brock 2026-05-20): drop candidates whose
+        # (regime53, pair, direction) tuple has no bank coverage at any
+        # tier. Sample at 20% so telemetry continues to detect regime
+        # drift / new evidence. Cuts ~half the scan effort on tuples
+        # the validated bank says are dead.
+        if candidates:
+            dep_tuples, dep_rate = _load_deprioritize()
+            if dep_tuples:
+                rc = ctx.classifications.get("technical_regime_53")
+                regime_label = rc.label if rc else None
+                if regime_label is None:
+                    rfeat = ctx.features.get("technical_regime_53")
+                    if rfeat is not None:
+                        vals = getattr(rfeat, "values", {}) or {}
+                        regime_label = vals.get("technical_regime_53")
+                if regime_label:
+                    kept = []
+                    for c in candidates:
+                        d = c.direction.value if hasattr(c.direction, "value") else str(c.direction)
+                        if (regime_label, symbol, d) in dep_tuples and random.random() >= dep_rate:
+                            _DEPRIO_CACHE["logged_skips"] += 1
+                            if _DEPRIO_CACHE["logged_skips"] % 50 == 1:
+                                log.info(
+                                    "[ROUTER] deprioritized_sampled_out symbol=%s regime=%s direction=%s (logged 1/50)",
+                                    symbol, regime_label, d,
+                                )
+                            continue
+                        kept.append(c)
+                    candidates = kept
 
         # Build per-candidate records that we'll enrich as we walk the
         # pipeline (gates -> scorer). The trainer persists this so it can

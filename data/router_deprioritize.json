@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "created_at": "2026-05-20T16:00:00Z",
+  "description": "Soft-deprioritize list. Tuples with no v9_observe trade-tier coverage AND >=50 live evals today. scan_pipeline keeps a 20% sample to detect regime drift, drops the other 80%.",
+  "sample_rate": 0.2,
+  "tuples": [
+    {
+      "regime53": "C02",
+      "pair": "GBP_AUD",
+      "direction": "short",
+      "evals_24h": 355
+    },
+    {
+      "regime53": "C02",
+      "pair": "EUR_AUD",
+      "direction": "long",
+      "evals_24h": 325
+    },
+    {
+      "regime53": "C02",
+      "pair": "GBP_USD",
+      "direction": "long",
+      "evals_24h": 315
+    },
+    {
+      "regime53": "C02",
+      "pair": "AUD_CHF",
+      "direction": "short",
+      "evals_24h": 285
+    },
+    {
+      "regime53": "C02",
+      "pair": "CAD_JPY",
+      "direction": "long",
+      "evals_24h": 153
+    },
+    {
+      "regime53": "C01",
+      "pair": "CAD_JPY",
+      "direction": "long",
+      "evals_24h": 127
+    },
+    {
+      "regime53": "C02",
+      "pair": "EUR_JPY",
+      "direction": "long",
+      "evals_24h": 110
+    },
+    {
+      "regime53": "C02",
+      "pair": "EUR_CHF",
+      "direction": "short",
+      "evals_24h": 107
+    },
+    {
+      "regime53": "C01",
+      "pair": "GBP_USD",
+      "direction": "long",
+      "evals_24h": 107
+    },
+    {
+      "regime53": "C02",
+      "pair": "GBP_AUD",
+      "direction": "long",
+      "evals_24h": 106
+    },
+    {
+      "regime53": "C02",
+      "pair": "USD_CAD",
+      "direction": "long",
+      "evals_24h": 87
+    },
+    {
+      "regime53": "C02",
+      "pair": "NZD_USD",
+      "direction": "short",
+      "evals_24h": 82
+    },
+    {
+      "regime53": "C02",
+      "pair": "USD_CAD",
+      "direction": "short",
+      "evals_24h": 81
+    },
+    {
+      "regime53": "C01",
+      "pair": "GBP_CHF",
+      "direction": "short",
+      "evals_24h": 75
+    },
+    {
+      "regime53": "C02",
+      "pair": "CAD_JPY",
+      "direction": "short",
+      "evals_24h": 66
+    },
+    {
+      "regime53": "C02",
+      "pair": "GBP_USD",
+      "direction": "short",
+      "evals_24h": 53
+    }
+  ]
+}
