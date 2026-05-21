@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "created_at": "2026-05-20T23:30:00Z",
+  "description": "Bank-first priority queue. For the active session, the bot should evaluate these (pair, regime, direction, strategy) tuples FIRST by directly invoking the named strategy instead of relying on BB->direct generation to find them. session_bucket=='any' cells are session-agnostic and apply in every session.",
+  "min_freq_per_week": 0.25,
+  "sessions": {
+    "any": [
+      {
+        "pair": "EUR_AUD",
+        "regime53": "C01",
+        "direction": "short",
+        "strategy": "alpha_pullback_v2",
+        "family": "dbb_trend",
+        "tier": "Seed-Pro",
+        "shave_rule": "ATR_ratio>=0.07049 AND ADX14>=9.17472 AND ADX14<=13.1377",
+        "fires_per_week": 0.4254143646408839,
+        "corpus_wr": 1.0,
+        "priority_score": 0.2552486187845303
+      },
+      {
+        "pair": "EUR_NZD",
+        "regime53": "C02",
+        "direction": "long",
+        "strategy": "charlie_pullback_continuation_v2",
+        "family": "dbb_trend",
+        "tier": "Elite",
+        "shave_rule": "ATR_ratio>=0.0738348",
+        "fires_per_week": 0.580110497237569,
+        "corpus_wr": 0.6666666666666666,
+        "priority_score": 0.15469613259668505
+      },
+      {
+        "pair": "USD_CHF",
+        "regime53": "C01",
+        "direction": "long",
+        "strategy": "echo_box_fade_v2",
+        "family": "reversal",
+        "tier": "Pro",
+        "shave_rule": "RSI14>=40.0893",
+        "fires_per_week": 0.6187845303867403,
+        "corpus_wr": 0.625,
+        "priority_score": 0.13922651933701655
+      },
+      {
+        "pair": "NZD_USD",
+        "regime53": "C01",
+        "direction": "long",
+        "strategy": "alpha_pullback_v2",
+        "family": "dbb_trend",
+        "tier": "Elite",
+        "shave_rule": "BB_compress>=0.0855888",
+        "fires_per_week": 0.7348066298342542,
+        "corpus_wr": 0.5789473684210527,
+        "priority_score": 0.13149171270718232
+      },
+      {
+        "pair": "GBP_NZD",
+        "regime53": "C02",
+        "direction": "long",
+        "strategy": "charlie_pullback_continuation_v2",
+        "family": "dbb_trend",
+        "tier": "Seed-Pro",
+        "shave_rule": "volume_ratio>=0.771635 AND BB_compress>=0.0517465 AND BB_compress<=0.0585345 AND ADX14<=29.2947",
+        "fires_per_week": 0.3480662983425414,
+        "corpus_wr": 0.6666666666666666,
+        "priority_score": 0.09281767955801101
+      },
+      {
+        "pair": "USD_MXN",
+        "regime53": "C01",
+        "direction": "short",
+        "strategy": "alpha_pullback_v2",
+        "family": "dbb_trend",
+        "tier": "Pro",
+        "shave_rule": "hour_utc>=19 AND hour_utc<=22 AND ADX14<=19.1414",
+        "fires_per_week": 0.5027624309392265,
+        "corpus_wr": 0.5384615384615384,
+        "priority_score": 0.06961325966850826
+      },
+      {
+        "pair": "AUD_JPY",
+        "regime53": "C02",
+        "direction": "long",
+        "strategy": "TF6_ma_ribbon_long",
+        "family": "dbb_trend",
+        "tier": "Elite",
+        "shave_rule": "price_pos>=0.955901 AND RSI14>=79.9147 AND volume_ratio>=1.20521",
+        "fires_per_week": 0.6187845303867403,
+        "corpus_wr": 0.4375,
+        "priority_score": 0.023204419889502746
+      },
+      {
+        "pair": "CHF_JPY",
+        "regime53": "C02",
+        "direction": "long",
+        "strategy": "TF6_ma_ribbon_long",
+        "family": "dbb_trend",
+        "tier": "Seed-Pro",
+        "shave_rule": "RSI14>69.79 AND ATR_ratio>0.0843199 AND volume_ratio>=1.84027 AND RSI14<=84.3824",
+        "fires_per_week": 0.4254143646408839,
+        "corpus_wr": 0.0909090909090909,
+        "priority_score": 0.0
+      }
+    ],
+    "asia": [
+      {
+        "pair": "GBP_NZD",
+        "regime53": "C01",
+        "direction": "long",
+        "strategy": "alpha_breakout_retest_v2",
+        "family": "direct",
+        "tier": "Seed-Pro",
+        "shave_rule": "ATR_ratio<=0.0824531 AND session_bucket==asia",
+        "fires_per_week": 1.160220994475138,
+        "corpus_wr": 0.4666666666666667,
+        "priority_score": 0.07734806629834252
+      }
+    ],
+    "london_open": [
+      {
+        "pair": "USD_JPY",
+        "regime53": "C01",
+        "direction": "short",
+        "strategy": "echo_box_fade_v2",
+        "family": "reversal",
+        "tier": "Seed-Pro",
+        "shave_rule": "session_bucket==london_open AND volume_ratio>=1.47619",
+        "fires_per_week": 9.591160220994476,
+        "corpus_wr": 0.4032258064516129,
+        "priority_score": 0.030939226519336567
+      }
+    ],
+    "ny_mid": [
+      {
+        "pair": "USD_CHF",
+        "regime53": "C02",
+        "direction": "long",
+        "strategy": "alpha_breakout_retest_v2",
+        "family": "direct",
+        "tier": "Seed-Pro",
+        "shave_rule": "ADX14<=23.7788 AND session_bucket==ny_mid",
+        "fires_per_week": 1.6629834254143645,
+        "corpus_wr": 0.5116279069767442,
+        "priority_score": 0.18563535911602208
+      }
+    ]
+  }
+}
