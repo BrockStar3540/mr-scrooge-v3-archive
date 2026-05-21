@@ -61,6 +61,36 @@ class ExecutionCoordinator:
         except Exception:
             stop_pips = None
 
+        # Scalper clamp (Brock 2026-05-21): override zone-based SL/TP with
+        # fixed pip distances. Strategies emit wide zone-to-zone targets,
+        # but the bot's intent is scalping. SL at 6 pips, TP at 12 pips
+        # (2:1 R:R, breakeven WR 33.3%, win = 0.60% account, loss = 0.30%).
+        SCALPER_SL_PIPS = 6.0
+        SCALPER_TP_PIPS = 12.0
+        try:
+            if best.entry_price and pip_size > 0:
+                pre_sl = best.stop_price
+                pre_tp = best.take_profit
+                if best.direction.value == "long":
+                    best.stop_price = best.entry_price - SCALPER_SL_PIPS * pip_size
+                    best.take_profit = best.entry_price + SCALPER_TP_PIPS * pip_size
+                else:
+                    best.stop_price = best.entry_price + SCALPER_SL_PIPS * pip_size
+                    best.take_profit = best.entry_price - SCALPER_TP_PIPS * pip_size
+                # Override sizer's input -- always 6 pips
+                stop_pips = SCALPER_SL_PIPS
+                log.info(
+                    "[EXEC] scalper_clamp symbol=%s dir=%s entry=%.5f "
+                    "pre_SL=%.5f pre_TP=%.5f -> SL=%.5f TP=%.5f "
+                    "pip_risk=%.1f pip_target=%.1f",
+                    best.symbol, best.direction.value, best.entry_price,
+                    pre_sl or 0.0, pre_tp or 0.0,
+                    best.stop_price, best.take_profit,
+                    SCALPER_SL_PIPS, SCALPER_TP_PIPS,
+                )
+        except Exception:
+            log.exception("[EXEC] scalper_clamp failed; falling back to strategy SL/TP")
+
         units = sizer.calculate(
             best.symbol, best.entry_price, equity, inst_info,
             free_margin=free_margin,
