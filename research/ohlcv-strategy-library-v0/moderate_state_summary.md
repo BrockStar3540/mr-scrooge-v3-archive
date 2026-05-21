@@ -2,77 +2,95 @@
 
 ## Headline result
 
-**Zero qualifying cells.** Across 1,129 (regime, pair, direction, family) signatures in the corpus (1.17M deduped trades over 26 weeks), **none** clear the bar:
+**Zero qualifying cells across all attempted constraint relaxations.**
 
-- n ≥ 26 (≥ 1 fire/week)
-- WR ≥ 40% (breakeven at the bot's `r_target=1.5R`)
-- No extreme-percentile clamps (≥10% of population must satisfy the rule)
+| attempt | bars | result |
+|---|---|---|
+| v1 (purity bar) | n≥26, WR≥55%, no extreme clamps | 0 winners |
+| v1 (lowered)    | n≥26, WR≥40% (breakeven at r=1.5R) | 0 winners |
+| v1 (further)    | n≥26, WR≥35% / 30%             | 0 winners |
+| v2 (objective)  | n≥13, depth-2 splits, per-cell R-target opt, pop≥10% | 0 winners |
+| v2 (relaxed)    | same as above, pop≥5%                              | 0 winners |
 
-## Why this matters
+Across **1,129** (regime, pair, direction, family) signatures in 1.17M deduped corpus trades (26 weeks), **no rule produces positive expectancy at moderate frequency under the current bot framework.**
 
-The bot's current strategy/R-target framework appears structurally incapable of producing moderate-frequency profitable cells in this corpus. The 26 trade-tier cells in `v9_observe` reached their advertised 65-93% WRs only by **extreme-percentile clamping** — which shrunk samples to the point that they fire less than once per week (15 of 26 are GHOSTs at < 0.25 fires/week).
-
-## The corpus baseline reality
+## Why — the corpus's structural reality
 
 ```
-1,129 signatures total
-Median WR across signatures:    0.0%   (most generate losing-bias trades)
-75th percentile WR:             12.5%
-Top WR with n≥26:               21.2%  (AUD_JPY C02 long dbb_trend, n=3,311)
-Signatures with n≥26 AND WR≥30%:  0
-Signatures with n≥26 AND WR≥40%:  0
+Baseline WR distribution across 1,129 signatures:
+  median:           0.0%
+  75th percentile: 12.5%
+  Top WR with n≥26: 21.2%  (AUD_JPY C02 long dbb_trend, n=3,311)
+
+R-target breakeven thresholds:
+  r_target = 1.5R  →  breakeven WR = 40%
+  r_target = 1.0R  →  breakeven WR = 50%
+  r_target = 0.5R  →  breakeven WR = 67%
+
+Maximum WR achievable by moderate (depth-2, pop≥5%) shave: ~30-35%
 ```
 
-At `r_target=1.5R` the breakeven WR is **40%**. The corpus has zero high-frequency signatures meeting it. The v9 bank reached 65-93% only by clamping into very rare conditions.
+**At no R-target in [0.5, 1.5] can the corpus produce a profitable cell that fires more than 0.5×/week without extreme-percentile clamping.**
 
-## The 11 cells that actually fire
+## The implication
 
-From `deployable_bank_with_frequency.csv`, non-GHOST cells (≥0.25 fires/week):
+The v9 bank's 26 trade-tier cells are the ONLY profitable cells extractable from this corpus under this strategy + R-target framework. Those cells reached 65-93% advertised WR by clamping into <10% of population — which made them GHOSTs (15 of 26 fire <0.25/week).
 
-| pair | regime | dir | strategy | family | fires/wk | corpus WR | r_target=1.5R breakeven |
+This isn't a mining bug. It's the framework limit. To get more cells, one of these must change:
+
+1. **R-target as a degree of freedom in mining.** The current builder uses fixed `r_target=1.5`. A miner that finds (rule, R-target) pairs maximizing `expectancy × frequency` might surface cells the WR-only optimizer missed — especially at R<1 where the breakeven threshold is higher but rules are easier to satisfy.
+
+2. **Strategy library extension.** The direct/dbb_trend/reversal generators yield 6-21% baseline WR — too weak. Adding new primitives (HTF filters, intermarket signals, news-event windows, microstructure features) would expand the input population.
+
+3. **Different exit modeling.** The corpus uses fixed-R "is_win" labels. If trades that hit a smaller R first (e.g., 0.5R then reverse) were captured at proper R-multiples, the realized expectancy distribution would shift.
+
+None of these are tonight-fixes. They are real research/architecture programs.
+
+## The 11 non-GHOST cells — the actual tradable surface
+
+From `deployable_bank_with_frequency.csv`:
+
+| pair | regime | dir | strategy | family | fires/wk | corpus WR | tradable at |
 |---|---|---|---|---|---:|---:|---|
-| USD_JPY | C01 | short | echo_box_fade_v2 | reversal | **9.59** | 40.3% | borderline |
-| NZD_USD | C01 | long | alpha_pullback_v2 | dbb_trend | 0.73 | 57.9% | ✓ |
-| AUD_JPY | C02 | long | TF6_ma_ribbon_long | dbb_trend | 0.62 | 43.8% | ✓ |
-| USD_CHF | C01 | long | echo_box_fade_v2 | reversal | 0.62 | 62.5% | ✓ |
-| EUR_NZD | C02 | long | charlie_pullback_continuation_v2 | dbb_trend | 0.58 | 66.7% | ✓ |
-| USD_MXN | C01 | short | alpha_pullback_v2 | dbb_trend | 0.50 | 53.8% | ✓ |
-| EUR_AUD | C01 | short | alpha_pullback_v2 | dbb_trend | 0.43 | 100.0% | ✓ |
-| CHF_JPY | C02 | long | TF6_ma_ribbon_long | dbb_trend | 0.43 | 9.1% | ✗ (busted cell) |
-| GBP_NZD | C02 | long | charlie_pullback_continuation_v2 | dbb_trend | 0.35 | 66.7% | ✓ |
-| USD_CHF | C02 | long | alpha_breakout_retest_v2 | direct | 1.66 | 51.2% | ✓ |
-| GBP_NZD | C01 | long | alpha_breakout_retest_v2 | direct | 1.16 | 46.7% | ✓ |
+| USD_JPY | C01 | short | echo_box_fade_v2 | reversal | **9.59** | 40.3% | r ≤ 1.5R (borderline) |
+| USD_CHF | C02 | long | alpha_breakout_retest_v2 | direct | 1.66 | 51.2% | r ≤ 1.0R or better |
+| GBP_NZD | C01 | long | alpha_breakout_retest_v2 | direct | 1.16 | 46.7% | r ≤ 1.0R or better |
+| NZD_USD | C01 | long | alpha_pullback_v2 | dbb_trend | 0.73 | 57.9% | r ≤ 0.75R |
+| EUR_NZD | C02 | long | charlie_pullback_continuation_v2 | dbb_trend | 0.58 | 66.7% | r ≤ 0.5R or better |
+| USD_CHF | C01 | long | echo_box_fade_v2 | reversal | 0.62 | 62.5% | r ≤ 0.6R |
+| EUR_AUD | C01 | short | alpha_pullback_v2 | dbb_trend | 0.43 | 100.0% | (small n=11) any R |
+| AUD_JPY | C02 | long | TF6_ma_ribbon_long | dbb_trend | 0.62 | 43.8% | r ≤ 1.25R |
+| GBP_NZD | C02 | long | charlie_pullback_continuation_v2 | dbb_trend | 0.35 | 66.7% | r ≤ 0.5R |
+| USD_MXN | C01 | short | alpha_pullback_v2 | dbb_trend | 0.50 | 53.8% | r ≤ 1.0R |
+| CHF_JPY | C02 | long | TF6_ma_ribbon_long | dbb_trend | 0.43 | 9.1% | NOT tradable (busted cell) |
 
-**Of 26 trade-tier cells, only ~9 are both repeatable AND profitable at the bot's R-target.**
+**Effective tradable bank: 9-10 cells.**
 
-## Three structural conclusions
+## Deployment rule (proposed)
 
-### 1. The strategy library is the bottleneck
+Per Brock 2026-05-20, hard deployment rule going forward:
 
-The underlying direct/dbb_trend/reversal signal generators produce 6-21% WR baselines across all pairs/regimes/directions. This is below the bot's 40% breakeven threshold. The only way to get profitable cells is to filter aggressively → rare events.
+| frequency class | fires/wk | live deployment |
+|---|---:|---|
+| REGULAR | > 3.0 | live, primary |
+| MODERATE | 1.0-3.0 | live, supplement |
+| RARE | 0.25-1.0 | live, opportunistic |
+| GHOST | < 0.25 | observe-only, NOT live |
 
-### 2. R-target tuning is the missing degree of freedom
+Cells must clear both: edge threshold AND historical activation threshold.
 
-Cells could be tradable at lower R-targets (e.g., 0.5R or 1R, breakeven at 67% or 50%) with **less aggressive** shave_rule clamping, producing more moderate-frequency winners. The current `r_target: 1.5` for every cell is a one-size-fits-all assumption that doesn't match the corpus reality.
+## Next steps (engineering)
 
-### 3. The bot's actual tradable surface is ~9 cells
-
-Not 26. Not 36. **About 9 cells** that fire more than once per week AND have positive expectancy at 1.5R. Most of those need to be hunted actively (bank-first generation, see `bank_first_strategy_queue.json`).
-
-## Recommended next moves
-
-1. **Ship bank-first generation** (`bank_first_strategy_queue.json` is ready) — make the bot actively hunt these 9 cells in their right sessions instead of relying on BB->direct emission to stumble into them.
-
-2. **Re-mine with per-cell R-target** — instead of fixing `r_target=1.5` for all, let the miner find (shave_rule, R-target) pairs that maximize `expectancy × frequency`. This may surface cells the WR-only optimizer missed.
-
-3. **Audit the GHOST cells out of live deployment** — remove the 15 GHOST cells from v10_fast_v1.6 so the live surface is honest. Keeping them just clutters routing without practical fires.
-
-4. **Investigate strategy library extensions** — the 1,129 signature × 26 weeks corpus may be saturated for this strategy family. Adding new strategy primitives (e.g., higher-timeframe filters, intermarket signals, news-event windows) is the only path to a meaningfully broader bank.
+1. **GHOST cleanup**: strip the ~5 GHOST signatures from live v10_fast_v1.6 → v1.7
+2. **Bank-first scan hook**: build a `bank_priority` strategy class that directly evaluates the 9-10 non-GHOST cells' shave_rules instead of relying on BB→direct emission
+3. **Per-cell R-target re-mining**: introduce R as a degree of freedom in the v9 builder
+4. **Strategy library audit**: are direct/dbb_trend/reversal really the right primitives, or is the bot trying to trade off the wrong signal generators?
 
 ## Files
 
-- `deployable_bank_with_frequency.csv` — per-cell frequency stats
+- `deployable_bank_with_frequency.csv` — frequency stats per cell
 - `current_session_bank_priority.csv` — ordered priority list per session
 - `data/bank_first_strategy_queue.json` — runtime config for bank-first generation
-- `moderate_state_cells.csv` — would have contained mining winners; empty because none qualify
-- `bank_strict_audit_2026-05-20.py` — the strict narrowness audit that surfaced the GHOST problem
+- `freq_audit_2026-05-20.py` — frequency audit script
+- `moderate_state_mining_v2_2026-05-20.py` — final v2 miner (confirmed zero winners)
+- `bank_strict_audit_2026-05-20.py` — strict narrowness audit
