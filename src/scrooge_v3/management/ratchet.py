@@ -1,40 +1,54 @@
-"""Ratchet manager — locks percentage of peak unrealized gains.
+"""Ratchet manager — explicit stepwise scalper ratchet (Brock 2026-05-21).
 
-Engineering extension from Part II Section 32.
-Phase 3 (fix/mgmt-r-unified) changes:
-  - Trigger is R-relative with a pip floor (same pattern as BE).
-  - Lock anchors on peak_price (MFE), not current_price, so retracement
-    from a spike-high can't unlock already-protected gains.
+Schedule:
+  At MFE >= +6 pips:  SL -> entry - 6 pips  (cap loss at 6)
+  At MFE >= +8 pips:  SL -> entry - 3 pips  (cap loss at 3)
+  At MFE >= +10 pips: SL -> entry (BE)
+
+Anchors on MFE (peak), not current price -- once a step triggers, the
+stop ratchets and never loosens.
+
+Old behavior (lock_pct of unrealized profit) is replaced. The lock_pct
+config key is now read but logged-only; the explicit schedule wins.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import List, Tuple
 
 from scrooge_v3.core.types import StopPlan, TradeDirection
 
 log = logging.getLogger("scrooge_v3.management.ratchet")
 
+# Default stepwise schedule (Brock 2026-05-21).
+DEFAULT_STEPS: List[Tuple[float, float]] = [
+    # (trigger_mfe_pips, new_sl_pips_from_entry  -- negative = below entry for long)
+    (6.0,  -6.0),   # at +6 MFE, cap loss at -6 from entry
+    (8.0,  -3.0),   # at +8 MFE, cap loss at -3 from entry
+    (10.0,  0.0),   # at +10 MFE, breakeven
+]
+
 
 class RatchetManager:
-    """Locks a percentage of unrealized gains at periodic intervals."""
+    """Explicit stepwise scalper ratchet.
+
+    Each step: (trigger_mfe_pips, new_sl_pips_from_entry).
+    sl_pips_from_entry is the signed distance from entry (negative = on
+    losing side for a long, positive = on losing side for a short via
+    sign flip). Steps are evaluated in order; the highest triggered
+    step's SL wins.
+    """
 
     def __init__(self, config: dict | None = None):
         config = config or {}
-        self.lock_pct = float(config.get("ratchet_lock_pct", 0.50))
-
-        # Legacy fixed-pip key (deprecated).
-        legacy = config.get("ratchet_min_profit_pips")
-        if legacy is not None:
-            log.warning(
-                "[RATCHET] DEPRECATED config key ratchet_min_profit_pips detected "
-                "— migrate to ratchet_trigger_r / ratchet_trigger_min_pips."
+        steps = config.get("scalper_steps", DEFAULT_STEPS)
+        self.steps: List[Tuple[float, float]] = sorted(steps, key=lambda s: s[0])
+        if "ratchet_lock_pct" in config or "ratchet_trigger_r" in config:
+            log.info(
+                "[RATCHET] legacy config keys (ratchet_lock_pct / ratchet_trigger_r) "
+                "ignored under Brock 2026-05-21 stepwise scalper schedule"
             )
-
-        self.trigger_r = float(config.get("ratchet_trigger_r", 1.0))
-        self.trigger_min_pips = float(
-            config.get("ratchet_trigger_min_pips", legacy if legacy is not None else 3.0)
-        )
 
     def compute_ratchet_stop(
         self,
@@ -43,56 +57,52 @@ class RatchetManager:
         current_price: float,
         current_stop: float,
         pip_size: float = 0.0001,
-        initial_risk_distance: float = 0.0,
+        initial_risk_distance: float = 0.0,  # unused; kept for interface compat
         peak_price: float = 0.0,
     ) -> StopPlan | None:
-        """Compute ratcheted stop that locks a fraction of unrealized profit.
+        """Stepwise scalper ratchet. Anchors on MFE (peak_price).
 
-        Only activates when profit exceeds the R-relative trigger (with
-        pip floor). Never loosens the stop — only tightens.
-
-        If `peak_price` is provided and more favorable than `current_price`,
-        the lock anchors on peak (MFE), protecting gains against retracement.
+        Returns a StopPlan if the ratchet would tighten the stop, else None.
         """
-        if direction == TradeDirection.LONG:
-            profit_dist = current_price - entry_price
-        else:
-            profit_dist = entry_price - current_price
-
-        if initial_risk_distance > 0:
-            trigger_dist = max(
-                self.trigger_r * initial_risk_distance,
-                self.trigger_min_pips * pip_size,
-            )
-        else:
-            trigger_dist = self.trigger_min_pips * pip_size
-
-        if profit_dist < trigger_dist:
-            return None
-
-        # Anchor on peak (MFE) if provided and more favorable.
+        # Compute MFE in pips (peak gain since entry)
         if peak_price and peak_price > 0:
             if direction == TradeDirection.LONG:
-                anchor = max(peak_price, current_price)
+                mfe_pips = (peak_price - entry_price) / pip_size
             else:
-                anchor = min(peak_price, current_price)
+                mfe_pips = (entry_price - peak_price) / pip_size
         else:
-            anchor = current_price
+            if direction == TradeDirection.LONG:
+                mfe_pips = (current_price - entry_price) / pip_size
+            else:
+                mfe_pips = (entry_price - current_price) / pip_size
 
-        locked_distance = abs(anchor - entry_price) * self.lock_pct
+        # Find highest step triggered
+        triggered_sl_pips = None
+        for trigger_mfe, sl_pips_from_entry in self.steps:
+            if mfe_pips >= trigger_mfe:
+                triggered_sl_pips = sl_pips_from_entry
 
+        if triggered_sl_pips is None:
+            return None  # haven't reached first trigger yet
+
+        # Compute absolute new stop price
+        # sl_pips_from_entry is signed in the convention "negative = on loss side for long"
         if direction == TradeDirection.LONG:
-            new_stop = entry_price + locked_distance
+            # SL on loss side = below entry for long; so new_stop = entry + sl_pips (sl_pips negative)
+            new_stop = entry_price + (triggered_sl_pips * pip_size)
             if new_stop <= current_stop:
-                return None
+                return None  # already tighter; don't loosen
         else:
-            new_stop = entry_price - locked_distance
+            # For short, "loss side" = above entry; flip sign
+            new_stop = entry_price - (triggered_sl_pips * pip_size)
             if new_stop >= current_stop:
                 return None
 
-        profit_pips = profit_dist / pip_size if pip_size > 0 else 0.0
         return StopPlan(
             position_id="",
             new_stop=new_stop,
-            reason=f"ratchet lock {self.lock_pct:.0%} of {profit_pips:.1f} pips (anchor={anchor:.5f})",
+            reason=(
+                f"scalper_ratchet mfe={mfe_pips:.1f}pips "
+                f"-> SL @ entry{triggered_sl_pips:+.1f}pips ({new_stop:.5f})"
+            ),
         )

@@ -65,7 +65,7 @@ class ExecutionCoordinator:
         # fixed pip distances. Strategies emit wide zone-to-zone targets,
         # but the bot's intent is scalping. SL at 6 pips, TP at 12 pips
         # (2:1 R:R, breakeven WR 33.3%, win = 0.60% account, loss = 0.30%).
-        SCALPER_SL_PIPS = 6.0
+        SCALPER_SL_PIPS = 10.0  # Brock 2026-05-21: initial 10-pip stop, ratchet handles tightening
         SCALPER_TP_PIPS = 12.0
         try:
             if best.entry_price and pip_size > 0:

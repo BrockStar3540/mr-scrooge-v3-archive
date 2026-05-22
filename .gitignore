@@ -82,3 +82,7 @@ config/default.json.bak.*
 # Seed-family factory row-level loser bank (regenerable from Mini parquet; ~2.4 GB)
 research/ohlcv-strategy-library-v0/seed_family_children_loser_contrast_bank.csv
 research/ohlcv-strategy-library-v0/probe_seed_family_children_loser_contrast_bank.csv
+
+# Large research corpora (kept locally on EC2 only)
+research/ohlcv-strategy-library-v0/scalper_corpus_*.parquet
+research/ohlcv-strategy-library-v0/trade_log_all_*.parquet
