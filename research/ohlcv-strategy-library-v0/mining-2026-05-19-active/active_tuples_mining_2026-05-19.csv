@@ -1,0 +1,16 @@
+queue,outcome_tier,regime53,pair,session_bucket,direction,family,child_rule,n_unique,wins_unique,wr_unique,wilson_lb,source_strategy,symbol,blocked_count
+live_gap,dead,C02,EUR_JPY,ny_mid,long,direct,,0,0,0.0,0.0,synthesized_from_corpus,EUR_JPY,107
+live_gap,dead,C02,NZD_USD,ny_mid,long,direct,,0,0,0.0,0.0,synthesized_from_corpus,NZD_USD,107
+live_gap,dead,C02,CAD_JPY,ny_mid,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,CAD_JPY,100
+live_gap,dead,C02,USD_CAD,ny_mid,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,USD_CAD,67
+live_gap,dead,C02,GBP_USD,ny_mid,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,GBP_USD,66
+live_gap,dead,C01,GBP_CAD,ny_mid,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,GBP_CAD,66
+live_gap,dead,C02,EUR_NZD,ny_mid,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,EUR_NZD,52
+live_gap,dead,C02,USD_CAD,ny_close,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,USD_CAD,48
+live_gap,dead,C02,NZD_USD,ny_close,long,direct,,0,0,0.0,0.0,synthesized_from_corpus,NZD_USD,48
+live_gap,dead,C02,EUR_JPY,ny_close,long,direct,,0,0,0.0,0.0,synthesized_from_corpus,EUR_JPY,48
+live_gap,dead,C01,GBP_USD,ny_mid,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,GBP_USD,45
+live_gap,dead,C02,GBP_CAD,ny_close,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,GBP_CAD,45
+live_gap,dead,C02,GBP_USD,ny_close,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,GBP_USD,41
+live_gap,dead,C02,GBP_CAD,ny_mid,short,direct,,0,0,0.0,0.0,synthesized_from_corpus,GBP_CAD,38
+live_gap,dead,C02,CAD_JPY,ny_close,long,direct,,0,0,0.0,0.0,synthesized_from_corpus,CAD_JPY,31

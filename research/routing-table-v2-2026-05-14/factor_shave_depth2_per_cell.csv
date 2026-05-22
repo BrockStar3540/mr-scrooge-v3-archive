@@ -1,0 +1,194 @@
+source,strategy_id,direction,regime,n,wins,losses,pre_WR,rule,n_factors,n_kept,w_kept,post_WR,lift,winner_keep,loser_kill
+textbook,BR1_range_breakout_long,long,B02,325,47,278,0.1446,EMA_slope <= 0.0004314,1,50.0,18.0,0.36,2.489,0.383,0.885
+textbook,BR1_range_breakout_long,long,B03,1111,142,969,0.1278,"EMA_slope <= 0.000564393 AND day in {Thu,Fri,Sat,Sun}",2,252.0,58.0,0.2302,1.801,0.408,0.8
+textbook,BR1_range_breakout_long,long,B04,669,121,548,0.1809,ATR14 <= 0.143463 AND ATR_ratio > 0.106354,2,339.0,84.0,0.2478,1.37,0.694,0.535
+textbook,BR1_range_breakout_short,short,B06,454,64,390,0.141,EMA_slope > -0.000663321 AND BB_compress > 0.168628,2,64.0,23.0,0.3594,2.549,0.359,0.895
+textbook,BR1_range_breakout_short,short,B07,1198,196,1002,0.1636,EMA_slope > -0.00073626 AND ATR_ratio > 0.0827266,2,659.0,146.0,0.2215,1.354,0.745,0.488
+textbook,BR1_range_breakout_short,short,B08,641,109,532,0.17,close_pos <= -0.509925 AND ADX14 > 24.0576,2,87.0,27.0,0.3103,1.825,0.248,0.887
+textbook,BR2_vcb_long,long,B03,790,59,731,0.0747,hour_utc <= 14 AND BB_compress > 0.0888894,2,489.0,52.0,0.1063,1.424,0.881,0.402
+textbook,BR2_vcb_long,long,B04,1000,140,860,0.14,hour_utc <= 19 AND ATR_ratio > 0.0905338,2,619.0,122.0,0.1971,1.408,0.871,0.422
+textbook,BR2_vcb_long,long,C01,440797,25077,415720,0.0569,hour_utc <= 17 AND ATR_ratio > 0.044546,2,231029.0,18026.0,0.078,1.372,0.719,0.488
+textbook,BR2_vcb_long,long,C02,591331,41327,550004,0.0699,ATR_ratio > 0.0580468 AND ATR_ratio > 0.0891421,1,91074.0,10599.0,0.1164,1.665,0.256,0.854
+textbook,BR2_vcb_short,short,B06,241,29,212,0.1203,"hour_utc <= 14 AND session in {london_open,ny_open,ny_mid,ny_close,off_hours}",2,107.0,26.0,0.243,2.019,0.897,0.618
+textbook,BR2_vcb_short,short,B07,849,94,755,0.1107,"day in {Mon,Tue,Wed,Thu,Fri,Sat} AND EMA_slope > -0.00073626",2,560.0,84.0,0.15,1.355,0.894,0.37
+textbook,BR2_vcb_short,short,B08,951,91,860,0.0957,hour_utc <= 19 AND close_pos <= -0.312273,2,674.0,91.0,0.135,1.411,1.0,0.322
+textbook,BR2_vcb_short,short,C01,429670,23384,406286,0.0544,ATR_ratio > 0.0546647 AND hour_utc <= 17,2,169765.0,14106.0,0.0831,1.527,0.603,0.617
+textbook,BR2_vcb_short,short,C02,578228,37485,540743,0.0648,ATR_ratio > 0.0573039 AND ATR_ratio > 0.0802416,1,132664.0,13863.0,0.1045,1.612,0.37,0.78
+textbook,BR3_inside_bar_long,long,C01,197100,8655,188445,0.0439,hour_utc <= 16 AND ATR_ratio > 0.0364719,2,102556.0,6622.0,0.0646,1.47,0.765,0.491
+textbook,BR3_inside_bar_long,long,C02,278932,16556,262376,0.0594,hour_utc <= 16 AND ATR_ratio > 0.0443866,2,162153.0,12868.0,0.0794,1.337,0.777,0.431
+textbook,BR3_inside_bar_long,long,F03,200,56,144,0.28,BB_compress > 0.260037 AND ADX14 > 44.9284,2,31.0,17.0,0.5484,1.959,0.304,0.903
+textbook,BR3_inside_bar_long,long,O05,220,21,199,0.0955,"ATR14 > 0.000273636 AND day in {Mon,Tue}",2,67.0,13.0,0.194,2.033,0.619,0.729
+textbook,BR3_inside_bar_short,short,C01,194120,8232,185888,0.0424,hour_utc <= 17 AND ATR_ratio > 0.0491174,2,83075.0,5535.0,0.0666,1.571,0.672,0.583
+textbook,BR3_inside_bar_short,short,C02,275085,15182,259903,0.0552,hour_utc <= 17 AND ATR_ratio > 0.0608176,2,113733.0,9320.0,0.0819,1.485,0.614,0.598
+textbook,BR3_inside_bar_short,short,O06,293,27,266,0.0922,close_pos <= -0.221921,1,50.0,11.0,0.22,2.387,0.407,0.853
+textbook,BR5_opening_range_breakout_long,long,B03,233,24,209,0.103,close_pos > 2.86883 AND EMA_slope > 5.71292e-06,2,49.0,16.0,0.3265,3.17,0.667,0.842
+textbook,BR5_opening_range_breakout_long,long,B04,448,70,378,0.1562,hour_utc <= 19 AND ATR_ratio > 0.112175,2,216.0,51.0,0.2361,1.511,0.729,0.563
+textbook,BR5_opening_range_breakout_long,long,C01,96509,5600,90909,0.058,hour_utc <= 17 AND ATR14 > 0.000378182,2,44910.0,3902.0,0.0869,1.497,0.697,0.549
+textbook,BR5_opening_range_breakout_long,long,C02,88057,6214,81843,0.0706,hour_utc <= 17 AND ATR_ratio > 0.0815015,2,20428.0,2304.0,0.1128,1.598,0.371,0.779
+textbook,BR5_opening_range_breakout_short,short,B07,284,53,231,0.1866,BB_width > 0.00311297 AND ATR_ratio <= 0.196877,2,204.0,49.0,0.2402,1.287,0.925,0.329
+textbook,BR5_opening_range_breakout_short,short,B08,396,62,334,0.1566,ADX14 > 15.5645 AND ATR14 <= 0.122925,2,306.0,58.0,0.1895,1.211,0.935,0.257
+textbook,BR5_opening_range_breakout_short,short,C01,91989,5250,86739,0.0571,hour_utc <= 17 AND ATR_ratio > 0.0721685,2,22885.0,2227.0,0.0973,1.705,0.424,0.762
+textbook,BR5_opening_range_breakout_short,short,C02,86270,5891,80379,0.0683,hour_utc <= 16 AND ATR_ratio > 0.0756003,2,23073.0,2487.0,0.1078,1.578,0.422,0.744
+textbook,CP1_coil_breakout_long,long,B02,216,22,194,0.1019,ATR_ratio > 0.101518 AND ADX14 <= 43.2408,2,41.0,12.0,0.2927,2.874,0.545,0.851
+textbook,CP1_coil_breakout_long,long,B03,801,59,742,0.0737,hour_utc <= 14 AND EMA_slope <= 0.00166829,2,581.0,56.0,0.0964,1.309,0.949,0.292
+textbook,CP1_coil_breakout_long,long,B04,960,142,818,0.1479,ATR_ratio > 0.0905338 AND hour_utc <= 13,2,487.0,105.0,0.2156,1.458,0.739,0.533
+textbook,CP1_coil_breakout_long,long,C01,165135,9260,155875,0.0561,"BB_width > 0.00108541 AND session in {asia,asia_late,london_open,ny_open,ny_mid}",2,62393.0,5088.0,0.0815,1.454,0.549,0.632
+textbook,CP1_coil_breakout_long,long,C02,237891,16327,221564,0.0686,ATR_ratio > 0.0514772 AND ATR_ratio > 0.0763449,1,56225.0,5804.0,0.1032,1.504,0.355,0.772
+textbook,CP1_coil_breakout_short,short,B06,282,32,250,0.1135,EMA_slope > -0.000670848 AND BB_compress > 0.1662,2,51.0,18.0,0.3529,3.11,0.562,0.868
+textbook,CP1_coil_breakout_short,short,B07,834,106,728,0.1271,RSI14 <= 16.1697 AND hour_utc <= 14,2,152.0,35.0,0.2303,1.812,0.33,0.839
+textbook,CP1_coil_breakout_short,short,B08,859,100,759,0.1164,ATR_ratio > 0.103766 AND close_pos <= -0.588633,2,404.0,70.0,0.1733,1.488,0.7,0.56
+textbook,CP1_coil_breakout_short,short,C01,164913,8821,156092,0.0535,ATR_ratio > 0.0480297 AND hour_utc <= 16,2,73788.0,5673.0,0.0769,1.437,0.643,0.564
+textbook,CP1_coil_breakout_short,short,C02,241136,15915,225221,0.066,ATR_ratio > 0.0518167 AND ATR_ratio > 0.0802951,1,50349.0,5231.0,0.1039,1.574,0.329,0.8
+textbook,CP2_squeeze_momentum_long,long,C01,198289,10452,187837,0.0527,hour_utc <= 17 AND BB_width > 0.000486125,2,115224.0,8209.0,0.0712,1.352,0.785,0.43
+textbook,CP2_squeeze_momentum_long,long,C02,114627,6686,107941,0.0583,hour_utc <= 17 AND BB_width > 0.000902027,2,45832.0,3984.0,0.0869,1.49,0.596,0.612
+textbook,CP2_squeeze_momentum_short,short,C01,194058,9703,184355,0.05,hour_utc <= 17 AND ATR_ratio > 0.0422883,2,98478.0,7144.0,0.0725,1.451,0.736,0.505
+textbook,CP2_squeeze_momentum_short,short,C02,112467,6145,106322,0.0546,hour_utc <= 17 AND BB_width > 0.000923444,2,43401.0,3676.0,0.0847,1.55,0.598,0.626
+textbook,HY1_trend_pullback_reversal_long,long,C02,3265,250,3015,0.0766,BB_width > 0.00176686 AND ATR_ratio > 0.0996527,2,436.0,68.0,0.156,2.037,0.272,0.878
+textbook,HY2_breakout_retest_long,long,C01,411,48,363,0.1168,ATR_ratio > 0.122654 AND ADX14 > 15.8434,2,111.0,25.0,0.2252,1.928,0.521,0.763
+textbook,HY2_breakout_retest_long,long,C02,5209,645,4564,0.1238,ATR_ratio > 0.1082 AND BB_compress > 0.111593,2,1918.0,324.0,0.1689,1.364,0.502,0.651
+textbook,HY2_breakout_retest_long,long,M03,1866,216,1650,0.1158,ATR_ratio > 0.100774 AND BB_compress <= 0.448717,2,1069.0,144.0,0.1347,1.164,0.667,0.439
+textbook,HY2_breakout_retest_long,long,M04,312,54,258,0.1731,BB_width > 0.00377613 AND EMA_slope <= 0.000461443,2,84.0,30.0,0.3571,2.063,0.556,0.791
+textbook,MO1_exhaustion_after_spike_short,short,C01,13328,544,12784,0.0408,ATR_ratio > 0.0453026 AND ATR_ratio > 0.0837101,1,1464.0,128.0,0.0874,2.142,0.235,0.895
+textbook,MO1_exhaustion_after_spike_short,short,C02,28116,1560,26556,0.0555,ATR_ratio > 0.0738879 AND BB_width > 0.00110795,2,7250.0,693.0,0.0956,1.723,0.444,0.753
+textbook,MO1_exhaustion_after_spike_short,short,M03,1665,181,1484,0.1087,RSI14 > 74.6251 AND BB_width > 0.0048581,2,328.0,60.0,0.1829,1.683,0.331,0.819
+textbook,MO1_exhaustion_after_spike_short,short,M04,217,22,195,0.1014,ADX14 > 19.0329 AND ATR14 <= 0.00188084,2,41.0,13.0,0.3171,3.127,0.591,0.856
+textbook,MO2_momentum_divergence_short,short,B07,231,25,206,0.1082,RSI14 <= 11.6063,1,30.0,10.0,0.3333,3.08,0.4,0.903
+textbook,MO2_momentum_divergence_short,short,C02,988132,66698,921434,0.0675,ATR_ratio > 0.0618998 AND ATR_ratio > 0.0860933,1,175986.0,20118.0,0.1143,1.694,0.302,0.831
+textbook,MO2_momentum_divergence_short,short,F01,329,49,280,0.1489,EMA_slope > 0.00197812 AND ATR_ratio <= 0.173885,2,33.0,17.0,0.5152,3.459,0.347,0.943
+textbook,MO2_momentum_divergence_short,short,F02,297,37,260,0.1246,RSI14 > 61.3772 AND ATR_ratio > 0.127877,2,92.0,21.0,0.2283,1.832,0.568,0.727
+textbook,MO2_momentum_divergence_short,short,M01,615,112,503,0.1821,BB_width > 0.00280759 AND EMA_slope > -0.000424484,2,278.0,79.0,0.2842,1.56,0.705,0.604
+textbook,MO2_momentum_divergence_short,short,O05,286,20,266,0.0699,RSI14 > 75.435 AND BB_width <= 0.00368249,2,32.0,9.0,0.2812,4.022,0.45,0.914
+textbook,MO2_momentum_divergence_short,short,O06,422,36,386,0.0853,BB_width > 0.00148584 AND hour_utc <= 17,2,291.0,35.0,0.1203,1.41,0.972,0.337
+textbook,MR1_rsi_extreme_long,long,B08,377,47,330,0.1247,"EMA_slope <= -0.000100004 AND session in {asia,asia_late,london_open,ny_open}",2,111.0,26.0,0.2342,1.879,0.553,0.742
+textbook,MR1_rsi_extreme_long,long,C01,3028,197,2831,0.0651,ATR_ratio > 0.0582293 AND BB_width > 0.00147338,2,1181.0,122.0,0.1033,1.588,0.619,0.626
+textbook,MR1_rsi_extreme_short,short,B04,431,54,377,0.1253,hour_utc <= 20 AND hour_utc > 13,1,81.0,21.0,0.2593,2.069,0.389,0.841
+textbook,MR1_rsi_extreme_short,short,C01,3013,242,2771,0.0803,BB_width > 0.00179472 AND ATR_ratio > 0.0376399,2,1446.0,169.0,0.1169,1.455,0.698,0.539
+textbook,MR2_bb_reversion_long,long,B07,270,44,226,0.163,BB_compress <= 0.0897028,1,41.0,15.0,0.3659,2.245,0.341,0.885
+textbook,MR2_bb_reversion_long,long,B08,343,65,278,0.1895,BB_width > 0.00394614 AND BB_compress > 0.0793207,2,197.0,55.0,0.2792,1.473,0.846,0.489
+textbook,MR2_bb_reversion_long,long,C01,141565,13620,127945,0.0962,ATR_ratio > 0.0557731 AND BB_width > 0.00126946,2,38412.0,5569.0,0.145,1.507,0.409,0.743
+textbook,MR2_bb_reversion_long,long,C02,178280,20064,158216,0.1125,ATR_ratio > 0.0580886 AND ATR_ratio > 0.0823587,1,37231.0,6356.0,0.1707,1.517,0.317,0.805
+textbook,MR2_bb_reversion_long,long,M01,443,81,362,0.1828,ATR_ratio > 0.134525 AND EMA_slope > -0.000421954,2,44.0,19.0,0.4318,2.362,0.235,0.931
+textbook,MR2_bb_reversion_long,long,O06,548,57,491,0.104,ATR14 > 0.000330714 AND ATR14 <= 0.0423805,1,323.0,47.0,0.1455,1.399,0.825,0.438
+textbook,MR2_bb_reversion_short,short,B03,240,35,205,0.1458,ATR14 > 0.00100866 AND close_pos <= 2.8813,2,167.0,33.0,0.1976,1.355,0.943,0.346
+textbook,MR2_bb_reversion_short,short,B04,293,31,262,0.1058,ATR_ratio > 0.174485 AND close_pos <= 1.50143,2,50.0,16.0,0.32,3.025,0.516,0.87
+textbook,MR2_bb_reversion_short,short,C01,146384,13268,133116,0.0906,ATR_ratio > 0.0566441 AND ATR_ratio > 0.0719296,1,31674.0,4593.0,0.145,1.6,0.346,0.797
+textbook,MR2_bb_reversion_short,short,C02,180182,19339,160843,0.1073,ATR_ratio > 0.0586713 AND ATR_ratio > 0.0755925,1,47810.0,7688.0,0.1608,1.498,0.398,0.751
+textbook,MR2_bb_reversion_short,short,M03,391,72,319,0.1841,RSI14 > 67.7785 AND ATR_ratio > 0.140414,2,87.0,25.0,0.2874,1.561,0.347,0.806
+textbook,MR2_bb_reversion_short,short,O05,414,42,372,0.1014,"day in {Tue,Wed,Thu,Fri,Sat,Sun} AND EMA_slope > 0.000424835",2,79.0,20.0,0.2532,2.495,0.476,0.841
+textbook,MR3_vwap_reversion_long,long,B07,237,21,216,0.0886,EMA_slope > 1.83697e-05,1,56.0,12.0,0.2143,2.418,0.571,0.796
+textbook,MR3_vwap_reversion_long,long,B08,211,18,193,0.0853,ATR14 > 0.0668974,1,44.0,9.0,0.2045,2.398,0.5,0.819
+textbook,MR3_vwap_reversion_long,long,C01,1444,75,1369,0.0519,ATR14 > 0.0633084 AND ADX14 > 15.1715,2,369.0,39.0,0.1057,2.035,0.52,0.759
+textbook,MR3_vwap_reversion_long,long,C02,7994,482,7512,0.0603,ATR_ratio > 0.0863853 AND EMA_slope > -0.00208815,2,4083.0,274.0,0.0671,1.113,0.568,0.493
+textbook,MR3_vwap_reversion_short,short,B03,216,20,196,0.0926,RSI14 <= 81.8932 AND BB_compress <= 0.195312,2,110.0,17.0,0.1545,1.669,0.85,0.526
+textbook,MR3_vwap_reversion_short,short,B04,213,19,194,0.0892,"day in {Thu,Fri,Sat,Sun}",1,53.0,10.0,0.1887,2.115,0.526,0.778
+textbook,MR3_vwap_reversion_short,short,C01,1393,54,1339,0.0388,ADX14 > 14.7887 AND BB_width <= 0.00589502,2,947.0,48.0,0.0507,1.308,0.889,0.329
+textbook,MR3_vwap_reversion_short,short,C02,7409,405,7004,0.0547,EMA_slope > 0.00139448 AND EMA_slope <= 0.00261561,1,784.0,82.0,0.1046,1.913,0.202,0.9
+textbook,MR4_zscore_extreme_long,long,B08,1064,127,937,0.1194,BB_width > 0.00398826 AND ATR_ratio > 0.0882823,2,499.0,89.0,0.1784,1.494,0.701,0.562
+textbook,MR4_zscore_extreme_long,long,C01,178855,11609,167246,0.0649,"ATR_ratio > 0.0489881 AND session in {asia,asia_late,london_open,ny_open,ny_mid}",2,78987.0,7295.0,0.0924,1.423,0.628,0.571
+textbook,MR4_zscore_extreme_long,long,C02,86268,6292,79976,0.0729,ATR_ratio > 0.0528352 AND ATR_ratio > 0.08652,1,12160.0,1528.0,0.1257,1.723,0.243,0.867
+textbook,MR4_zscore_extreme_long,long,O06,369,21,348,0.0569,close_pos <= -0.11409 AND ATR14 <= 0.0411028,2,265.0,21.0,0.0792,1.392,1.0,0.299
+textbook,MR4_zscore_extreme_short,short,B04,1139,143,996,0.1255,hour_utc <= 20 AND ATR_ratio > 0.185417,2,119.0,35.0,0.2941,2.343,0.245,0.916
+textbook,MR4_zscore_extreme_short,short,C01,182823,10964,171859,0.06,ATR_ratio > 0.0576127 AND ATR_ratio > 0.0737037,1,34936.0,3538.0,0.1013,1.689,0.323,0.817
+textbook,MR4_zscore_extreme_short,short,C02,86733,5923,80810,0.0683,ATR_ratio > 0.0567076 AND ATR_ratio > 0.0752553,1,20134.0,2216.0,0.1101,1.612,0.374,0.778
+textbook,MR4_zscore_extreme_short,short,O05,349,32,317,0.0917,"ADX14 <= 23.8628 AND day in {Tue,Wed,Thu,Fri,Sat,Sun}",2,248.0,31.0,0.125,1.363,0.969,0.315
+textbook,MR5_williams_extreme_long,long,B07,547,37,510,0.0676,BB_compress <= 0.188364 AND ATR_ratio > 0.0743623,2,268.0,29.0,0.1082,1.6,0.784,0.531
+textbook,MR5_williams_extreme_long,long,B08,643,59,584,0.0918,ATR_ratio > 0.0900631 AND RSI14 > 26.1868,2,133.0,26.0,0.1955,2.13,0.441,0.817
+textbook,MR5_williams_extreme_long,long,C01,308862,14968,293894,0.0485,ATR_ratio > 0.0551372 AND ATR_ratio > 0.0776346,1,50630.0,4203.0,0.083,1.713,0.281,0.842
+textbook,MR5_williams_extreme_long,long,C02,433945,25774,408171,0.0594,ATR_ratio > 0.0579901 AND ATR_ratio > 0.0813587,1,96123.0,9045.0,0.0941,1.584,0.351,0.787
+textbook,MR5_williams_extreme_long,long,M01,273,31,242,0.1136,BB_width <= 0.0130337 AND EMA_slope <= -0.000485232,2,121.0,23.0,0.1901,1.674,0.742,0.595
+textbook,MR5_williams_extreme_long,long,O06,1003,61,942,0.0608,EMA_slope <= -0.000165452 AND ATR14 <= 0.0410946,2,657.0,57.0,0.0868,1.427,0.934,0.363
+textbook,MR5_williams_extreme_short,short,B03,427,35,392,0.082,RSI14 <= 82.2808 AND ATR_ratio > 0.0728975,2,258.0,32.0,0.124,1.513,0.914,0.423
+textbook,MR5_williams_extreme_short,short,B04,632,66,566,0.1044,hour_utc <= 20 AND ATR_ratio > 0.171634,2,73.0,22.0,0.3014,2.886,0.333,0.91
+textbook,MR5_williams_extreme_short,short,C01,323465,14610,308855,0.0452,ATR_ratio > 0.0543682 AND ATR_ratio > 0.0735275,1,64109.0,5021.0,0.0783,1.734,0.344,0.809
+textbook,MR5_williams_extreme_short,short,C02,450965,24792,426173,0.055,ATR_ratio > 0.0653063 AND ATR_ratio <= 0.0961515,1,135201.0,9446.0,0.0699,1.271,0.381,0.705
+textbook,MR5_williams_extreme_short,short,M03,304,28,276,0.0921,RSI14 <= 79.2293 AND ADX14 > 26.3932,2,86.0,18.0,0.2093,2.272,0.643,0.754
+textbook,MR5_williams_extreme_short,short,O05,767,56,711,0.073,"ATR14 > 0.0157478 AND day in {Tue,Wed,Thu,Fri,Sat,Sun}",2,132.0,27.0,0.2045,2.802,0.482,0.852
+textbook,RG3_midrange_drift_fade_short,short,C01,5996,238,5758,0.0397,ATR_ratio > 0.0721778 AND BB_width > 0.00201376,2,977.0,72.0,0.0737,1.857,0.303,0.843
+textbook,SS1_asian_range_breakout_long,long,C01,16216,941,15275,0.058,ATR_ratio > 0.0442509 AND ATR14 > 0.000432715,2,5232.0,472.0,0.0902,1.555,0.502,0.688
+textbook,SS1_asian_range_breakout_long,long,C02,31252,1880,29372,0.0602,ATR_ratio > 0.0392135 AND ATR14 > 0.0301552,2,5053.0,547.0,0.1083,1.8,0.291,0.847
+textbook,SS1_asian_range_breakout_short,short,C01,15262,836,14426,0.0548,ATR_ratio > 0.0384433 AND BB_width > 0.000674933,2,9321.0,681.0,0.0731,1.334,0.815,0.401
+textbook,SS1_asian_range_breakout_short,short,C02,30598,1721,28877,0.0562,ATR_ratio > 0.0406748 AND ATR_ratio > 0.0618652,1,7944.0,682.0,0.0859,1.526,0.396,0.749
+textbook,SS2_london_open_reversal_long,long,C01,53015,3444,49571,0.065,ATR14 > 0.000371303 AND ATR_ratio > 0.0799384,2,13421.0,1199.0,0.0893,1.375,0.348,0.753
+textbook,SS2_london_open_reversal_long,long,C02,60577,4408,56169,0.0728,ATR_ratio > 0.0713582 AND ATR_ratio <= 0.126415,1,28339.0,2285.0,0.0806,1.108,0.518,0.536
+textbook,SS2_london_open_reversal_short,short,C01,53565,3435,50130,0.0641,ATR_ratio > 0.0692067 AND BB_width > 0.00195857,2,9603.0,925.0,0.0963,1.502,0.269,0.827
+textbook,SS2_london_open_reversal_short,short,C02,60853,4074,56779,0.0669,ATR_ratio > 0.081152 AND ATR_ratio <= 0.11076,1,14951.0,1168.0,0.0781,1.167,0.287,0.757
+textbook,TF1_EMA9_gt_EMA21,long,B03,543,48,495,0.0884,BB_width > 0.00330457 AND ATR14 <= 0.0444252,2,290.0,39.0,0.1345,1.521,0.812,0.493
+textbook,TF1_EMA9_gt_EMA21,long,C02,150565,10350,140215,0.0687,hour_utc <= 17 AND ATR_ratio > 0.0480587,2,85643.0,7854.0,0.0917,1.334,0.759,0.445
+textbook,TF1_EMA9_gt_EMA21,long,F02,301,35,266,0.1163,hour_utc <= 17 AND RSI14 > 81.6739,2,47.0,13.0,0.2766,2.379,0.371,0.872
+textbook,TF1_EMA9_gt_EMA21,long,M03,721,82,639,0.1137,ATR_ratio > 0.10459 AND ATR_ratio <= 0.197777,1,344.0,61.0,0.1773,1.559,0.744,0.557
+textbook,TF1_EMA9_lt_EMA21,short,B07,623,64,559,0.1027,hour_utc <= 19 AND close_pos <= -1.17648,2,258.0,44.0,0.1705,1.66,0.688,0.617
+textbook,TF1_EMA9_lt_EMA21,short,C02,147924,9548,138376,0.0645,ATR_ratio > 0.0568051 AND hour_utc <= 19,2,72295.0,6542.0,0.0905,1.402,0.685,0.525
+textbook,TF1_EMA9_lt_EMA21,short,F04,287,28,259,0.0976,"day in {Mon,Tue,Wed} AND BB_width > 0.00484111",2,108.0,21.0,0.1944,1.993,0.75,0.664
+textbook,TF1_EMA9_lt_EMA21,short,M01,735,95,640,0.1293,hour_utc <= 20 AND ATR14 <= 0.00103992,2,221.0,53.0,0.2398,1.855,0.558,0.738
+textbook,TF2_pullback_EMA20_long,long,B03,295,111,184,0.3763,EMA_slope <= 0.000338764 AND BB_width > 0.00294866,2,159.0,82.0,0.5157,1.371,0.739,0.582
+textbook,TF2_pullback_EMA20_long,long,B04,433,183,250,0.4226,EMA_slope <= 0.000334862 AND close_pos > 2.90203,2,163.0,90.0,0.5521,1.306,0.492,0.708
+textbook,TF2_pullback_EMA20_long,long,C01,618701,40036,578665,0.0647,hour_utc <= 16 AND ATR_ratio > 0.0477612,2,288349.0,25681.0,0.0891,1.376,0.641,0.546
+textbook,TF2_pullback_EMA20_long,long,C02,517608,42936,474672,0.083,ATR_ratio > 0.0617222 AND EMA_slope > -0.000600197,2,218035.0,21825.0,0.1001,1.207,0.508,0.587
+textbook,TF2_pullback_EMA20_short,short,B07,305,137,168,0.4492,close_pos <= -0.827569 AND ATR_ratio > 0.075361,2,233.0,121.0,0.5193,1.156,0.883,0.333
+textbook,TF2_pullback_EMA20_short,short,B08,357,149,208,0.4174,,0,,,,,,
+textbook,TF2_pullback_EMA20_short,short,C01,614455,38488,575967,0.0626,hour_utc <= 16 AND ATR_ratio > 0.052921,2,246505.0,22654.0,0.0919,1.467,0.589,0.611
+textbook,TF2_pullback_EMA20_short,short,C02,514480,39906,474574,0.0776,ATR_ratio > 0.0626686 AND EMA_slope <= 0.000523851,2,205787.0,19357.0,0.0941,1.213,0.485,0.607
+textbook,TF3_supertrend_long,long,B03,272,106,166,0.3897,"day in {Mon,Tue,Wed,Thu,Fri,Sat} AND hour_utc > 2",2,183.0,89.0,0.4863,1.248,0.84,0.434
+textbook,TF3_supertrend_long,long,B04,517,192,325,0.3714,"day in {Mon,Tue,Wed,Thu,Fri,Sat} AND RSI14 > 82.7642",2,68.0,42.0,0.6176,1.663,0.219,0.92
+textbook,TF3_supertrend_long,long,C01,85780,15380,70400,0.1793,ATR_ratio > 0.0524132 AND hour_utc <= 17,2,38432.0,8990.0,0.2339,1.305,0.585,0.582
+textbook,TF3_supertrend_long,long,C02,83003,17180,65823,0.207,ATR_ratio > 0.0639282 AND BB_width > 0.0015632,2,28057.0,7857.0,0.28,1.353,0.457,0.693
+textbook,TF3_supertrend_short,short,B07,338,131,207,0.3876,hour_utc <= 20 AND ATR_ratio > 0.118024,2,148.0,81.0,0.5473,1.412,0.618,0.676
+textbook,TF3_supertrend_short,short,B08,518,184,334,0.3552,hour_utc <= 20 AND RSI14 <= 18.6491,2,105.0,61.0,0.581,1.636,0.332,0.868
+textbook,TF3_supertrend_short,short,C01,85652,14788,70864,0.1727,ATR_ratio > 0.0536815 AND hour_utc <= 16,2,35483.0,8404.0,0.2368,1.372,0.568,0.618
+textbook,TF3_supertrend_short,short,C02,83040,16211,66829,0.1952,ATR_ratio > 0.0567747 AND hour_utc <= 18,2,40980.0,10223.0,0.2495,1.278,0.631,0.54
+textbook,TF4_sar_long,long,B04,286,96,190,0.3357,hour_utc <= 12 AND ADX14 <= 20.9693,2,68.0,37.0,0.5441,1.621,0.385,0.837
+textbook,TF4_sar_long,long,C01,165419,17680,147739,0.1069,hour_utc <= 17 AND close_pos > 0.455811,2,82923.0,12603.0,0.152,1.422,0.713,0.524
+textbook,TF4_sar_long,long,C02,224487,27863,196624,0.1241,hour_utc <= 16 AND close_pos > 0.304829,2,121667.0,20077.0,0.165,1.33,0.721,0.483
+textbook,TF4_sar_long,long,M03,214,51,163,0.2383,BB_compress > 0.240735,1,32.0,17.0,0.5312,2.229,0.333,0.908
+textbook,TF4_sar_short,short,B07,232,81,151,0.3491,hour_utc <= 19 AND ATR_ratio > 0.12247,2,76.0,42.0,0.5526,1.583,0.519,0.775
+textbook,TF4_sar_short,short,B08,318,110,208,0.3459,hour_utc <= 19 AND close_pos <= -1.01706,2,129.0,67.0,0.5194,1.501,0.609,0.702
+textbook,TF4_sar_short,short,C01,164869,16669,148200,0.1011,hour_utc <= 16 AND close_pos <= 0.602385,2,79933.0,11876.0,0.1486,1.47,0.712,0.541
+textbook,TF4_sar_short,short,C02,224250,25917,198333,0.1156,hour_utc <= 16 AND close_pos <= 0.709737,2,122716.0,19155.0,0.1561,1.351,0.739,0.478
+textbook,TF4_sar_short,short,M01,206,65,141,0.3155,hour_utc <= 13 AND close_pos <= 0.419418,2,105.0,49.0,0.4667,1.479,0.754,0.603
+textbook,TF5_donchian_breakout_short,short,B06,427,60,367,0.1405,EMA_slope > -0.000663321 AND BB_compress > 0.1662,2,64.0,23.0,0.3594,2.558,0.383,0.888
+textbook,TF5_donchian_breakout_short,short,B07,666,116,550,0.1742,EMA_slope > -0.00223939 AND ATR_ratio > 0.106631,2,372.0,84.0,0.2258,1.296,0.724,0.476
+textbook,TF6_ma_ribbon_long,long,C01,1341,331,1010,0.2468,RSI14 > 58.8634 AND EMA_slope <= 0.00067832,2,312.0,116.0,0.3718,1.506,0.35,0.806
+textbook,TF6_ma_ribbon_long,long,C02,26767,6666,20101,0.249,EMA_slope <= 0.000995168 AND BB_compress > 0.137315,2,8397.0,2972.0,0.3539,1.421,0.446,0.73
+textbook,TF6_ma_ribbon_long,long,F02,218,83,135,0.3807,close_pos > 0.773989 AND ATR14 <= 0.000829929,2,33.0,22.0,0.6667,1.751,0.265,0.919
+textbook,TF6_ma_ribbon_long,long,M03,487,156,331,0.3203,BB_compress > 0.267703 AND close_pos > 0.886842,2,53.0,32.0,0.6038,1.885,0.205,0.937
+textbook,TF6_ma_ribbon_short,short,C01,1473,308,1165,0.2091,EMA_slope > -0.00122639 AND hour_utc > 4,2,1138.0,276.0,0.2425,1.16,0.896,0.26
+textbook,TF6_ma_ribbon_short,short,C02,28991,7089,21902,0.2445,EMA_slope > -0.00101566 AND BB_compress > 0.155565,2,7601.0,2696.0,0.3547,1.451,0.38,0.776
+textbook,TF6_ma_ribbon_short,short,F03,222,86,136,0.3874,BB_compress > 0.245532 AND close_pos <= 0.060329,2,33.0,24.0,0.7273,1.877,0.279,0.934
+textbook,TF6_ma_ribbon_short,short,F04,213,56,157,0.2629,ATR_ratio > 0.118524 AND close_pos <= 0.255845,2,82.0,36.0,0.439,1.67,0.643,0.707
+textbook,TF6_ma_ribbon_short,short,M01,439,174,265,0.3964,close_pos <= 0.159137 AND ATR_ratio > 0.107682,2,185.0,98.0,0.5297,1.337,0.563,0.672
+trainer,alpha_breakout_retest_v2,long,C01,9542,3640,5902,0.3815,,0,,,,,,
+trainer,alpha_breakout_retest_v2,long,C02,19296,7526,11770,0.39,,0,,,,,,
+trainer,alpha_breakout_retest_v2,short,C01,10366,3727,6639,0.3595,ATR_ratio <= 0.121853 AND ADX14 > 12.1077,2,8840.0,3212.0,0.3633,1.011,0.862,0.152
+trainer,alpha_breakout_retest_v2,short,C02,20504,7487,13017,0.3651,"day in {Fri,Sat,Sun} AND hour_utc <= 21",2,3590.0,1552.0,0.4323,1.184,0.207,0.843
+trainer,alpha_extended_fade_v2,long,C01,1564,501,1063,0.3203,,0,,,,,,
+trainer,alpha_extended_fade_v2,long,C02,13488,4847,8641,0.3594,"day in {Fri,Sat,Sun} AND ATR_ratio <= 0.159776",2,2444.0,1130.0,0.4624,1.287,0.233,0.848
+trainer,alpha_extended_fade_v2,short,C01,1380,450,930,0.3261,hour_utc > 16 AND ATR_ratio > 0.0495746,2,356.0,131.0,0.368,1.128,0.291,0.758
+trainer,alpha_extended_fade_v2,short,C02,11256,3894,7362,0.3459,"hour_utc > 12 AND day in {Thu,Fri,Sat,Sun}",2,2392.0,1057.0,0.4419,1.277,0.271,0.819
+trainer,alpha_pullback_v2,long,C01,12566,4941,7625,0.3932,"day in {Fri,Sat,Sun} AND hour_utc > 2",2,2272.0,1081.0,0.4758,1.21,0.219,0.844
+trainer,alpha_pullback_v2,long,C02,21318,8462,12856,0.3969,BB_compress > 0.0947857 AND EMA_slope <= 0.00139252,2,7784.0,3274.0,0.4206,1.06,0.387,0.649
+trainer,alpha_pullback_v2,short,C01,12412,4560,7852,0.3674,ATR14 <= 0.0969172 AND RSI14 <= 49.534,2,7266.0,2869.0,0.3949,1.075,0.629,0.44
+trainer,alpha_pullback_v2,short,C02,20912,7648,13264,0.3657,,0,,,,,,
+trainer,bravo_expansion_continuation,long,C01,7386,3006,4380,0.407,,0,,,,,,
+trainer,bravo_expansion_continuation,long,C02,13704,5569,8135,0.4064,"day in {Mon,Tue,Wed,Thu} AND ADX14 > 24.0223",2,7350.0,3023.0,0.4113,1.012,0.543,0.468
+trainer,bravo_expansion_continuation,short,C01,9116,3503,5613,0.3843,ATR14 <= 0.155681 AND ATR_ratio <= 0.0596471,2,3910.0,1625.0,0.4156,1.082,0.464,0.593
+trainer,bravo_expansion_continuation,short,C02,16488,6190,10298,0.3754,"day in {Fri,Sat,Sun} AND BB_compress > 0.0392868",2,3138.0,1270.0,0.4047,1.078,0.205,0.819
+trainer,bravo_failed_momentum,long,C01,5016,1960,3056,0.3907,,0,,,,,,
+trainer,bravo_failed_momentum,long,C02,9480,3776,5704,0.3983,ATR_ratio > 0.0760622 AND BB_width > 0.00123911,2,2880.0,1226.0,0.4257,1.069,0.325,0.71
+trainer,bravo_failed_momentum,short,C01,4212,1651,2561,0.392,BB_compress <= 0.0465695 AND BB_compress <= 0.0462192,1,1124.0,494.0,0.4395,1.121,0.299,0.754
+trainer,bravo_failed_momentum,short,C02,7370,2773,4597,0.3763,"day in {Thu,Fri,Sat,Sun} AND close_pos <= 0.708711",2,2014.0,905.0,0.4494,1.194,0.326,0.759
+trainer,charlie_compression_breakout,long,C01,14304,5717,8587,0.3997,"day in {Thu,Fri,Sat,Sun} AND ATR14 <= 0.000550248",2,3246.0,1335.0,0.4113,1.029,0.234,0.777
+trainer,charlie_compression_breakout,long,C02,11950,4747,7203,0.3972,"day in {Mon,Tue,Wed,Thu} AND ATR_ratio > 0.0418111",2,6624.0,2633.0,0.3975,1.001,0.555,0.446
+trainer,charlie_compression_breakout,short,C01,18486,7028,11458,0.3802,ATR_ratio <= 0.0919738 AND BB_compress <= 0.0411862,2,11526.0,4495.0,0.39,1.026,0.64,0.386
+trainer,charlie_compression_breakout,short,C02,15418,5722,9696,0.3711,EMA_slope > 4.0243e-05 AND BB_width <= 0.00117191,2,6992.0,2825.0,0.404,1.089,0.494,0.57
+trainer,charlie_pullback_continuation_v2,long,C01,19232,6878,12354,0.3576,ATR14 > 0.000248843 AND ATR_ratio > 0.0321863,2,12652.0,4835.0,0.3822,1.069,0.703,0.367
+trainer,charlie_pullback_continuation_v2,long,C02,15898,5781,10117,0.3636,ATR14 > 0.000533717 AND ADX14 > 20.6878,2,5546.0,2173.0,0.3918,1.078,0.376,0.667
+trainer,charlie_pullback_continuation_v2,short,C01,17740,6313,11427,0.3559,ATR14 > 0.000767714 AND ATR14 <= 0.0787286,1,4474.0,1810.0,0.4046,1.137,0.287,0.767
+trainer,charlie_pullback_continuation_v2,short,C02,14414,4833,9581,0.3353,ATR14 > 0.000539866 AND ATR_ratio <= 0.100746,2,5048.0,1838.0,0.3641,1.086,0.38,0.665
+trainer,delta_tag_and_go_v2,long,C01,806,322,484,0.3995,ATR14 > 0.000513337 AND ADX14 <= 17.8917,2,218.0,93.0,0.4266,1.068,0.289,0.742
+trainer,delta_tag_and_go_v2,long,C02,608,241,367,0.3964,hour_utc > 2 AND ATR14 <= 0.000185998,2,122.0,69.0,0.5656,1.427,0.286,0.856
+trainer,delta_tag_and_go_v2,short,C01,2950,1065,1885,0.361,BB_compress <= 0.0758243 AND ADX14 <= 19.4785,2,2650.0,963.0,0.3634,1.007,0.904,0.105
+trainer,delta_tag_and_go_v2,short,C02,2112,739,1373,0.3499,EMA_slope > -0.000208578 AND hour_utc > 6,2,1164.0,433.0,0.372,1.063,0.586,0.468
+trainer,echo_box_fade_v2,long,C01,13330,5345,7985,0.401,,0,,,,,,
+trainer,echo_box_fade_v2,long,C02,20048,8056,11992,0.4018,"hour_utc > 11 AND day in {Mon,Tue,Wed,Thu}",2,7274.0,3041.0,0.4181,1.04,0.377,0.647
+trainer,echo_box_fade_v2,short,C01,35296,13302,21994,0.3769,"day in {Mon,Tue,Wed,Thu} AND ATR14 > 0.000732127",2,11000.0,4207.0,0.3825,1.015,0.316,0.691
+trainer,echo_box_fade_v2,short,C02,50770,19560,31210,0.3853,,0,,,,,,

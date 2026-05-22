@@ -86,3 +86,16 @@ research/ohlcv-strategy-library-v0/probe_seed_family_children_loser_contrast_ban
 # Large research corpora (kept locally on EC2 only)
 research/ohlcv-strategy-library-v0/scalper_corpus_*.parquet
 research/ohlcv-strategy-library-v0/trade_log_all_*.parquet
+
+# Config flip backups (kept locally for rollback only)
+config/default.json.bak-*
+data/daily_circuit.json.bak-*
+
+# Cron + telemetry runtime artifacts
+research/ohlcv-strategy-library-v0/expansion-runs/
+data/seed-telemetry.jsonl
+data/v10_fast_alerts.jsonl
+data/v10_fast_alerts_state.json
+data/v10_fast_monitor_report.json
+data/dbb-candidate-audit.jsonl
+data/ml-observer-archive-*/
