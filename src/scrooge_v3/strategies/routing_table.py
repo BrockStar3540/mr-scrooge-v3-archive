@@ -74,6 +74,22 @@ def _build_basis(r) -> dict:
         sval = str(val).strip()
         if sval and sval.lower() not in ("nan", "none"):
             basis[key] = sval
+    # Brock 2026-05-22: family_lock support. When True, entry_filter loose-family
+    # override will SKIP this cell — only candidates with matching family approve.
+    # Prevents cross-family cell absorption for new families at fresh leaves (e.g.
+    # MTB at C01 EUR_CHF where reversal/direct candidates could otherwise loose-match).
+    if 'family_locked' in (r.index if hasattr(r, 'index') else r):
+        try:
+            lval = r.get('family_locked') if hasattr(r, 'get') else r['family_locked']
+            # Accept True, "true", 1 — reject NaN/None/False/empty
+            if lval is True:
+                basis['family_locked'] = True
+            elif isinstance(lval, str) and lval.strip().lower() == "true":
+                basis['family_locked'] = True
+            elif isinstance(lval, (int, float)) and lval == lval and lval == 1:
+                basis['family_locked'] = True
+        except Exception:
+            pass
     return basis
 
 

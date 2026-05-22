@@ -139,10 +139,17 @@ class EntryFilterGate(BaseGate):
         # may be 'dbb_trend' / 'reversal'. Only cells at trade-tier (Seed-Pro+)
         # qualify. Logs loudly when invoked.
         if match is None and decisions and self._min_tier_rank >= self._tier_rank["Seed-Pro"]:
+            # Brock 2026-05-22: skip cells flagged with basis['family_locked']=True.
+            # These cells will only approve candidates whose strategy matches the
+            # cell family exactly — they refuse to absorb other-family candidates
+            # via loose override. Used for the v1.10 MTB cells where MTB is a new
+            # family at brand-new leaves and we don't want reversal/direct to
+            # cross-contaminate the cell's empirical edge.
             trade_tier_decisions = [
                 d for d in decisions
                 if self._tier_rank.get((d.basis or {}).get("tier", "Probationary"), 0)
                    >= self._tier_rank["Seed-Pro"]
+                and not (d.basis or {}).get("family_locked", False)
             ]
             if trade_tier_decisions:
                 trade_tier_decisions.sort(

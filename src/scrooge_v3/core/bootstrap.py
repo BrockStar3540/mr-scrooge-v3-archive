@@ -177,7 +177,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("classifiers", "session_bucket", SessionBucketClassifier())
 
     # --- Register strategies ---
-    from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, DBBTrendStrategy, V3HybridScorer
+    from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, DBBTrendStrategy, BoxMasterTheoryStrategy, V3HybridScorer
     from scrooge_v3.strategies.direct_entry import DirectEntryStrategy
 
     strat_cfg = config.section("strategies")
@@ -185,6 +185,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
     registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
     registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
+    registry.register("strategies", "box_master_theory", BoxMasterTheoryStrategy(strat_cfg.get("box_master_theory", {})))
 
     # --- Register trainer-v2 probes as live strategies (disabled by default) ---
     from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
