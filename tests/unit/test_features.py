@@ -183,8 +183,11 @@ class TestATREnrichment:
 # =====================================================================
 
 class TestStrategyRouter:
-    def test_stretch_up_blocked(self):
-        """STRETCH_UP = 0% WR, should route to no strategies."""
+    def test_stretch_up_blocks_reversal_and_direct(self):
+        """STRETCH_UP = 0% WR for reversal/direct (V1 historic). Only box_master_theory
+        is allowed under the 2026-05-23 router patch — MTB Pitchfork is PDH/PDL-anchored
+        and the V1 STRETCH_UP block reflected direct/reversal failure modes, not MTB's
+        distinct entry mechanic. Routing-table family_lock is the real safeguard."""
         from scrooge_v3.core.strategy_router import StrategyRouter
         from scrooge_v3.core.types import SymbolContext, ClassificationResult
         router = StrategyRouter()
@@ -193,7 +196,10 @@ class TestStrategyRouter:
                                classifications={"bb_state": ClassificationResult(
                                    name="bb_state", label="STRETCH_UP")})
         allowed = router.get_allowed(sym_ctx)
-        assert allowed == []
+        assert "reversal" not in allowed
+        assert "direct" not in allowed
+        assert "dbb_trend" not in allowed
+        assert allowed == ["box_master_theory"]
 
     def test_extreme_down_allows_reversal(self):
         from scrooge_v3.core.strategy_router import StrategyRouter
