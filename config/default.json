@@ -10,7 +10,7 @@
     "account_id": ""
   },
   "risk": {
-    "max_open_positions": 5,
+    "max_open_positions": 2,
     "max_daily_loss_pct": 3.0,
     "margin_utilization": 0.4,
     "cooldown_after_stop_minutes": 60,
@@ -87,7 +87,7 @@
       "stop_buffer_pips": 2,
       "fixed_score": 32
     },
-    "routing_table_path": "data/routing_table_v10_fast_v1_9.parquet",
+    "routing_table_path": "data/routing_table_v10_fast_v1_11_5.parquet",
     "routing_table_mode": "hard",
     "routing_telemetry": {
       "enabled": true,
