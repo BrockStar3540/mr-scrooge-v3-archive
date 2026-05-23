@@ -37,7 +37,11 @@ _FEATURE_MAP: dict[str, tuple[str, str]] = {
 
 _RULE_RE = re.compile(r'^([\w_]+)\s*(<=|>=|<|>|==|=)\s*(.+?)\s*$')
 
-DEFAULT_CSV_PATH = "data/mtb_sub_regime_definitions.csv"
+DEFAULT_CSV_PATHS = [
+    "data/mtb_sub_regime_definitions_40.csv",   # 40-leaf (more specific, higher priority)
+    "data/mtb_sub_regime_definitions.csv",      # 10-leaf (fallback)
+]
+DEFAULT_CSV_PATH = "data/mtb_sub_regime_definitions.csv"  # back-compat
 
 
 class MTBSubRegimeClassifier:
@@ -51,13 +55,42 @@ class MTBSubRegimeClassifier:
     def __init__(self, config: dict | None = None):
         config = config or {}
         self.enabled = config.get("enabled", True)
-        self.csv_path = Path(config.get("csv_path", DEFAULT_CSV_PATH))
-        if not self.csv_path.is_absolute():
-            self.csv_path = Path("/home/ubuntu/mr-scrooge-v3") / self.csv_path
-        self._definitions = self._load_definitions(self.csv_path)
+        # 2026-05-23 evening: support multiple CSV files (e.g. 40-leaf + 10-leaf).
+        # Rules from earlier files are tried FIRST (more-specific 40-leaf wins over
+        # less-specific 10-leaf when both match). csv_paths config takes precedence;
+        # falls back to csv_path (single) for backward compat; falls back to
+        # DEFAULT_CSV_PATHS list otherwise.
+        if "csv_paths" in config:
+            csv_paths = config["csv_paths"]
+        elif "csv_path" in config:
+            csv_paths = [config["csv_path"]]
+        else:
+            csv_paths = DEFAULT_CSV_PATHS
+        self.csv_paths = [self._resolve_path(p) for p in csv_paths]
+        # Load + merge definitions. Earlier CSVs in csv_paths have higher priority
+        # (their rules iterated first per parent regime; first-match wins).
+        self._definitions = self._load_all_definitions(self.csv_paths)
         n_rules = sum(len(v) for v in self._definitions.values())
-        log.info("[CLASSIFIER:mtb_sub_regime] init enabled=%s rules=%d parents=%s",
-                 self.enabled, n_rules, sorted(self._definitions.keys()))
+        log.info("[CLASSIFIER:mtb_sub_regime] init enabled=%s rules=%d parents=%s csv_paths=%s",
+                 self.enabled, n_rules, sorted(self._definitions.keys()),
+                 [str(p.name) for p in self.csv_paths])
+
+    @staticmethod
+    def _resolve_path(p) -> Path:
+        path = Path(p)
+        if not path.is_absolute():
+            path = Path("/home/ubuntu/mr-scrooge-v3") / path
+        return path
+
+    def _load_all_definitions(self, paths: list) -> dict:
+        """Merge rules from multiple CSVs. Order matters: earlier CSVs = higher priority
+        (their rules iterated first per parent; first-match wins in _classify_sub_regime)."""
+        merged: dict[str, list[tuple[str, list]]] = {}
+        for p in paths:
+            single = self._load_definitions(p)
+            for parent, rules in single.items():
+                merged.setdefault(parent, []).extend(rules)
+        return merged
 
     def classify(self, ctx: SymbolContext) -> ClassificationResult:
         if not self.enabled:
