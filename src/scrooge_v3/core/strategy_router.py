@@ -15,22 +15,30 @@ log = logging.getLogger("scrooge_v3.core.strategy_router")
 
 # Default routing rules — BB state to strategy mapping
 _DEFAULT_ROUTES: dict[str, list[str]] = {
-    # Exhaustion states → reversal + direct
-    "EXTREME_UP": ["reversal", "direct"],
-    "EXTREME_DOWN": ["reversal", "direct"],
-    "REJECTION_SHORT": ["reversal", "direct"],
-    "REJECTION_LONG": ["reversal", "direct"],
-    # STRETCH_UP = 0% WR on V1 live data — hard block, no strategies allowed
-    "STRETCH_UP": [],
-    # STRETCH_DOWN = -2 pts in V3 scorer, allow dbb_trend continuation
-    "STRETCH_DOWN": ["dbb_trend", "direct"],
-    # Breakout → dbb_trend + direct
+    # Exhaustion states → reversal + direct + box_master_theory
+    # (MTB Pitchfork fits exhaustion: sucker move into PDH/PDL → snap-back candle)
+    "EXTREME_UP": ["reversal", "direct", "box_master_theory"],
+    "EXTREME_DOWN": ["reversal", "direct", "box_master_theory"],
+    "REJECTION_SHORT": ["reversal", "direct", "box_master_theory"],
+    "REJECTION_LONG": ["reversal", "direct", "box_master_theory"],
+    # STRETCH_UP previously 0% WR on V1 — direct/reversal still blocked. MTB
+    # allowed because Pitchfork is PDH/PDL-anchored, not BB-anchored, and the
+    # historic V1 STRETCH_UP block reflects direct/reversal failure modes that
+    # don't apply to MTB's distinct entry mechanic. Routing-table gate is the
+    # real safeguard — MTB only fires at routed cells (3 in v1.10).
+    "STRETCH_UP": ["box_master_theory"],
+    # STRETCH_DOWN = -2 pts in V3 scorer; dbb_trend + direct + MTB allowed
+    "STRETCH_DOWN": ["dbb_trend", "direct", "box_master_theory"],
+    # Breakout → dbb_trend + direct (MTB excluded: breakouts are continuation,
+    # opposite of MTB's reversal-at-edge thesis)
     "BREAKOUT_UP": ["dbb_trend", "direct"],
     "BREAKOUT_DOWN": ["dbb_trend", "direct"],
-    # Normal/range → direct entry only (V3 scorer decides quality)
-    "NORMAL": ["direct"],
-    # Compression → direct only
-    "COMPRESSION": ["direct"],
+    # Normal/range → direct + MTB (MTB can fire when PDH/PDL is wider than 2σ BB,
+    # making price-at-edge possible while still inside Band A → bb_state=NORMAL)
+    "NORMAL": ["direct", "box_master_theory"],
+    # Compression → direct + MTB (compressed BB with wide PDH/PDL is exactly
+    # the setup MTB targets: range-bound day with clean edges)
+    "COMPRESSION": ["direct", "box_master_theory"],
 }
 
 
