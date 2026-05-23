@@ -174,7 +174,9 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("classifiers", "opening_state", OpeningStateClassifier())
     registry.register("classifiers", "structure", StructureClassifier())
     from scrooge_v3.classifiers.session_bucket import SessionBucketClassifier
+    from scrooge_v3.classifiers.mtb_sub_regime import MTBSubRegimeClassifier
     registry.register("classifiers", "session_bucket", SessionBucketClassifier())
+    registry.register("classifiers", "mtb_sub_regime", MTBSubRegimeClassifier())
 
     # --- Register strategies ---
     from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, DBBTrendStrategy, BoxMasterTheoryStrategy, V3HybridScorer

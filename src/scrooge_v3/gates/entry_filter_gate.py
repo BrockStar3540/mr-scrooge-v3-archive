@@ -107,9 +107,13 @@ class EntryFilterGate(BaseGate):
                                   metrics={'regime53': regime53, 'session': session})
             return self._pass('cell_key_unavailable')
 
+        # 2026-05-23 Layer 2: pass mtb_sub_regime classification to lookup so routing-table
+        # cells with basis['sub_regime'] can be preferred over parent-regime cells.
+        mtb_sub = self._classify(ctx, 'mtb_sub_regime')
         decisions = self._table.lookup(
             regime53, ctx.symbol, session,
             direction=candidate.direction.value,
+            sub_regime=mtb_sub,
         )
         # Try exact strategy match first (offline replay strategy IDs).
         # Fall back to family match — the live bot's candidate.strategy is

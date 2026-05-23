@@ -90,6 +90,24 @@ def _build_basis(r) -> dict:
                 basis['family_locked'] = True
         except Exception:
             pass
+    # 2026-05-23 Layer 2: sub_regime support. Cell can require a specific MTB sub_regime
+    # (e.g. "MTB_C01_3"). When set, lookup() prefers cells whose basis['sub_regime'] matches
+    # the candidate's classified mtb_sub_regime. Backward-compatible: cells without
+    # sub_regime continue to match at parent-regime level (existing behavior).
+    if 'sub_regime' in (r.index if hasattr(r, 'index') else r):
+        try:
+            sval = r.get('sub_regime') if hasattr(r, 'get') else r['sub_regime']
+            if sval is not None and not (isinstance(sval, float) and sval != sval):
+                s = str(sval).strip()
+                # 2026-05-23: only set basis['sub_regime'] if it's a TRUE sub-regime ID
+                # (contains underscore — e.g., "MTB_C02_4", "C02_3"). Legacy v1.9/v1.10/v1.11
+                # cells set sub_regime=parent_regime (e.g., "C02") as a placeholder; those
+                # should be treated as "no sub_regime requirement" so lookup() preference
+                # logic works correctly.
+                if s and s.lower() not in ('nan', 'none', '') and '_' in s:
+                    basis['sub_regime'] = s
+        except Exception:
+            pass
     return basis
 
 
@@ -151,6 +169,7 @@ class RoutingTable:
         pair: str,
         session_bucket: str,
         direction: str | None = None,
+        sub_regime: str | None = None,
     ) -> list[RoutingDecision]:
         """Return attached strategies for this leaf. Empty list = death."""
         if not regime53:
@@ -164,6 +183,21 @@ class RoutingTable:
         for d in decisions:
             if d.direction is None or d.direction == direction:
                 out.append(d)
+        # 2026-05-23 Layer 2: sub_regime preference. If caller passed sub_regime (from
+        # mtb_sub_regime classifier), prefer cells with matching basis['sub_regime'].
+        # If no matching sub_regime cells exist at this leaf, fall back to non-sub_regime
+        # cells (backward compatible — v1.9/v1.10/v1.11 cells don't set sub_regime).
+        if sub_regime is not None and out:
+            sub_matched = [d for d in out if (d.basis or {}).get('sub_regime') == sub_regime]
+            non_sub = [d for d in out if (d.basis or {}).get('sub_regime') is None]
+            if sub_matched:
+                # Sub-regime-specific cells exist + match — return ONLY those + non_sub fallbacks
+                # (non_sub serves as the "parent-regime" fallback if entry_filter exact match fails)
+                return sub_matched + non_sub
+            else:
+                # No sub_regime match; return only non_sub cells (don't return sub-regime cells
+                # that don't match this candidate's sub_regime — that would be wrong-leaf approval)
+                return non_sub
         return out
 
     def strategy_names_for(
