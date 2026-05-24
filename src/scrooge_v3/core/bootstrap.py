@@ -188,6 +188,14 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
     registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
     registry.register("strategies", "box_master_theory", BoxMasterTheoryStrategy(strat_cfg.get("box_master_theory", {})))
+    # --- canonical_lien_dbb class (6-variant router-reachable module) ---
+    # Registers under name="canonical_lien_dbb" matching the family name the
+    # strategy_router allows for NORMAL/COMPRESSION/STRETCH_UP/STRETCH_DOWN
+    # states. Iterates DBB1/DBB2/DBB3 variants strictest-first and emits
+    # candidate.strategy=variant_name so entry_filter_gate can match
+    # v1.12_FULL parquet rows (strategy=DBB1_buy_zone_long etc.).
+    from scrooge_v3.strategies.canonical_lien_dbb import CanonicalLienDBBStrategy
+    registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
 
     # --- Register trainer-v2 probes as live strategies (disabled by default) ---
     from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
