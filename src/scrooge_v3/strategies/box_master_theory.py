@@ -66,6 +66,14 @@ DEFAULT_VARIANTS = [
     # === v1.11 NEW VARIANTS (loosest sucker) ===
     {"name": "MTB_S2W0M30P20_long",   "direction": "long",  "sucker": 2, "wick": 0.0,  "middle": 0.30, "sweep": 0.20},
     {"name": "MTB_S2W0M30P20_short",  "direction": "short", "sucker": 2, "wick": 0.0,  "middle": 0.30, "sweep": 0.20},
+    # === v1.12_FULL NEW VARIANTS (added 2026-05-24) — from unified 6m rebuild ===
+    {"name": "MTB_S2W0M25P20_short",  "direction": "short", "sucker": 2, "wick": 0.0,  "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S3W0M30P30_long",   "direction": "long",  "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.30},
+    {"name": "MTB_S2W20M35P20_short", "direction": "short", "sucker": 2, "wick": 0.20, "middle": 0.35, "sweep": 0.20},
+    {"name": "MTB_S2W30M25P20_short", "direction": "short", "sucker": 2, "wick": 0.30, "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S3W30M35P20_long",  "direction": "long",  "sucker": 3, "wick": 0.30, "middle": 0.35, "sweep": 0.20},
+    {"name": "MTB_S3W20M25P20_short", "direction": "short", "sucker": 3, "wick": 0.20, "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S3W20M30P20_long",  "direction": "long",  "sucker": 3, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
 ]
 
 
