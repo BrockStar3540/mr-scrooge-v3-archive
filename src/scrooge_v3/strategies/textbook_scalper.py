@@ -562,6 +562,56 @@ def probe_CP1_coil_breakout_short(ctx: ProbeContext):
     )
 
 
+def probe_CP2_squeeze_momentum_long(ctx: ProbeContext):
+    f = ctx.features
+    ema20, rsi, atr_pips = f.get("ema20"), f.get("rsi"), f.get("atr_pips")
+    bb_compress = f.get("BB_compress")
+    adx14 = f.get("ADX14")
+    close_pos = f.get("close_pos")
+    if None in (ema20, rsi, atr_pips):
+        return None
+    if len(ctx.m5_close) < 9:
+        return None
+    # Squeeze context first: prefer compressed conditions before the break.
+    if bb_compress is not None and bb_compress > 0.92:
+        return None
+    # Momentum continuation only when the broader tape is already carrying.
+    if adx14 is not None and adx14 < 18:
+        return None
+    if close_pos is not None and close_pos < 0.58:
+        return None
+    close = ctx.m5_close[-1]
+    pip = pip_size(ctx.symbol)
+    coil_hi = max(ctx.m5_high[-8:-1])
+    coil_lo = min(ctx.m5_low[-8:-1])
+    coil_range_pips = (coil_hi - coil_lo) / max(pip, 1e-9)
+    # Keep it a real squeeze, not just any breakout bar.
+    if coil_range_pips > max(atr_pips * 1.05, 6.0):
+        return None
+    if close <= coil_hi:
+        return None
+    if close <= ema20:
+        return None
+    if rsi < 56 or rsi > 78:
+        return None
+    # Require expanding closes through the break, not a one-tick poke.
+    if ctx.m5_close[-1] <= ctx.m5_close[-2] or ctx.m5_close[-2] <= ctx.m5_close[-3]:
+        return None
+    if not _is_bull_bar(ctx):
+        return None
+    return _build_candidate_multi(
+        "long", close, float(coil_lo), ctx, "CP2_squeeze_momentum_long",
+        {
+            "rsi": rsi,
+            "BB_compress": bb_compress,
+            "ADX14": adx14,
+            "close_pos": close_pos,
+            "coil_high": coil_hi,
+            "coil_low": coil_lo,
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
 # Register into shared PROBE_REGISTRY (side-effectful at import time)
 # ---------------------------------------------------------------------------
@@ -587,6 +637,7 @@ _TEXTBOOK_ENTRIES: dict = {
     "BR5_opening_range_breakout_short": {"fn": probe_BR5_opening_range_breakout_short, "family": "direct",   "sentinel": "Delta",         "target": 1.5},
     "CP1_coil_breakout_long":           {"fn": probe_CP1_coil_breakout_long,           "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
     "CP1_coil_breakout_short":          {"fn": probe_CP1_coil_breakout_short,          "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
+    "CP2_squeeze_momentum_long":        {"fn": probe_CP2_squeeze_momentum_long,        "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
 }
 
 PROBE_REGISTRY.update(_TEXTBOOK_ENTRIES)
