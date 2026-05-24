@@ -197,6 +197,10 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.strategies.canonical_lien_dbb import CanonicalLienDBBStrategy
     registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
 
+    # --- canonical_darvas class (5-variant router-reachable module) ---
+    from scrooge_v3.strategies.canonical_darvas import CanonicalDarvasStrategy
+    registry.register("strategies", "canonical_darvas", CanonicalDarvasStrategy(strat_cfg.get("canonical_darvas", {})))
+
     # --- Register trainer-v2 probes as live strategies (disabled by default) ---
     from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
     probes_cfg = strat_cfg.get("probes_v2", {}) or {}
