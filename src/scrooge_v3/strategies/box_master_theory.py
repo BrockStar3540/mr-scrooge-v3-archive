@@ -26,12 +26,9 @@ Entry mechanic (long; short is symmetric):
 
 Routed family only: rule-pass is permissive; routing_table_v10_fast_v1_XX.parquet gates approval.
 
-VARIANT MATCHING NOTE: candidate.strategy = "box_master_theory" (family-level). The
-matched variant's name goes in metadata['variant_id']. entry_filter does family-level
-match against cells with family="box_master_theory". The cell's strategy_id is for
-audit/telemetry. KNOWN imprecision: a strict variant fire can be approved via a looser
-variant's cell at the same leaf. Bank-impact projections per-cell are approximate as a
-result. Acceptable for v1.11 first deployment.
+VARIANT MATCHING NOTE: candidate.strategy = the exact MTB variant name. This keeps
+live routing exact the same way DBB and textbook probes are exact. Each bank row should
+therefore use the exact variant name the strategy emits, not a family alias.
 """
 from __future__ import annotations
 import logging
@@ -86,6 +83,21 @@ DEFAULT_VARIANTS = [
     {"name": "MTB_S3W0M30P15_long",         "direction": "long",  "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.15},
     {"name": "MTB3T1_75_short",             "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.20, "travel_atr": 1.75},
     {"name": "MTB3T2_0_short",              "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.20, "travel_atr": 2.0},
+    # === v1.12_SIBLING_WAVE 2026-05-24 — deeper brother/sister pools in live hot pockets ===
+    {"name": "MTB_S3W0M25P20_short",        "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S3W0M30P15_short",        "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.15},
+    {"name": "MTB_S3W0M30P20_short",        "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB_S3W0M35P20_short",        "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.35, "sweep": 0.20},
+    {"name": "MTB_S2W20M25P20_long",        "direction": "long",  "sucker": 2, "wick": 0.20, "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S2W20M30P20_long",        "direction": "long",  "sucker": 2, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB_S2W20M35P20_long",        "direction": "long",  "sucker": 2, "wick": 0.20, "middle": 0.35, "sweep": 0.20},
+    {"name": "MTB_S2W40M25P20_long",        "direction": "long",  "sucker": 2, "wick": 0.40, "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S2W40M30P20_long",        "direction": "long",  "sucker": 2, "wick": 0.40, "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB_S2W40M35P20_long",        "direction": "long",  "sucker": 2, "wick": 0.40, "middle": 0.35, "sweep": 0.20},
+    {"name": "MTB_S3W20M25P20_long",        "direction": "long",  "sucker": 3, "wick": 0.20, "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S3W30M25P20_long",        "direction": "long",  "sucker": 3, "wick": 0.30, "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB2W40_long",                "direction": "long",  "sucker": 3, "wick": 0.40, "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB2W50_long",                "direction": "long",  "sucker": 3, "wick": 0.50, "middle": 0.30, "sweep": 0.20},
     # === v1.12_FULL TIER1B — MTB3 emotional / travel-based variants (added 2026-05-24) ===
     # travel_atr: require move INTO sweep >= travel_atr * ATR14 (emotional / outsized move signature)
     {"name": "MTB3_pitchfork_long_emotional",  "direction": "long",  "sucker": 3, "wick": 0.0, "middle": 0.30, "sweep": 0.20, "travel_atr": 1.5},
