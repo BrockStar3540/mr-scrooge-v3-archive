@@ -314,6 +314,37 @@ def probe_RG1_range_bound_scalp_short(ctx: ProbeContext):
     )
 
 
+def probe_RG2_range_support_bounce_long(ctx: ProbeContext):
+    f = ctx.features
+    pdh, pdl = f.get("pdh"), f.get("pdl")
+    if pdh is None or pdl is None:
+        return None
+    if ctx.bb_state not in ("REJECTION_LONG", "EXTREME_DOWN"):
+        return None
+    pip = pip_size(ctx.symbol)
+    current_price = ctx.m5_close[-1]
+    if current_price > pdh or current_price < pdl:
+        return None
+    box_range = max(pdh - pdl, pip)
+    proximity = box_range * 0.0025
+    curr_open, curr_close = ctx.m5_open[-1], ctx.m5_close[-1]
+    prev_open, prev_high, prev_low, prev_close = ctx.m5_open[-2], ctx.m5_high[-2], ctx.m5_low[-2], ctx.m5_close[-2]
+    c_close = float(curr_close)
+    body = max(abs(prev_close - prev_open), pip * 0.5)
+    if c_close > pdl + proximity:
+        return None
+    lower_wick = min(prev_open, prev_close) - prev_low
+    upper_wick = prev_high - max(prev_open, prev_close)
+    if lower_wick < body * 1.5 or lower_wick <= upper_wick:
+        return None
+    if c_close <= prev_high:
+        return None
+    return _build_candidate_multi(
+        "long", c_close, float(prev_low), ctx, "RG2_range_support_bounce_long",
+        {"pdh": pdh, "pdl": pdl, "bb_state": ctx.bb_state},
+    )
+
+
 # ---------------------------------------------------------------------------
 # BR5: opening-range breakout — 20-bar high/low break with momentum confirm
 # family='direct'
@@ -381,6 +412,7 @@ _TEXTBOOK_ENTRIES: dict = {
     "MR4_zscore_extreme_short":         {"fn": probe_MR4_zscore_extreme_short,         "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
     "RG1_range_bound_scalp_long":       {"fn": probe_RG1_range_bound_scalp_long,       "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
     "RG1_range_bound_scalp_short":      {"fn": probe_RG1_range_bound_scalp_short,      "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
+    "RG2_range_support_bounce_long":    {"fn": probe_RG2_range_support_bounce_long,    "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
     "BR5_opening_range_breakout_long":  {"fn": probe_BR5_opening_range_breakout_long,  "family": "direct",   "sentinel": "Delta",         "target": 1.5},
     "BR5_opening_range_breakout_short": {"fn": probe_BR5_opening_range_breakout_short, "family": "direct",   "sentinel": "Delta",         "target": 1.5},
 }

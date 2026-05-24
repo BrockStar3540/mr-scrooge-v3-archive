@@ -75,6 +75,7 @@ class ProbeContext:
     regime_label: str
     atr_pips_mean_20: float | None = None
     r_targets: list[float] = field(default_factory=lambda: [1.5, 2.0])
+    bb_state: str | None = None
 
 
 @dataclass
@@ -380,12 +381,23 @@ def _build_probe_ctx(symbol: str, ctx: SymbolContext, sentinel_regime: str,
         feats["bb_position"] = bbv.get("bb_position")
         feats["bb_upper"] = bbv.get("upper_a")
         feats["bb_lower"] = bbv.get("lower_a")
+    zone = ctx.features.get("zone_detector")
+    if zone is not None:
+        zm = (zone.values or {}).get("zone_map")
+        sr = getattr(zm, "session_range", None) if zm is not None else None
+        if sr is not None:
+            feats["pdh"] = getattr(sr, "PDH", None)
+            feats["pdl"] = getattr(sr, "PDL", None)
+    bb_state = None
+    bb_cls = ctx.classifications.get("bb_state")
+    if bb_cls is not None:
+        bb_state = getattr(bb_cls, "label", None)
     spread_pips = float(ctx.metadata.get("spread_pips", 0.0)) if ctx.metadata else 0.0
     return ProbeContext(
         ts=datetime.now(timezone.utc), symbol=symbol, spread_pips=spread_pips,
         m5_open=o, m5_high=h, m5_low=lo, m5_close=c,
         features=feats, regime_label=sentinel_regime,
-        r_targets=[float(target)],
+        r_targets=[float(target)], bb_state=bb_state,
     )
 
 
