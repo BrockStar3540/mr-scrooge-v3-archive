@@ -381,6 +381,14 @@ def _build_probe_ctx(symbol: str, ctx: SymbolContext, sentinel_regime: str,
         feats["bb_position"] = bbv.get("bb_position")
         feats["bb_upper"] = bbv.get("upper_a")
         feats["bb_lower"] = bbv.get("lower_a")
+        feats["z_score"] = bbv.get("z_score")
+    tr53 = ctx.features.get("technical_regime_53")
+    if tr53 is not None:
+        trv = tr53.values or {}
+        feats["BB_compress"] = trv.get("BB_compress")
+        feats["ATR_ratio"] = trv.get("ATR_ratio")
+        feats["ADX14"] = trv.get("ADX14")
+        feats["close_pos"] = trv.get("close_pos")
     zone = ctx.features.get("zone_detector")
     if zone is not None:
         zm = (zone.values or {}).get("zone_map")

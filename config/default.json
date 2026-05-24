@@ -87,7 +87,7 @@
       "stop_buffer_pips": 2,
       "fixed_score": 32
     },
-    "routing_table_path": "data/routing_table_v10_fast_v1_12_pocket_all.parquet",
+    "routing_table_path": "data/routing_table_v10_fast_v1_12_probe_backlog.parquet",
     "routing_table_mode": "hard",
     "routing_telemetry": {
       "enabled": true,
@@ -120,6 +120,24 @@
         "enabled": true
       },
       "RG2_range_support_bounce_long": {
+        "enabled": true
+      },
+      "MR4_zscore_extreme_long": {
+        "enabled": true
+      },
+      "MR2_bb_reversion_short": {
+        "enabled": true
+      },
+      "BR3_inside_bar_long": {
+        "enabled": true
+      },
+      "BR3_inside_bar_short": {
+        "enabled": true
+      },
+      "CP1_coil_breakout_long": {
+        "enabled": true
+      },
+      "CP1_coil_breakout_short": {
         "enabled": true
       }
     }

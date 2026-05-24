@@ -268,6 +268,62 @@ def probe_MR4_zscore_extreme_short(ctx: ProbeContext):
     )
 
 
+def probe_MR4_zscore_extreme_long(ctx: ProbeContext):
+    f = ctx.features
+    z_score, bb_pos, rsi = f.get("z_score"), f.get("bb_position"), f.get("rsi")
+    if None in (z_score, bb_pos, rsi):
+        return None
+    if len(ctx.m5_close) < 5:
+        return None
+    if z_score > -1.8:
+        return None
+    if bb_pos > 0.12:
+        return None
+    if rsi > 36:
+        return None
+    if ctx.m5_close[-1] <= ctx.m5_close[-2]:
+        return None
+    if not _is_bull_bar(ctx):
+        return None
+    close = ctx.m5_close[-1]
+    struct_ref = min(ctx.m5_low[-4:])
+    return _build_candidate_multi(
+        "long", close, struct_ref, ctx, "MR4_zscore_extreme_long",
+        {"rsi": rsi, "bb_position": bb_pos, "z_score": z_score},
+    )
+
+
+def probe_MR2_bb_reversion_short(ctx: ProbeContext):
+    f = ctx.features
+    z_score, bb_pos, rsi = f.get("z_score"), f.get("bb_position"), f.get("rsi")
+    bb_compress = f.get("BB_compress")
+    if None in (bb_pos, rsi):
+        return None
+    if len(ctx.m5_close) < 5:
+        return None
+    if z_score is not None:
+        if z_score < 1.2:
+            return None
+    elif bb_pos < 0.82:
+        return None
+    if bb_pos < 0.78:
+        return None
+    if rsi < 58:
+        return None
+    if bb_compress is not None and bb_compress > 1.15:
+        return None
+    if ctx.m5_close[-1] >= ctx.m5_close[-2]:
+        return None
+    if _is_bull_bar(ctx):
+        return None
+    close = ctx.m5_close[-1]
+    struct_ref = max(ctx.m5_high[-4:])
+    return _build_candidate_multi(
+        "short", close, struct_ref, ctx, "MR2_bb_reversion_short",
+        {"rsi": rsi, "bb_position": bb_pos, "z_score": z_score, "BB_compress": bb_compress},
+    )
+
+
 # ---------------------------------------------------------------------------
 # RG1: range-bound scalp — fade band rails within a compression/range regime
 # family='reversal'
@@ -345,6 +401,58 @@ def probe_RG2_range_support_bounce_long(ctx: ProbeContext):
     )
 
 
+def probe_BR3_inside_bar_long(ctx: ProbeContext):
+    f = ctx.features
+    ema20, rsi = f.get("ema20"), f.get("rsi")
+    if None in (ema20, rsi):
+        return None
+    if len(ctx.m5_close) < 4:
+        return None
+    mother_hi, mother_lo = ctx.m5_high[-3], ctx.m5_low[-3]
+    inside_hi, inside_lo = ctx.m5_high[-2], ctx.m5_low[-2]
+    if not (inside_hi <= mother_hi and inside_lo >= mother_lo):
+        return None
+    close = ctx.m5_close[-1]
+    if close <= mother_hi:
+        return None
+    if close <= ema20:
+        return None
+    if rsi < 52:
+        return None
+    if not _is_bull_bar(ctx):
+        return None
+    return _build_candidate_multi(
+        "long", close, float(min(mother_lo, inside_lo)), ctx, "BR3_inside_bar_long",
+        {"rsi": rsi, "mother_high": mother_hi, "mother_low": mother_lo},
+    )
+
+
+def probe_BR3_inside_bar_short(ctx: ProbeContext):
+    f = ctx.features
+    ema20, rsi = f.get("ema20"), f.get("rsi")
+    if None in (ema20, rsi):
+        return None
+    if len(ctx.m5_close) < 4:
+        return None
+    mother_hi, mother_lo = ctx.m5_high[-3], ctx.m5_low[-3]
+    inside_hi, inside_lo = ctx.m5_high[-2], ctx.m5_low[-2]
+    if not (inside_hi <= mother_hi and inside_lo >= mother_lo):
+        return None
+    close = ctx.m5_close[-1]
+    if close >= mother_lo:
+        return None
+    if close >= ema20:
+        return None
+    if rsi > 48:
+        return None
+    if _is_bull_bar(ctx):
+        return None
+    return _build_candidate_multi(
+        "short", close, float(max(mother_hi, inside_hi)), ctx, "BR3_inside_bar_short",
+        {"rsi": rsi, "mother_high": mother_hi, "mother_low": mother_lo},
+    )
+
+
 # ---------------------------------------------------------------------------
 # BR5: opening-range breakout — 20-bar high/low break with momentum confirm
 # family='direct'
@@ -396,6 +504,64 @@ def probe_BR5_opening_range_breakout_short(ctx: ProbeContext):
     )
 
 
+def probe_CP1_coil_breakout_long(ctx: ProbeContext):
+    f = ctx.features
+    ema20, rsi, atr_pips = f.get("ema20"), f.get("rsi"), f.get("atr_pips")
+    bb_compress = f.get("BB_compress")
+    if None in (ema20, rsi, atr_pips):
+        return None
+    if len(ctx.m5_close) < 7:
+        return None
+    if bb_compress is not None and bb_compress > 0.95:
+        return None
+    coil_hi = max(ctx.m5_high[-6:-1])
+    coil_lo = min(ctx.m5_low[-6:-1])
+    if (coil_hi - coil_lo) / max(atr_pips * pip_size(ctx.symbol), pip_size(ctx.symbol)) > 1.25:
+        return None
+    close = ctx.m5_close[-1]
+    if close <= coil_hi:
+        return None
+    if close <= ema20:
+        return None
+    if rsi < 53:
+        return None
+    if not _is_bull_bar(ctx):
+        return None
+    return _build_candidate_multi(
+        "long", close, float(coil_lo), ctx, "CP1_coil_breakout_long",
+        {"rsi": rsi, "BB_compress": bb_compress, "coil_high": coil_hi, "coil_low": coil_lo},
+    )
+
+
+def probe_CP1_coil_breakout_short(ctx: ProbeContext):
+    f = ctx.features
+    ema20, rsi, atr_pips = f.get("ema20"), f.get("rsi"), f.get("atr_pips")
+    bb_compress = f.get("BB_compress")
+    if None in (ema20, rsi, atr_pips):
+        return None
+    if len(ctx.m5_close) < 7:
+        return None
+    if bb_compress is not None and bb_compress > 0.95:
+        return None
+    coil_hi = max(ctx.m5_high[-6:-1])
+    coil_lo = min(ctx.m5_low[-6:-1])
+    if (coil_hi - coil_lo) / max(atr_pips * pip_size(ctx.symbol), pip_size(ctx.symbol)) > 1.25:
+        return None
+    close = ctx.m5_close[-1]
+    if close >= coil_lo:
+        return None
+    if close >= ema20:
+        return None
+    if rsi > 47:
+        return None
+    if _is_bull_bar(ctx):
+        return None
+    return _build_candidate_multi(
+        "short", close, float(coil_hi), ctx, "CP1_coil_breakout_short",
+        {"rsi": rsi, "BB_compress": bb_compress, "coil_high": coil_hi, "coil_low": coil_lo},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Register into shared PROBE_REGISTRY (side-effectful at import time)
 # ---------------------------------------------------------------------------
@@ -410,11 +576,17 @@ _TEXTBOOK_ENTRIES: dict = {
     "MR5_williams_extreme_long":        {"fn": probe_MR5_williams_extreme_long,        "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
     "MR5_williams_extreme_short":       {"fn": probe_MR5_williams_extreme_short,       "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
     "MR4_zscore_extreme_short":         {"fn": probe_MR4_zscore_extreme_short,         "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
+    "MR4_zscore_extreme_long":          {"fn": probe_MR4_zscore_extreme_long,          "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
+    "MR2_bb_reversion_short":           {"fn": probe_MR2_bb_reversion_short,           "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
     "RG1_range_bound_scalp_long":       {"fn": probe_RG1_range_bound_scalp_long,       "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
     "RG1_range_bound_scalp_short":      {"fn": probe_RG1_range_bound_scalp_short,      "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
     "RG2_range_support_bounce_long":    {"fn": probe_RG2_range_support_bounce_long,    "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
+    "BR3_inside_bar_long":              {"fn": probe_BR3_inside_bar_long,              "family": "direct",   "sentinel": "Delta",         "target": 1.5},
+    "BR3_inside_bar_short":             {"fn": probe_BR3_inside_bar_short,             "family": "direct",   "sentinel": "Delta",         "target": 1.5},
     "BR5_opening_range_breakout_long":  {"fn": probe_BR5_opening_range_breakout_long,  "family": "direct",   "sentinel": "Delta",         "target": 1.5},
     "BR5_opening_range_breakout_short": {"fn": probe_BR5_opening_range_breakout_short, "family": "direct",   "sentinel": "Delta",         "target": 1.5},
+    "CP1_coil_breakout_long":           {"fn": probe_CP1_coil_breakout_long,           "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
+    "CP1_coil_breakout_short":          {"fn": probe_CP1_coil_breakout_short,          "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
 }
 
 PROBE_REGISTRY.update(_TEXTBOOK_ENTRIES)
