@@ -185,7 +185,8 @@ class ScanPipeline:
         # 5. Evaluate eligible strategies
         candidates: list[TradeCandidate] = []
         for entry in self.registry.get_active("strategies"):
-            if entry.name not in allowed:
+            entry_family = getattr(entry.instance, "_family", None)
+            if entry.name not in allowed and entry_family not in allowed:
                 continue
             try:
                 if entry.instance.eligible(ctx):
@@ -444,7 +445,8 @@ class ScanPipeline:
         # 4. Strategies
         candidates = []
         for entry in self.registry.get_active("strategies"):
-            if entry.name not in allowed:
+            entry_family = getattr(entry.instance, "_family", None)
+            if entry.name not in allowed and entry_family not in allowed:
                 continue
             try:
                 if entry.instance.eligible(ctx):

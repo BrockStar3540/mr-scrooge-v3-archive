@@ -93,6 +93,35 @@
       "enabled": true,
       "flush_every": 100,
       "death_sample_rate": 10
+    },
+    "probes_v2": {
+      "BR2_vcb_long": {
+        "enabled": true
+      },
+      "BR2_vcb_short": {
+        "enabled": true
+      },
+      "CP3_vol_coil_fade_long": {
+        "enabled": true
+      },
+      "CP3_vol_coil_fade_short": {
+        "enabled": true
+      },
+      "MR4_zscore_extreme_short": {
+        "enabled": true
+      },
+      "MR5_williams_extreme_long": {
+        "enabled": true
+      },
+      "MR5_williams_extreme_short": {
+        "enabled": true
+      },
+      "RG1_range_bound_scalp_short": {
+        "enabled": true
+      },
+      "RG2_range_support_bounce_long": {
+        "enabled": true
+      }
     }
   },
   "gates": {

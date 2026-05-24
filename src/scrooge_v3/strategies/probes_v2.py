@@ -439,7 +439,7 @@ class ProbeStrategy:
         return TradeCandidate(
             symbol=ctx.symbol,
             direction=direction,
-            strategy=self._family,            # router uses family for allow-list
+            strategy=self.name,
             entry_price=entry,
             stop_price=stop,
             take_profit=tp,

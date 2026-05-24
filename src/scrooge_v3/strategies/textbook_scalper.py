@@ -245,7 +245,7 @@ def probe_MR5_williams_extreme_short(ctx: ProbeContext):
 
 def probe_MR4_zscore_extreme_short(ctx: ProbeContext):
     f = ctx.features
-    z_score, bb_pos, rsi = f.get(z_score), f.get(bb_position), f.get(rsi)
+    z_score, bb_pos, rsi = f.get("z_score"), f.get("bb_position"), f.get("rsi")
     if None in (z_score, bb_pos, rsi):
         return None
     if len(ctx.m5_close) < 5:
@@ -263,8 +263,8 @@ def probe_MR4_zscore_extreme_short(ctx: ProbeContext):
     close = ctx.m5_close[-1]
     struct_ref = max(ctx.m5_high[-4:])
     return _build_candidate_multi(
-        short, close, struct_ref, ctx, MR4_zscore_extreme_short,
-        {rsi: rsi, bb_position: bb_pos, z_score: z_score},
+        "short", close, struct_ref, ctx, "MR4_zscore_extreme_short",
+        {"rsi": rsi, "bb_position": bb_pos, "z_score": z_score},
     )
 
 
