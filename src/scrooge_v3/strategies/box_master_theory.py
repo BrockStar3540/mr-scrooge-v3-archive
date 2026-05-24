@@ -74,6 +74,13 @@ DEFAULT_VARIANTS = [
     {"name": "MTB_S3W30M35P20_long",  "direction": "long",  "sucker": 3, "wick": 0.30, "middle": 0.35, "sweep": 0.20},
     {"name": "MTB_S3W20M25P20_short", "direction": "short", "sucker": 3, "wick": 0.20, "middle": 0.25, "sweep": 0.20},
     {"name": "MTB_S3W20M30P20_long",  "direction": "long",  "sucker": 3, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
+    # === v1.12_FULL TIER1B — MTB3 emotional / travel-based variants (added 2026-05-24) ===
+    # travel_atr: require move INTO sweep >= travel_atr * ATR14 (emotional / outsized move signature)
+    {"name": "MTB3_pitchfork_long_emotional",  "direction": "long",  "sucker": 3, "wick": 0.0, "middle": 0.30, "sweep": 0.20, "travel_atr": 1.5},
+    {"name": "MTB3_pitchfork_short_emotional", "direction": "short", "sucker": 3, "wick": 0.0, "middle": 0.30, "sweep": 0.20, "travel_atr": 1.5},
+    {"name": "MTB3T1_0_long",                  "direction": "long",  "sucker": 3, "wick": 0.0, "middle": 0.30, "sweep": 0.20, "travel_atr": 1.0},
+    {"name": "MTB3T1_25_short",                "direction": "short", "sucker": 3, "wick": 0.0, "middle": 0.30, "sweep": 0.20, "travel_atr": 1.25},
+    {"name": "MTB3T1_5_long",                  "direction": "long",  "sucker": 3, "wick": 0.0, "middle": 0.30, "sweep": 0.20, "travel_atr": 1.5},
 ]
 
 
@@ -183,6 +190,14 @@ class BoxMasterTheoryStrategy:
         if wick_min > 0 and lower_wick_pct < wick_min:
             return None
 
+        # MTB3 emotional / travel check: require move INTO sweep >= travel_atr * ATR14
+        travel_atr = v.get("travel_atr")
+        if travel_atr and travel_atr > 0:
+            session_high = float(highs[i - w:i].max())
+            travel_distance = (session_high - prior_min_low) / atr14 if atr14 > 0 else 0.0
+            if travel_distance < travel_atr:
+                return None
+
         entry_price = ctx.snapshot.close_ask if hasattr(ctx.snapshot, 'close_ask') else closes[i]
         stop_price = lows[i] - buffer
         tp_price = pdh
@@ -254,6 +269,14 @@ class BoxMasterTheoryStrategy:
         upper_wick_pct = (highs[i] - max(opens[i], closes[i])) / candle_range
         if wick_min > 0 and upper_wick_pct < wick_min:
             return None
+
+        # MTB3 emotional / travel check (SHORT): require move INTO sweep >= travel_atr * ATR14
+        travel_atr = v.get("travel_atr")
+        if travel_atr and travel_atr > 0:
+            session_low = float(lows[i - w:i].min())
+            travel_distance = (prior_max_high - session_low) / atr14 if atr14 > 0 else 0.0
+            if travel_distance < travel_atr:
+                return None
 
         entry_price = ctx.snapshot.close_bid if hasattr(ctx.snapshot, 'close_bid') else closes[i]
         stop_price = highs[i] + buffer

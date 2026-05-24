@@ -26,19 +26,19 @@ _DEFAULT_ROUTES: dict[str, list[str]] = {
     # historic V1 STRETCH_UP block reflects direct/reversal failure modes that
     # don't apply to MTB's distinct entry mechanic. Routing-table gate is the
     # real safeguard — MTB only fires at routed cells (3 in v1.10).
-    "STRETCH_UP": ["box_master_theory"],
+    "STRETCH_UP": ["box_master_theory", "canonical_lien_dbb"],
     # STRETCH_DOWN = -2 pts in V3 scorer; dbb_trend + direct + MTB allowed
-    "STRETCH_DOWN": ["dbb_trend", "direct", "box_master_theory"],
+    "STRETCH_DOWN": ["dbb_trend", "direct", "box_master_theory", "canonical_lien_dbb"],
     # Breakout → dbb_trend + direct (MTB excluded: breakouts are continuation,
     # opposite of MTB's reversal-at-edge thesis)
     "BREAKOUT_UP": ["dbb_trend", "direct"],
     "BREAKOUT_DOWN": ["dbb_trend", "direct"],
     # Normal/range → direct + MTB (MTB can fire when PDH/PDL is wider than 2σ BB,
     # making price-at-edge possible while still inside Band A → bb_state=NORMAL)
-    "NORMAL": ["direct", "box_master_theory"],
+    "NORMAL": ["direct", "box_master_theory", "canonical_lien_dbb"],
     # Compression → direct + MTB (compressed BB with wide PDH/PDL is exactly
     # the setup MTB targets: range-bound day with clean edges)
-    "COMPRESSION": ["direct", "box_master_theory"],
+    "COMPRESSION": ["direct", "box_master_theory", "canonical_lien_dbb"],
 }
 
 
