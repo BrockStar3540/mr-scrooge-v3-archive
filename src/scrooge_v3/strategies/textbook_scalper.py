@@ -35,6 +35,46 @@ from scrooge_v3.strategies.probes_v2 import (
 log = logging.getLogger("scrooge_v3.strategy.textbook_scalper")
 
 
+def _parabolic_sar(highs, lows, step: float = 0.02, max_af: float = 0.2):
+    """Return latest Wilder PSAR value, trend side, and bars since flip."""
+    if len(highs) < 5 or len(lows) < 5:
+        return None, None, None
+    bull = (highs[1] + lows[1]) >= (highs[0] + lows[0])
+    sar = lows[0] if bull else highs[0]
+    ep = highs[0] if bull else lows[0]
+    af = step
+    bars_since_flip = 0
+    for i in range(1, len(highs)):
+        sar = sar + af * (ep - sar)
+        if bull:
+            sar = min(sar, lows[i - 1], lows[i - 2] if i >= 2 else lows[i - 1])
+            if lows[i] < sar:
+                bull = False
+                sar = ep
+                ep = lows[i]
+                af = step
+                bars_since_flip = 0
+            else:
+                bars_since_flip += 1
+                if highs[i] > ep:
+                    ep = highs[i]
+                    af = min(af + step, max_af)
+        else:
+            sar = max(sar, highs[i - 1], highs[i - 2] if i >= 2 else highs[i - 1])
+            if highs[i] > sar:
+                bull = True
+                sar = ep
+                ep = highs[i]
+                af = step
+                bars_since_flip = 0
+            else:
+                bars_since_flip += 1
+                if lows[i] < ep:
+                    ep = lows[i]
+                    af = min(af + step, max_af)
+    return sar, bull, bars_since_flip
+
+
 # ---------------------------------------------------------------------------
 # TF2: trend-follow pullback to EMA20
 # family='direct' — price tags EMA20 from trend side with mild RSI, resumes
@@ -82,6 +122,53 @@ def probe_TF2_pullback_EMA20_short(ctx: ProbeContext):
     struct_ref = max(ctx.m5_high[-5:])
     return _build_candidate_multi(
         "short", close, struct_ref, ctx, "TF2_pullback_EMA20_short", {"rsi": rsi},
+    )
+
+
+def probe_TF4_sar_long(ctx: ProbeContext):
+    f = ctx.features
+    ema20, rsi, atr_pips = f.get("ema20"), f.get("rsi"), f.get("atr_pips")
+    adx14 = f.get("ADX14")
+    close_pos = f.get("close_pos")
+    if None in (ema20, rsi, atr_pips):
+        return None
+    if len(ctx.m5_close) < 12:
+        return None
+    sar, bull, bars_since_flip = _parabolic_sar(ctx.m5_high[-12:], ctx.m5_low[-12:])
+    if sar is None or not bull:
+        return None
+    close = ctx.m5_close[-1]
+    pip = pip_size(ctx.symbol)
+    if close <= sar or close <= ema20:
+        return None
+    if rsi < 54 or rsi > 76:
+        return None
+    if adx14 is not None and adx14 < 17:
+        return None
+    if close_pos is not None and close_pos < 0.55:
+        return None
+    if bars_since_flip is not None and bars_since_flip > 8:
+        return None
+    prior_hi = max(ctx.m5_high[-6:-1])
+    if close <= prior_hi:
+        return None
+    if ctx.m5_close[-1] <= ctx.m5_close[-2]:
+        return None
+    if (close - sar) / pip > max(atr_pips * 1.35, 10.0):
+        return None
+    if not _is_bull_bar(ctx):
+        return None
+    struct_ref = float(min(ctx.m5_low[-5:]))
+    return _build_candidate_multi(
+        "long", close, struct_ref, ctx, "TF4_sar_long",
+        {
+            "rsi": rsi,
+            "ADX14": adx14,
+            "close_pos": close_pos,
+            "psar": sar,
+            "bars_since_flip": bars_since_flip,
+            "prior_high": prior_hi,
+        },
     )
 
 
@@ -619,6 +706,7 @@ def probe_CP2_squeeze_momentum_long(ctx: ProbeContext):
 _TEXTBOOK_ENTRIES: dict = {
     "TF2_pullback_EMA20_long":          {"fn": probe_TF2_pullback_EMA20_long,          "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
     "TF2_pullback_EMA20_short":         {"fn": probe_TF2_pullback_EMA20_short,         "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
+    "TF4_sar_long":                     {"fn": probe_TF4_sar_long,                     "family": "direct",   "sentinel": "Charlie",       "target": 1.5},
     "BR2_vcb_long":                     {"fn": probe_BR2_vcb_long,                     "family": "direct",   "sentinel": "Alpha-fresh",   "target": 1.5},
     "BR2_vcb_short":                    {"fn": probe_BR2_vcb_short,                    "family": "direct",   "sentinel": "Alpha-fresh",   "target": 1.5},
     "CP3_vol_coil_fade_long":           {"fn": probe_CP3_vol_coil_fade_long,           "family": "reversal", "sentinel": "Echo-tight",    "target": 2.0},
