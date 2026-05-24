@@ -74,6 +74,17 @@ DEFAULT_VARIANTS = [
     {"name": "MTB_S3W30M35P20_long",  "direction": "long",  "sucker": 3, "wick": 0.30, "middle": 0.35, "sweep": 0.20},
     {"name": "MTB_S3W20M25P20_short", "direction": "short", "sucker": 3, "wick": 0.20, "middle": 0.25, "sweep": 0.20},
     {"name": "MTB_S3W20M30P20_long",  "direction": "long",  "sucker": 3, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
+    # === v1.12_EMERGENCY 2026-05-24 — extra raw-profitable tonight variants ===
+    {"name": "MTB1S2_long",                  "direction": "long",  "sucker": 2, "wick": 0.0,  "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB1S2_short",                 "direction": "short", "sucker": 2, "wick": 0.0,  "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB2W20_long",                "direction": "long",  "sucker": 3, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB_S2W0M35P20_short",        "direction": "short", "sucker": 2, "wick": 0.0,  "middle": 0.35, "sweep": 0.20},
+    {"name": "MTB_S2W20M25P20_short",       "direction": "short", "sucker": 2, "wick": 0.20, "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S2W20M30P20_short",       "direction": "short", "sucker": 2, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB_S4W20M30P20_short",       "direction": "short", "sucker": 4, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
+    {"name": "MTB_S3W0M25P20_long",         "direction": "long",  "sucker": 3, "wick": 0.0,  "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB3T1_75_short",             "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.20, "travel_atr": 1.75},
+    {"name": "MTB3T2_0_short",              "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.20, "travel_atr": 2.0},
     # === v1.12_FULL TIER1B — MTB3 emotional / travel-based variants (added 2026-05-24) ===
     # travel_atr: require move INTO sweep >= travel_atr * ATR14 (emotional / outsized move signature)
     {"name": "MTB3_pitchfork_long_emotional",  "direction": "long",  "sucker": 3, "wick": 0.0, "middle": 0.30, "sweep": 0.20, "travel_atr": 1.5},
