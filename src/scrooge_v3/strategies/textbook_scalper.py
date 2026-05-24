@@ -239,6 +239,36 @@ def probe_MR5_williams_extreme_short(ctx: ProbeContext):
 
 
 # ---------------------------------------------------------------------------
+# MR4: z-score extreme reversion — fade statistically stretched upper-band spikes
+# family='reversal'
+# ---------------------------------------------------------------------------
+
+def probe_MR4_zscore_extreme_short(ctx: ProbeContext):
+    f = ctx.features
+    z_score, bb_pos, rsi = f.get(z_score), f.get(bb_position), f.get(rsi)
+    if None in (z_score, bb_pos, rsi):
+        return None
+    if len(ctx.m5_close) < 5:
+        return None
+    if z_score < 1.8:
+        return None
+    if bb_pos < 0.88:
+        return None
+    if rsi < 64:
+        return None
+    if ctx.m5_close[-1] >= ctx.m5_close[-2]:
+        return None
+    if _is_bull_bar(ctx):
+        return None
+    close = ctx.m5_close[-1]
+    struct_ref = max(ctx.m5_high[-4:])
+    return _build_candidate_multi(
+        short, close, struct_ref, ctx, MR4_zscore_extreme_short,
+        {rsi: rsi, bb_position: bb_pos, z_score: z_score},
+    )
+
+
+# ---------------------------------------------------------------------------
 # RG1: range-bound scalp — fade band rails within a compression/range regime
 # family='reversal'
 # ---------------------------------------------------------------------------
@@ -348,6 +378,7 @@ _TEXTBOOK_ENTRIES: dict = {
     "CP3_vol_coil_fade_short":          {"fn": probe_CP3_vol_coil_fade_short,          "family": "reversal", "sentinel": "Echo-tight",    "target": 2.0},
     "MR5_williams_extreme_long":        {"fn": probe_MR5_williams_extreme_long,        "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
     "MR5_williams_extreme_short":       {"fn": probe_MR5_williams_extreme_short,       "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
+    "MR4_zscore_extreme_short":         {"fn": probe_MR4_zscore_extreme_short,         "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
     "RG1_range_bound_scalp_long":       {"fn": probe_RG1_range_bound_scalp_long,       "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
     "RG1_range_bound_scalp_short":      {"fn": probe_RG1_range_bound_scalp_short,      "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
     "BR5_opening_range_breakout_long":  {"fn": probe_BR5_opening_range_breakout_long,  "family": "direct",   "sentinel": "Delta",         "target": 1.5},
