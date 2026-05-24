@@ -227,7 +227,7 @@ class BoxMasterTheoryStrategy:
             red_count, lower_wick_pct, middle_frac, sweep_frac, rr,
         )
         return TradeCandidate(
-            symbol=ctx.symbol, direction=TradeDirection.LONG, strategy=self.name,
+            symbol=ctx.symbol, direction=TradeDirection.LONG, strategy=variant_id,
             entry_price=entry_price, stop_price=stop_price, take_profit=tp_price,
             size=0.0, risk_reward=rr, score=self.fixed_score,
             metadata={
@@ -307,7 +307,7 @@ class BoxMasterTheoryStrategy:
             green_count, upper_wick_pct, middle_frac, sweep_frac, rr,
         )
         return TradeCandidate(
-            symbol=ctx.symbol, direction=TradeDirection.SHORT, strategy=self.name,
+            symbol=ctx.symbol, direction=TradeDirection.SHORT, strategy=variant_id,
             entry_price=entry_price, stop_price=stop_price, take_profit=tp_price,
             size=0.0, risk_reward=rr, score=self.fixed_score,
             metadata={
