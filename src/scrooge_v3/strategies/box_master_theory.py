@@ -83,6 +83,7 @@ DEFAULT_VARIANTS = [
     {"name": "MTB_S2W20M30P20_short",       "direction": "short", "sucker": 2, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
     {"name": "MTB_S4W20M30P20_short",       "direction": "short", "sucker": 4, "wick": 0.20, "middle": 0.30, "sweep": 0.20},
     {"name": "MTB_S3W0M25P20_long",         "direction": "long",  "sucker": 3, "wick": 0.0,  "middle": 0.25, "sweep": 0.20},
+    {"name": "MTB_S3W0M30P15_long",         "direction": "long",  "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.15},
     {"name": "MTB3T1_75_short",             "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.20, "travel_atr": 1.75},
     {"name": "MTB3T2_0_short",              "direction": "short", "sucker": 3, "wick": 0.0,  "middle": 0.30, "sweep": 0.20, "travel_atr": 2.0},
     # === v1.12_FULL TIER1B — MTB3 emotional / travel-based variants (added 2026-05-24) ===
