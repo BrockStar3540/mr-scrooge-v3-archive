@@ -46,7 +46,7 @@ _OANDA_DAY_BOUNDARY_HOUR_NY = 17
 class SessionLabel(str, Enum):
     """Nine semantic FX session labels, DST-aware."""
 
-    WEEKLY_OPEN = "weekly_open"              # Sunday 20:00+ UTC — gap-risk flag
+    WEEKLY_OPEN = "weekly_open"              # Sunday 20:00-22:00 UTC seam only
     SYDNEY_ONLY = "sydney_only"              # Sydney open, Tokyo not yet
     SYDNEY_TOKYO = "sydney_tokyo"            # both active
     TOKYO_ONLY = "tokyo_only"                # Tokyo active, Sydney closed, London not yet
@@ -94,14 +94,14 @@ _LEGACY_PROFILES_TREND = {
 # Every Sydney/Tokyo-only window maps to asia_london_open.
 # Every London window maps to london.
 # All NY windows (including overlap) map to ny_active.
-# Weekly open and dead zone map to dead_late.
+# Weekly open seam and dead zone map to dead_late.
 # The late_ny legacy bucket (18-19 UTC) had its own thresholds — under the new
 # model those hours are NY_ONLY, which gets ny_active thresholds. This is a
 # known, small behavior drift and is acceptable for compat mode; the backtester
 # will decide the correct 9-bucket thresholds later.
 _COMPAT_LEGACY_KEY = {
     SessionLabel.WEEKLY_OPEN: "dead_late",
-    SessionLabel.SYDNEY_ONLY: "dead_late",
+    SessionLabel.SYDNEY_ONLY: "asia_london_open",
     SessionLabel.SYDNEY_TOKYO: "asia_london_open",
     SessionLabel.TOKYO_ONLY: "asia_london_open",
     SessionLabel.TOKYO_LONDON: "london",
@@ -139,7 +139,7 @@ def compat_threshold_profile(label: SessionLabel, family: str = "default") -> Se
 #     London is actually open in BST; the old +10 was DST-wrong.
 _COMPAT_HOUR_PENALTY = {
     SessionLabel.WEEKLY_OPEN: -7,
-    SessionLabel.SYDNEY_ONLY: -7,
+    SessionLabel.SYDNEY_ONLY: 10,
     SessionLabel.SYDNEY_TOKYO: 10,
     SessionLabel.TOKYO_ONLY: 10,
     SessionLabel.TOKYO_LONDON: 2,
@@ -173,8 +173,11 @@ def session_label_from_utc(ts_utc: datetime) -> SessionLabel:
     if ts_utc.tzinfo is None:
         raise ValueError("session_label_from_utc requires tz-aware UTC datetime")
 
-    # Weekly open: Sunday 20:00-24:00 UTC (Sydney begins reopening).
-    if ts_utc.weekday() == 6 and ts_utc.hour >= 20:
+    # Weekly-open seam only: Sunday 20:00-22:00 UTC.
+    # After 22:00 UTC we want the same asia/london/ny semantics as the
+    # routing-table session classifier, otherwise the scorer stays in a
+    # dead-late profile for two extra hours after asia has already begun.
+    if ts_utc.weekday() == 6 and 20 <= ts_utc.hour < 22:
         return SessionLabel.WEEKLY_OPEN
 
     london_h = ts_utc.astimezone(_TZ_LONDON).hour
@@ -206,12 +209,12 @@ def session_label_from_utc(ts_utc: datetime) -> SessionLabel:
 
 
 def is_weekly_open(ts_utc: datetime) -> bool:
-    """Separate flag — true whenever we're in Sunday's re-open window.
+    """Separate flag — true only during Sunday's 20:00-22:00 UTC seam.
 
     A caller may want this even while mapping the label to a different threshold
     profile (gap-risk surcharge, widened spread expectation, etc.)
     """
-    return ts_utc.weekday() == 6 and ts_utc.hour >= 20
+    return ts_utc.weekday() == 6 and 20 <= ts_utc.hour < 22
 
 
 def box_day_start_utc(ts_utc: datetime) -> datetime:
