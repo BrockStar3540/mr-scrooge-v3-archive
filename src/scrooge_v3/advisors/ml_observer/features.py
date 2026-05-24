@@ -83,7 +83,7 @@ def _seed_strategy_id(strategy: str) -> int:
     return -1
 
 
-_SESSION_BUCKETS = ["asia","asia_late","london_open","ny_open","ny_mid","ny_close","off_hours"]
+_SESSION_BUCKETS = ["asia","asia_late","london_open","london","ny_open","ny_mid","ny_close","off_hours"]  # 2026-05-24: +london per session_bucket.py alignment
 
 
 def _seed_session_id_from_hour(h: int) -> int:

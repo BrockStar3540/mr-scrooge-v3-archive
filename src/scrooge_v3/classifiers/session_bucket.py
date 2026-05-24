@@ -1,15 +1,20 @@
-"""Session-bucket classifier — 7 UTC-hour buckets (DST-stable).
+"""Session-bucket classifier — 8 UTC-hour buckets (DST-stable, research-clock).
 
-  asia          00-04 UTC
-  asia_late     04-06 UTC
-  london_open   06-09 UTC
-  ny_open       09-13 UTC
-  ny_mid        13-17 UTC
+  asia          22-06 UTC  (Sydney/Tokyo open; wraps midnight UTC)
+  asia_late     06-07 UTC  (Tokyo close / pre-London handoff)
+  london_open   07-10 UTC
+  london        10-12 UTC  (mid-London, pre-NY)
+  ny_open       12-14 UTC
+  ny_mid        14-17 UTC
   ny_close      17-21 UTC
-  off_hours     21-24 UTC
+  off_hours     21-22 UTC  (pre-reopen seam on Sundays; usually empty)
 
-Stable wall-clock buckets used by the routing table for per-(pair, session)
-strategy attachment. DST-independent.
+Aligned 2026-05-24 to the boundaries the routing-table corpus was built under
+(legacy v1.9 + unified 6m rebuild both use this clock). Previously V3 used
+a 4hr asia window 00-04 UTC which dark-windowed hour 22-23 every day —
+specifically blocking the Sun 22:00 UTC reopen for ~2 hours.
+
+DST-independent.
 """
 
 from __future__ import annotations
@@ -23,13 +28,15 @@ log = logging.getLogger("scrooge_v3.classifiers.session_bucket")
 
 
 def session_bucket_for_hour(hour_utc: int) -> str:
-    if 0 <= hour_utc < 4:   return "asia"
-    if 4 <= hour_utc < 6:   return "asia_late"
-    if 6 <= hour_utc < 9:   return "london_open"
-    if 9 <= hour_utc < 13:  return "ny_open"
-    if 13 <= hour_utc < 17: return "ny_mid"
-    if 17 <= hour_utc < 21: return "ny_close"
-    return "off_hours"
+    # research-clock boundaries (aligned 2026-05-24)
+    if 22 <= hour_utc or hour_utc < 6: return "asia"
+    if 6  <= hour_utc < 7:             return "asia_late"
+    if 7  <= hour_utc < 10:            return "london_open"
+    if 10 <= hour_utc < 12:            return "london"
+    if 12 <= hour_utc < 14:            return "ny_open"
+    if 14 <= hour_utc < 17:            return "ny_mid"
+    if 17 <= hour_utc < 21:            return "ny_close"
+    return "off_hours"   # hour 21 only
 
 
 class SessionBucketClassifier:
