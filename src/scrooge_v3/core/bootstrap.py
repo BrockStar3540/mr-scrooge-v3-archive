@@ -200,6 +200,26 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
              len(probe_strategies), len(enabled_names),
              ",".join(enabled_names) if enabled_names else "none")
 
+    # --- Register canonical_lien_dbb probes (disabled by default) ---
+    from scrooge_v3.strategies.canonical_lien_dbb import build_all_lien_dbb_probes
+    lien_dbb_strategies = build_all_lien_dbb_probes(probes_cfg)
+    lien_dbb_enabled = [ps.name for ps in lien_dbb_strategies if ps.enabled]
+    for ps in lien_dbb_strategies:
+        registry.register("strategies", ps.name, ps)
+    log.info("[BOOT] canonical_lien_dbb probes: registered=%d enabled=%d (%s)",
+             len(lien_dbb_strategies), len(lien_dbb_enabled),
+             ",".join(lien_dbb_enabled) if lien_dbb_enabled else "none")
+
+    # --- Register textbook_scalper probes (disabled by default) ---
+    from scrooge_v3.strategies.textbook_scalper import build_all_textbook_probes
+    textbook_strategies = build_all_textbook_probes(probes_cfg)
+    textbook_enabled = [ps.name for ps in textbook_strategies if ps.enabled]
+    for ps in textbook_strategies:
+        registry.register("strategies", ps.name, ps)
+    log.info("[BOOT] textbook_scalper probes: registered=%d enabled=%d (%s)",
+             len(textbook_strategies), len(textbook_enabled),
+             ",".join(textbook_enabled) if textbook_enabled else "none")
+
     # --- Build cooldown tracker (Phase 4 Signal Discipline) ---
     from scrooge_v3.risk.cooldown_tracker import CooldownTracker
 
