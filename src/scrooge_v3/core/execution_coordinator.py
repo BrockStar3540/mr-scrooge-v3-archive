@@ -83,6 +83,23 @@ class ExecutionCoordinator:
                 best.stop_price = 2.0 * best.entry_price - best.stop_price
             if best.take_profit is not None and best.entry_price:
                 best.take_profit = 2.0 * best.entry_price - best.take_profit
+            # Mirror metadata tp1/tp2 around entry too. These are used by
+            # the harvest LIMIT placer (state_recovery._place_harvest_limit
+            # reads tracked.tp1_price from metadata). Without this mirror,
+            # the harvest LIMIT lands at the original-direction TP target
+            # (above entry for a now-short trade), gets marketable, and
+            # immediately closes half the position at a loss.
+            # USD_JPY trade 3908 (2026-05-25 02:38Z) lost $19.45 this way.
+            if best.metadata and best.entry_price:
+                try:
+                    md = dict(best.metadata)
+                    for k in ("tp1", "tp2"):
+                        v = md.get(k)
+                        if isinstance(v, (int, float)) and v:
+                            md[k] = 2.0 * best.entry_price - v
+                    best.metadata = md
+                except Exception:
+                    log.exception("[EXEC] reverse: metadata tp mirror failed")
 
         # Preserve the original signal anchor before we reshape entry geometry.
         signal_entry_price = best.entry_price
