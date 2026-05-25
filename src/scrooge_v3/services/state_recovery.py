@@ -189,9 +189,16 @@ class StateRecovery:
         )
 
     def detect_vanished_trades(self) -> None:
-        """Detect trades closed externally between cycles."""
+        """Detect trades closed externally between cycles.
+
+        P0 fix: broker view None == unavailable, skip cycle (do not
+        interpret missing broker view as 'all trades closed').
+        """
         ctx = self.ctx
         current_trades = ctx.broker.get_open_trades()
+        if current_trades is None:
+            log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — detect_vanished_trades SKIPPED")
+            return
         current_ids = {t.trade_id for t in current_trades}
         vanished = ctx.known_trade_ids - current_ids
 
@@ -204,9 +211,17 @@ class StateRecovery:
         ctx.state.position_count = len(current_trades)
 
     def reconcile_tracker(self) -> None:
-        """Reconcile position tracker with broker — detect vanished tracked positions."""
+        """Reconcile position tracker with broker — detect vanished tracked positions.
+
+        P0 fix: broker view None == unavailable, skip cycle. Reconciling to
+        empty (the old behavior on any failed get_open_trades) caused
+        phantom-vanish + cooldown + zone-blacklist on live trades.
+        """
         ctx = self.ctx
         open_trades = ctx.broker.get_open_trades()
+        if open_trades is None:
+            log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — reconcile_tracker SKIPPED")
+            return
         broker_ids = {t.trade_id for t in open_trades}
 
         # Phase 4: snapshot tracked positions BEFORE reconcile strips
@@ -338,6 +353,9 @@ class StateRecovery:
 
             # Order gone — check if it filled (new trade appeared)
             open_trades = ctx.broker.get_open_trades()
+            if open_trades is None:
+                log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — pending-fill check SKIPPED for %s", symbol)
+                continue
             new_trade = None
             for t in open_trades:
                 if t.symbol == symbol and not ctx.tracker.get(t.trade_id):
@@ -413,8 +431,12 @@ class StateRecovery:
             if tracked.harvest_order_id in pending_on_broker:
                 continue  # Still pending
 
+            _open_trades_for_harvest = ctx.broker.get_open_trades()
+            if _open_trades_for_harvest is None:
+                log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — harvest reconcile SKIPPED for %s", tracked.trade_id)
+                continue
             broker_trade = next(
-                (t for t in ctx.broker.get_open_trades() if t.trade_id == tracked.trade_id),
+                (t for t in _open_trades_for_harvest if t.trade_id == tracked.trade_id),
                 None,
             )
             order_id = tracked.harvest_order_id
@@ -518,10 +540,14 @@ class StateRecovery:
             log.exception("[RECOVERY] orphan-harvest sweep: get_pending_orders failed")
             return
         try:
-            open_trade_ids = {t.trade_id for t in ctx.broker.get_open_trades()}
+            _ot = ctx.broker.get_open_trades()
         except Exception:
-            log.exception("[RECOVERY] orphan-harvest sweep: get_open_trades failed")
+            log.exception("[RECOVERY] orphan-harvest sweep: get_open_trades raised")
             return
+        if _ot is None:
+            log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — orphan-harvest sweep SKIPPED")
+            return
+        open_trade_ids = {t.trade_id for t in _ot}
 
         ledger = self._ledger.all()
         pending_by_id: dict[str, Any] = {o.order_id: o for o in pending_list}

@@ -122,7 +122,7 @@ class BrokerAdapter(Protocol):
 
     # --- Positions ---
 
-    def get_open_trades(self) -> list[TradeInfo]: ...
+    def get_open_trades(self) -> list[TradeInfo] | None: ...
 
     # --- Orders ---
 

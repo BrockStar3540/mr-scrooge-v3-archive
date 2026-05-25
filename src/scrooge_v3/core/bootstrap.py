@@ -478,6 +478,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
 
     # --- Reconcile open positions with tracker ---
     open_trades = broker.get_open_trades()
+    if open_trades is None:
+        # P0 fix: do not boot with unknown broker view. Better to fail
+        # and let systemd retry than to start with an empty tracker that
+        # will silently mis-manage existing open trades.
+        raise RuntimeError("[BOOT] broker view unavailable during startup reconcile — aborting boot, systemd will retry")
     state.position_count = len(open_trades)
     known_trade_ids = {t.trade_id for t in open_trades}
 

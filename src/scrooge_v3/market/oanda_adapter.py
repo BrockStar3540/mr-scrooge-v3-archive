@@ -291,10 +291,17 @@ class OANDAAdapter:
             return None
         return data.get("trade")
 
-    def get_open_trades(self) -> list[TradeInfo]:
+    def get_open_trades(self) -> list[TradeInfo] | None:
+        # P0 fix (Brock 2026-05-25): broker-view-unavailable must be
+        # distinguishable from 'broker says no trades open'. Return None
+        # on _get failure. Callers MUST handle None by skipping any
+        # reconcile/vanish logic for that cycle. Returning [] caused
+        # phantom-vanish + cooldown + zone-blacklist on live trades when
+        # an OANDA request timed out (USD_JPY/NZD_JPY/NZD_USD 06:22:56Z
+        # 2026-05-25 is the live evidence).
         data = self._get(f"/v3/accounts/{self.account_id}/openTrades")
-        if not data:
-            return []
+        if data is None:
+            return None
         trades = []
         for t in data.get("trades", []):
             units = float(t.get("currentUnits", 0))

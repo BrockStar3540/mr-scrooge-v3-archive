@@ -165,6 +165,10 @@ class PositionCoordinator:
         fraction = details.get("fraction", 0.5)
 
         open_trades = ctx.broker.get_open_trades()
+        if open_trades is None:
+            log.warning("[POSITIONS] HARVEST SKIPPED — broker view unavailable for %s", tracked.trade_id)
+            _audit("harvest_blocked", "broker_view_unavailable", **audit_base)
+            return
         broker = next((t for t in open_trades if t.trade_id == tracked.trade_id), None)
         if not broker:
             log.warning("[POSITIONS] HARVEST skipped: trade %s not found on broker",

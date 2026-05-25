@@ -174,8 +174,18 @@ class PositionTracker:
             self.persist()
         return pos
 
-    def reconcile_with_broker(self, broker_trade_ids: set[str]) -> list[str]:
-        """Remove positions that OANDA no longer has open. Returns vanished IDs."""
+    def reconcile_with_broker(self, broker_trade_ids: set[str] | None) -> list[str]:
+        """Remove positions that OANDA no longer has open. Returns vanished IDs.
+
+        P0 fix (Brock 2026-05-25): if broker_trade_ids is None, the broker
+        view is UNAVAILABLE (request failed) — do NOT reconcile, do NOT
+        treat as empty, return []. Skipping a cycle is harmless; reconciling
+        to empty corrupts state and triggers phantom-vanish + cooldown +
+        zone-blacklist on live trades.
+        """
+        if broker_trade_ids is None:
+            log.warning("[TRACKER] BROKER_VIEW_UNAVAILABLE — skipping reconcile this cycle")
+            return []
         vanished = []
         for tid in list(self._positions.keys()):
             if tid not in broker_trade_ids:
