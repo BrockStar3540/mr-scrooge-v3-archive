@@ -479,8 +479,15 @@ class OANDAAdapter:
         error = cancel.get("reason", "") or reject.get("rejectReason", "unknown")
         return OrderResult(success=False, error=error, raw=result)
 
-    def get_pending_orders(self, symbol: str | None = None) -> list[PendingOrderInfo]:
+    def get_pending_orders(self, symbol: str | None = None) -> list[PendingOrderInfo] | None:
+        # P0 round-2 (Brock 2026-05-25): None == broker view unavailable.
+        # [] still means "broker says no pending orders." A failed _get
+        # used to return [], indistinguishable from real empty — and that
+        # caused freshly-placed harvest LIMITs to be cancelled as
+        # broker_side_gone within 60s (trades 4014, 4021, 4029 on 05-25).
         data = self._get(f"/v3/accounts/{self.account_id}/pendingOrders")
+        if data is None:
+            return None
         if not data:
             return []
         orders = []

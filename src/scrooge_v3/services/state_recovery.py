@@ -220,8 +220,12 @@ class StateRecovery:
         ctx = self.ctx
         open_trades = ctx.broker.get_open_trades()
         if open_trades is None:
+            # P0 round-2 (Brock 2026-05-25): broker view unavailable. Skip
+            # reconcile, but RETURN [] so position_coordinator can iterate
+            # safely. The original early-return-without-value crashed the
+            # position-management cycle with TypeError at 13:03:48Z 05-25.
             log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — reconcile_tracker SKIPPED")
-            return
+            return []
         broker_ids = {t.trade_id for t in open_trades}
 
         # Phase 4: snapshot tracked positions BEFORE reconcile strips
@@ -338,7 +342,14 @@ class StateRecovery:
     def reconcile_pending_orders(self) -> None:
         """Reconcile pending entry and harvest limit orders with OANDA."""
         ctx = self.ctx
-        pending_on_broker = {o.order_id for o in ctx.broker.get_pending_orders()}
+        _pending_orders = ctx.broker.get_pending_orders()
+        if _pending_orders is None:
+            # P0 round-2: broker pending-orders view unavailable. Cannot
+            # safely reconcile harvest LIMITs without it — false missing
+            # would trigger broker_side_gone cancels on still-live orders.
+            log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — reconcile_pending_orders SKIPPED")
+            return
+        pending_on_broker = {o.order_id for o in _pending_orders}
         # Hotfix/harvest-same-cycle-race (2026-04-30):
         # Harvest LIMITs placed by _place_harvest_limit during the entry-fill
         # loop below are not in `pending_on_broker` (snapshot taken before).
@@ -535,10 +546,14 @@ class StateRecovery:
         ctx = self.ctx
 
         try:
-            pending_list = list(ctx.broker.get_pending_orders())
+            _po = ctx.broker.get_pending_orders()
         except Exception:
-            log.exception("[RECOVERY] orphan-harvest sweep: get_pending_orders failed")
+            log.exception("[RECOVERY] orphan-harvest sweep: get_pending_orders raised")
             return
+        if _po is None:
+            log.warning("[RECOVERY] BROKER_VIEW_UNAVAILABLE — orphan-harvest sweep SKIPPED")
+            return
+        pending_list = list(_po)
         try:
             _ot = ctx.broker.get_open_trades()
         except Exception:
