@@ -128,7 +128,21 @@ class ExecutionCoordinator:
 
         # Build order
         signed_units = units if best.direction.value == "long" else -units
-        limit_price = quote.bid if best.direction.value == "long" else quote.ask
+        # PULLBACK LIMIT (Brock 2026-05-25): the previous implementation placed
+        # LIMIT at quote.bid/ask = marketable entry with 0 pullback edge. Every
+        # historical LIMIT filled within 1-2 pips of signal and most hit SL.
+        # New: pull entry back by 40% of SL distance (4 pips on 10-pip SL).
+        # SL/TP stay anchored to signal price (scalper_clamp) so when filled,
+        # actual R:R is ~2.67:1 instead of the nominal 1.2:1.
+        # If no pullback within 5-min GTD, LIMIT expires (no trade — fine).
+        LIMIT_PULLBACK_PCT = 0.40
+        SCALPER_SL_PIPS_FOR_PULLBACK = 10.0  # matches scalper_clamp SL
+        pullback_pips = SCALPER_SL_PIPS_FOR_PULLBACK * LIMIT_PULLBACK_PCT
+        pullback_distance = pullback_pips * pip_size
+        if best.direction.value == "long":
+            limit_price = quote.bid - pullback_distance   # wait for dip
+        else:
+            limit_price = quote.ask + pullback_distance   # wait for rip
         gtd_time = (datetime.now(timezone.utc) + timedelta(minutes=5)).strftime(
             "%Y-%m-%dT%H:%M:%S.000000000Z"
         )

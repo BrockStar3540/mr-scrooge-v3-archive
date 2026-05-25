@@ -94,48 +94,57 @@ class ScanCoordinator:
 
         # --- Throttle: max pending entries ---
         pending_count = len(ctx.tracker.all_pending_entries())
-        max_pending = 2
+        max_pending = 6   # Brock 2026-05-25: loosened from 2 for 452-cell broad-coverage bank
         if pending_count >= max_pending:
             log.info("[SCAN] Throttled: %d pending entries >= max %d", pending_count, max_pending)
             result.candidates = []
             return result
 
-        # --- Throttle: currency correlation gate ---
-        # Don't stack trades on the same base or quote currency
-        open_currencies = set()
+        # --- Throttle: currency exposure cap (loosened 2026-05-25) ---
+        # OLD rule was: block ANY pair sharing base OR quote with open/pending.
+        # That starved the 452-cell bank — one AUD_JPY open killed 10+ pairs.
+        # NEW rule: cap exposure at MAX_PER_CURRENCY positions per currency.
+        # Also block exact-pair stacking (same symbol already open or pending).
+        MAX_PER_CURRENCY = 3
+        currency_counts: dict[str, int] = {}
+        open_symbols: set[str] = set()
         for pos in ctx.tracker.all_positions():
+            open_symbols.add(pos.symbol)
             parts = pos.symbol.split("_")
             if len(parts) == 2:
-                open_currencies.add(parts[0])
-                open_currencies.add(parts[1])
+                currency_counts[parts[0]] = currency_counts.get(parts[0], 0) + 1
+                currency_counts[parts[1]] = currency_counts.get(parts[1], 0) + 1
         for sym in ctx.tracker.all_pending_entries().keys():
+            open_symbols.add(sym)
             parts = sym.split("_")
             if len(parts) == 2:
-                open_currencies.add(parts[0])
-                open_currencies.add(parts[1])
+                currency_counts[parts[0]] = currency_counts.get(parts[0], 0) + 1
+                currency_counts[parts[1]] = currency_counts.get(parts[1], 0) + 1
 
-        # Filter out candidates that share a currency with open/pending positions
         uncorrelated = []
         for c in candidates:
+            # Block exact-pair stacking (same symbol already in play)
+            if c.symbol in open_symbols:
+                log.debug("[SCAN] Already open/pending on %s, skipping new candidate", c.symbol)
+                continue
             parts = c.symbol.split("_")
             if len(parts) == 2:
                 base, quote = parts
-                if base in open_currencies or quote in open_currencies:
-                    log.debug("[SCAN] Correlation filter: %s blocked (overlap with %s)",
-                              c.symbol, open_currencies & {base, quote})
+                # Block only if adding this would push currency exposure past cap
+                if (currency_counts.get(base, 0) >= MAX_PER_CURRENCY or
+                    currency_counts.get(quote, 0) >= MAX_PER_CURRENCY):
+                    log.debug("[SCAN] Currency cap: %s blocked (base=%d quote=%d, cap=%d)",
+                              c.symbol, currency_counts.get(base,0),
+                              currency_counts.get(quote,0), MAX_PER_CURRENCY)
                     continue
             uncorrelated.append(c)
 
         if uncorrelated:
             candidates = uncorrelated
         else:
-            # All candidates correlate — allow best one if no open positions at all
-            if not ctx.tracker.all_positions() and not ctx.tracker.all_pending_entries():
-                pass  # First trade of the session, allow it
-            else:
-                log.info("[SCAN] All candidates correlated with open/pending — skipping")
-                result.candidates = []
-                return result
+            log.info("[SCAN] All candidates blocked by currency cap or exact-pair stacking — skipping")
+            result.candidates = []
+            return result
 
         best = candidates[0]
         log.info("[SCAN] Best candidate: %s %s score=%.0f",
