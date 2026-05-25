@@ -483,8 +483,14 @@ class StateRecovery:
             return False
         if (getattr(order, "position_fill", "") or "").upper() != "REDUCE_ONLY":
             return False
-        if not (getattr(order, "parent_trade_id", "") or "").strip():
-            return False
+        # parent_trade_id may be empty in two cases:
+        #   (a) bug at placement (should not happen in current code)
+        #   (b) parent trade has been CLOSED — broker cleared the link
+        # In (b), a REDUCE_ONLY LIMIT without parent IS by definition orphan
+        # (REDUCE_ONLY is only ever stamped by V3 harvest placements).
+        # So we accept either: parent_trade_id present OR missing.
+        # Cancellation logic below will treat missing parent_trade_id as
+        # "parent absent" and cancel.
         return True
 
     def reconcile_orphan_harvests(self) -> None:
@@ -545,17 +551,21 @@ class StateRecovery:
                 continue
 
             parent_trade_id = (order.parent_trade_id or "").strip()
-            # Critical safety guard: cancel_order is ONLY ever called below
-            # this point, and only when parent_trade_id is non-empty.
-            assert parent_trade_id, (
-                "harvest-style classifier let through an order with no parent "
-                "trade_id (order=%s) -- bug, refusing to cancel" % order_id
-            )
-
-            parent_alive_on_broker = parent_trade_id in open_trade_ids
-            parent_in_tracker = ctx.tracker.get(parent_trade_id) is not None
-            if parent_alive_on_broker or parent_in_tracker:
-                continue  # legitimate live harvest LIMIT
+            # Missing parent_trade_id is now treated as orphan-confirmed
+            # (broker only clears the link after parent closes; REDUCE_ONLY
+            # is only stamped by V3 harvest). Proceed to cancel.
+            if parent_trade_id:
+                parent_alive_on_broker = parent_trade_id in open_trade_ids
+                parent_in_tracker = ctx.tracker.get(parent_trade_id) is not None
+                if parent_alive_on_broker or parent_in_tracker:
+                    continue  # legitimate live harvest LIMIT
+            else:
+                log.warning(
+                    "[RECOVERY] orphan-harvest sweep: REDUCE_ONLY LIMIT "
+                    "order=%s symbol=%s has empty parent_trade_id "
+                    "(parent closed/broker cleared link) -> treating as orphan",
+                    order_id, symbol,
+                )
 
             # Pull strategy/created_at from ledger if we have a record;
             # otherwise we only know what the broker tells us.

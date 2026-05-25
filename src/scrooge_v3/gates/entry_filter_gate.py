@@ -196,7 +196,14 @@ class EntryFilterGate(BaseGate):
                               metrics={'cell_tier': cell_tier})
         rule = (match.basis or {}).get('shave_rule') or ''
         if not rule.strip():
-            return self._pass('no_shave_rule_in_cell')
+            # Brock 2026-05-25 (auditor request): surface match_kind in the
+            # PASS reason so journal/grep audits can distinguish exact_strategy
+            # from exact_family from family_loose_override approvals.
+            return self._pass(f'no_shave_rule_in_cell:match={match_kind}',
+                              metrics={'match_kind': match_kind,
+                                       'cell_strategy': match.strategy,
+                                       'cell_family': match.family,
+                                       'candidate_strategy': candidate.strategy})
 
         try:
             clauses = self._parse_rule(rule)
@@ -231,13 +238,14 @@ class EntryFilterGate(BaseGate):
                 candidate.metadata["routing_match_kind"] = match_kind
             except Exception:
                 pass
-            return self._pass('shave_rule_satisfied',
+            return self._pass(f'shave_rule_satisfied:match={match_kind}',
                               metrics={'rule': rule, 'cell': cell_label,
                                        'snapshot': snap,
                                        'cell_strategy': cell_strategy,
                                        'cell_family': cell_family,
                                        'cell_tier': cell_tier,
-                                       'match_kind': match_kind})
+                                       'match_kind': match_kind,
+                                       'candidate_strategy': candidate.strategy})
         return self._veto(f'shave_rule_violated: {reason}',
                           metrics={'rule': rule, 'cell': cell_label,
                                    'snapshot': snap,
