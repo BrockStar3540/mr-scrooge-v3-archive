@@ -187,7 +187,8 @@
   "execution": {
     "trigger_side_validation": true,
     "no_mans_zone_guard": true,
-    "spread_aware_trailing": true
+    "spread_aware_trailing": true,
+    "reverse_direction": true
   },
   "advisors": {
     "ml_regime": {

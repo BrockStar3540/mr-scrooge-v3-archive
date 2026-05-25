@@ -54,6 +54,36 @@ class ExecutionCoordinator:
                 return 1.0 / q.mid
             return None
 
+        # REVERSE DIRECTION (Brock 2026-05-25): flip every strategy direction.
+        # Bot has delivered 32%% WR over 202 trades / 2 months at 12/10 R:R
+        # (break-even is ~45%% WR). Systematically wrong, not random.
+        # Flipping should yield ~68%% WR if edge is stable.
+        # Config-flag controlled. Default false. Set true to enable experiment.
+        try:
+            reverse_enabled = bool(ctx.config.get("execution.reverse_direction", False))
+        except Exception:
+            reverse_enabled = False
+        if reverse_enabled:
+            from scrooge_v3.core.types import TradeDirection
+            original_dir = best.direction.value
+            if best.direction == TradeDirection.LONG:
+                best.direction = TradeDirection.SHORT
+            else:
+                best.direction = TradeDirection.LONG
+            log.warning(
+                "[EXEC] REVERSAL_MODE_ACTIVE symbol=%s strategy=%s flipped %s -> %s",
+                best.symbol, best.strategy, original_dir, best.direction.value,
+            )
+            # Also flip stop and take-profit hints (they were set for original
+            # direction). scalper_clamp will override below but in case any
+            # path uses these intermediate values, keep them sane.
+            if best.stop_price is not None and best.entry_price:
+                # If original was long, stop was BELOW entry. For short, stop is ABOVE.
+                # Mirror around entry.
+                best.stop_price = 2.0 * best.entry_price - best.stop_price
+            if best.take_profit is not None and best.entry_price:
+                best.take_profit = 2.0 * best.entry_price - best.take_profit
+
         # Preserve the original signal anchor before we reshape entry geometry.
         signal_entry_price = best.entry_price
 
