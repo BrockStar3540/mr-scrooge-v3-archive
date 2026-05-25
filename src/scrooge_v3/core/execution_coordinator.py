@@ -131,20 +131,24 @@ class ExecutionCoordinator:
 
         # Build order
         signed_units = units if best.direction.value == "long" else -units
-        # Deep pullback execution (Brock 2026-05-25): the signal marks the setup,
-        # but the entry waits at the old stop zone to avoid getting booted behind
-        # the signal. We enter one full risk-unit beyond the signal, place the
-        # stop one additional risk-unit beyond that, and keep TP anchored to the
-        # original signal target.
-        pullback_distance = SCALPER_SL_PIPS * pip_size
+        # Shallow pullback execution (Brock 2026-05-25 revision): the 10-pip
+        # full-stop pullback (cb958e2) was too extreme — 0% fill rate in asia
+        # because price rarely retraces a full risk unit within the 5-min GTD.
+        # New: shallow 2-pip pullback for small entry improvement at high fill
+        # rate. SL stays anchored to signal at scalper_clamp default (signal -
+        # SCALPER_SL_PIPS for long). With BE manager at 0.7R/0.6R (shipped
+        # 190b85c), trades get the breathing room they need post-fill.
+        LIMIT_PULLBACK_PIPS = 2.0
+        pullback_distance = LIMIT_PULLBACK_PIPS * pip_size
         if best.direction.value == "long":
             limit_price = signal_entry_price - pullback_distance
-            best.stop_price = signal_entry_price - 2.0 * pullback_distance
-            best.take_profit = signal_entry_price + SCALPER_TP_PIPS * pip_size
+            # SL stays at scalper_clamp value: signal - SCALPER_SL_PIPS
+            # TP stays at scalper_clamp value: signal + SCALPER_TP_PIPS
+            # (already set by scalper_clamp above, do not override)
         else:
             limit_price = signal_entry_price + pullback_distance
-            best.stop_price = signal_entry_price + 2.0 * pullback_distance
-            best.take_profit = signal_entry_price - SCALPER_TP_PIPS * pip_size
+            # SL stays at scalper_clamp value: signal + SCALPER_SL_PIPS
+            # TP stays at scalper_clamp value: signal - SCALPER_TP_PIPS
 
         # Re-validate the reshaped stop against live spread rules.
         validated_sl, sl_reason = stop_planner.validate_stop(
