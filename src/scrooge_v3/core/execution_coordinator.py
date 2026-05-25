@@ -54,6 +54,9 @@ class ExecutionCoordinator:
                 return 1.0 / q.mid
             return None
 
+        # Preserve the original signal anchor before we reshape entry geometry.
+        signal_entry_price = best.entry_price
+
         # Compute stop distance in pips for risk-capped sizing (TRADE_MATH).
         try:
             pip_size = 0.01 if any(j in best.symbol for j in ("JPY", "MXN")) else 0.0001
@@ -63,8 +66,8 @@ class ExecutionCoordinator:
 
         # Scalper clamp (Brock 2026-05-21): override zone-based SL/TP with
         # fixed pip distances. Strategies emit wide zone-to-zone targets,
-        # but the bot's intent is scalping. SL at 6 pips, TP at 12 pips
-        # (2:1 R:R, breakeven WR 33.3%, win = 0.60% account, loss = 0.30%).
+        # but the bot's intent is scalping. We keep a fixed risk unit and
+        # fixed TP1 anchor off the original signal price.
         SCALPER_SL_PIPS = 10.0  # Brock 2026-05-21: initial 10-pip stop, ratchet handles tightening
         SCALPER_TP_PIPS = 12.0
         try:
@@ -77,7 +80,7 @@ class ExecutionCoordinator:
                 else:
                     best.stop_price = best.entry_price + SCALPER_SL_PIPS * pip_size
                     best.take_profit = best.entry_price - SCALPER_TP_PIPS * pip_size
-                # Override sizer's input -- always 6 pips
+                # Override sizer's input -- always one fixed risk unit.
                 stop_pips = SCALPER_SL_PIPS
                 log.info(
                     "[EXEC] scalper_clamp symbol=%s dir=%s entry=%.5f "
@@ -128,28 +131,37 @@ class ExecutionCoordinator:
 
         # Build order
         signed_units = units if best.direction.value == "long" else -units
-        # PULLBACK LIMIT (Brock 2026-05-25): the previous implementation placed
-        # LIMIT at quote.bid/ask = marketable entry with 0 pullback edge. Every
-        # historical LIMIT filled within 1-2 pips of signal and most hit SL.
-        # New: pull entry back by 40% of SL distance (4 pips on 10-pip SL).
-        # SL/TP stay anchored to signal price (scalper_clamp) so when filled,
-        # actual R:R is ~2.67:1 instead of the nominal 1.2:1.
-        # If no pullback within 5-min GTD, LIMIT expires (no trade — fine).
-        LIMIT_PULLBACK_PCT = 0.40
-        SCALPER_SL_PIPS_FOR_PULLBACK = 10.0  # matches scalper_clamp SL
-        pullback_pips = SCALPER_SL_PIPS_FOR_PULLBACK * LIMIT_PULLBACK_PCT
-        pullback_distance = pullback_pips * pip_size
+        # Deep pullback execution (Brock 2026-05-25): the signal marks the setup,
+        # but the entry waits at the old stop zone to avoid getting booted behind
+        # the signal. We enter one full risk-unit beyond the signal, place the
+        # stop one additional risk-unit beyond that, and keep TP anchored to the
+        # original signal target.
+        pullback_distance = SCALPER_SL_PIPS * pip_size
         if best.direction.value == "long":
-            limit_price = quote.bid - pullback_distance   # wait for dip
+            limit_price = signal_entry_price - pullback_distance
+            best.stop_price = signal_entry_price - 2.0 * pullback_distance
+            best.take_profit = signal_entry_price + SCALPER_TP_PIPS * pip_size
         else:
-            limit_price = quote.ask + pullback_distance   # wait for rip
+            limit_price = signal_entry_price + pullback_distance
+            best.stop_price = signal_entry_price + 2.0 * pullback_distance
+            best.take_profit = signal_entry_price - SCALPER_TP_PIPS * pip_size
+
+        # Re-validate the reshaped stop against live spread rules.
+        validated_sl, sl_reason = stop_planner.validate_stop(
+            best.direction, best.stop_price,
+            quote.bid, quote.ask, quote.spread,
+        )
+        if sl_reason != "valid":
+            log.warning("[EXEC] reshaped SL adjusted: %s %.5f → %.5f (%s)",
+                        best.symbol, best.stop_price, validated_sl, sl_reason)
+
         gtd_time = (datetime.now(timezone.utc) + timedelta(minutes=5)).strftime(
             "%Y-%m-%dT%H:%M:%S.000000000Z"
         )
 
-        log.info("[EXEC] Placing LIMIT order: %s %s %d units @ %.5f SL=%.5f TP=%.5f GTD=%s",
+        log.info("[EXEC] Placing LIMIT order: %s %s %d units @ %.5f signal=%.5f SL=%.5f TP=%.5f GTD=%s",
                  best.symbol, best.direction.value, signed_units,
-                 limit_price, validated_sl, best.take_profit or 0, gtd_time)
+                 limit_price, signal_entry_price, validated_sl, best.take_profit or 0, gtd_time)
 
         # Phase 4: direction flip resets opposite-direction expiry counters.
         tracker_obj = getattr(ctx, "cooldown_tracker", None)
