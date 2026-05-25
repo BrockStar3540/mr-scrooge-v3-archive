@@ -170,7 +170,18 @@ class ExecutionCoordinator:
         # 190b85c), trades get the breathing room they need post-fill.
         LIMIT_PULLBACK_PIPS = 2.0
         pullback_distance = LIMIT_PULLBACK_PIPS * pip_size
-        if best.direction.value == "long":
+        if reverse_enabled:
+            # REVERSE MODE (Brock 2026-05-25 v2): "same trades, same entry,
+            # just reverse direction." Place LIMIT at exactly the signal
+            # price with the flipped direction. That makes the LIMIT
+            # marketable on whichever side it sits, fills immediately at the
+            # spread's favorable side, and lets scalper_clamp's signal-
+            # anchored SL/TP land at the intended 10/12 distances from fill.
+            # No pullback — pullback geometry assumed the original direction,
+            # and flipping it produced LIMITs the wrong side of market that
+            # never filled (order 3904 CAD_JPY 02:25Z is the proof).
+            limit_price = signal_entry_price
+        elif best.direction.value == "long":
             limit_price = signal_entry_price - pullback_distance
             # SL stays at scalper_clamp value: signal - SCALPER_SL_PIPS
             # TP stays at scalper_clamp value: signal + SCALPER_TP_PIPS
