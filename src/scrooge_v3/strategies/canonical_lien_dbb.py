@@ -328,6 +328,9 @@ class CanonicalLienDBBStrategy:
                     "lower_a": lower_a,
                     "tp1": tp1,
                     "tp2": tp2,
+                    # Natural target = raw distance to upper/lower 2σ band,
+                    # pre-floor. Read by natural_target_floor gate.
+                    "projected_tp_pips": target_distance / pip,
                     "risk_points": risk,
                     "reward_points": reward,
                 },

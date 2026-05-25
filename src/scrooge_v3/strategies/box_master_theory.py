@@ -246,6 +246,9 @@ class BoxMasterTheoryStrategy:
                 "entry_type": "MTB_PITCHFORK_LONG", "variant_id": variant_id,
                 "strategy_family": "box_master_theory", "management_profile": "reversal_core",
                 "pdh": pdh, "pdl": pdl,
+                # Natural target = distance to prior-day-high (PDH).
+                # Read by natural_target_floor gate.
+                "projected_tp_pips": (tp_price - entry_price) / pip,
                 "sucker_red_count": int(red_count), "lower_wick_pct": float(round(lower_wick_pct, 3)),
                 "variant_sucker_min": sucker_min, "variant_wick_min": wick_min,
                 "variant_middle_frac": middle_frac, "variant_sweep_frac": sweep_frac,
@@ -326,6 +329,9 @@ class BoxMasterTheoryStrategy:
                 "entry_type": "MTB_PITCHFORK_SHORT", "variant_id": variant_id,
                 "strategy_family": "box_master_theory", "management_profile": "reversal_core",
                 "pdh": pdh, "pdl": pdl,
+                # Natural target = distance to prior-day-low (PDL).
+                # Read by natural_target_floor gate.
+                "projected_tp_pips": (entry_price - tp_price) / pip,
                 "sucker_green_count": int(green_count), "upper_wick_pct": float(round(upper_wick_pct, 3)),
                 "variant_sucker_min": sucker_min, "variant_wick_min": wick_min,
                 "variant_middle_frac": middle_frac, "variant_sweep_frac": sweep_frac,

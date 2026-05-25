@@ -252,6 +252,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
+    from scrooge_v3.gates.natural_target_floor import NaturalTargetFloorGate
     from scrooge_v3.telemetry.seed_telemetry_ledger import SeedTelemetryLedger
 
     gate_cfg = config.section("gates")
@@ -273,6 +274,18 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
             "zone_bucket_pips": risk_cfg.get("zone_bucket_pips", 20),
         }),
         RegimeFloorGate({"min_score": -4}),
+        # Natural-target floor (Brock 2026-05-25): reject candidates whose
+        # strategy's projected TP target is below the minimum scalp size.
+        # Reads metadata["projected_tp_pips"] — emitted by canonical_lien_dbb
+        # and box_master_theory. Strategies without the metadata pass through.
+        NaturalTargetFloorGate(
+            (gate_cfg.get("natural_target_floor", {}) if gate_cfg else {}),
+            mode=_resolve_gate_mode(
+                gate_cfg.get("natural_target_floor") if gate_cfg else None,
+                default="hard",
+                gate_name="natural_target_floor",
+            ),
+        ),
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
         # Observe-only regime compatibility classifier. Never blocks; emits
         # (regime × family × dir_vs_hint) recommendation for audit-trail

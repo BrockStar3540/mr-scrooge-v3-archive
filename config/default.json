@@ -182,6 +182,10 @@
       "routing_table_path": "data/routing_table_v9_observe.parquet",
       "min_tier": "Seed",
       "mode": "observe"
+    },
+    "natural_target_floor": {
+      "min_pips": 7.0,
+      "mode": "hard"
     }
   },
   "execution": {
