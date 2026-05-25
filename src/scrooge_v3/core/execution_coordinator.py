@@ -178,35 +178,16 @@ class ExecutionCoordinator:
 
         # Build order
         signed_units = units if best.direction.value == "long" else -units
-        # Shallow pullback execution (Brock 2026-05-25 revision): the 10-pip
-        # full-stop pullback (cb958e2) was too extreme — 0% fill rate in asia
-        # because price rarely retraces a full risk unit within the 5-min GTD.
-        # New: shallow 2-pip pullback for small entry improvement at high fill
-        # rate. SL stays anchored to signal at scalper_clamp default (signal -
-        # SCALPER_SL_PIPS for long). With BE manager at 0.7R/0.6R (shipped
-        # 190b85c), trades get the breathing room they need post-fill.
-        LIMIT_PULLBACK_PIPS = 2.0
-        pullback_distance = LIMIT_PULLBACK_PIPS * pip_size
-        if reverse_enabled:
-            # REVERSE MODE (Brock 2026-05-25 v2): "same trades, same entry,
-            # just reverse direction." Place LIMIT at exactly the signal
-            # price with the flipped direction. That makes the LIMIT
-            # marketable on whichever side it sits, fills immediately at the
-            # spread's favorable side, and lets scalper_clamp's signal-
-            # anchored SL/TP land at the intended 10/12 distances from fill.
-            # No pullback — pullback geometry assumed the original direction,
-            # and flipping it produced LIMITs the wrong side of market that
-            # never filled (order 3904 CAD_JPY 02:25Z is the proof).
-            limit_price = signal_entry_price
-        elif best.direction.value == "long":
-            limit_price = signal_entry_price - pullback_distance
-            # SL stays at scalper_clamp value: signal - SCALPER_SL_PIPS
-            # TP stays at scalper_clamp value: signal + SCALPER_TP_PIPS
-            # (already set by scalper_clamp above, do not override)
-        else:
-            limit_price = signal_entry_price + pullback_distance
-            # SL stays at scalper_clamp value: signal + SCALPER_SL_PIPS
-            # TP stays at scalper_clamp value: signal - SCALPER_TP_PIPS
+        # No pullback (Brock 2026-05-25 third revision): the 2-pip pullback
+        # was added to improve effective entry by half a spread, but it cost
+        # fill rate at thin sessions and the shaved pips weren't material
+        # against the bot's WR/PnL profile. Reverse-mode test path also
+        # showed that placing LIMIT exactly at signal price (marketable on
+        # whichever side it sits) is mechanically the right semantics for
+        # "take this trade now at signal price." Same here for native
+        # direction: just fill now, at signal, scalper_clamp's signal-
+        # anchored SL=signal±10 / TP=signal∓12 are correct from fill.
+        limit_price = signal_entry_price
 
         # Re-validate the reshaped stop against live spread rules.
         validated_sl, sl_reason = stop_planner.validate_stop(
