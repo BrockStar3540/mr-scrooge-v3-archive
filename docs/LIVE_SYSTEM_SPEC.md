@@ -1,7 +1,7 @@
 # Live System Specification
 
 > **This is the executable truth.** Not theory, not doctrine — what the system
-> actually does right now. Updated 2026-04-16.
+> actually does right now. Updated 2026-05-25.
 
 ---
 
@@ -31,17 +31,37 @@ COMPRESSION           → [direct]
 
 No strategy self-activates outside router permission.
 
-## Live Gates (bootstrap.py)
+## Live Gates (bootstrap.py) — updated 2026-05-25
 
-Only 3 gates are registered in runtime:
+**14 gates registered** in runtime (was 3 in April spec — major expansion through May).
 
-| Gate | Config | Behavior |
-|------|--------|----------|
-| `RegimeFloorGate` | `min_score: -4` | Blocks if regime score < -4 (BLOCKED state) |
-| `DebounceGate` | from config | Prevents re-entry at same zone within 20 min |
-| `ZoneEntryCapGate` | from config | Max 3 entries per zone+direction per day |
+| # | Gate | Mode | Behavior |
+|---|------|------|----------|
+| 1 | `DailyCircuitGate` | HARD | Daily P&L circuit breaker |
+| 2 | `CooldownGate` | HARD | Per-(pair,dir) cooldown after stops |
+| 3 | `DebounceGate` | HARD | Prevent re-entry at same zone within window |
+| 4 | `ExpiryBackoffGate` | HARD | Cool down after LIMIT expiries at a zone |
+| 5 | `RegimeFloorGate` | HARD | Blocks if regime53 score < -4 |
+| 6 | `NaturalTargetFloorGate` | HARD | Block if market projection (M5 ATR*3 vs BB width/2, MIN) < 7 pips |
+| 7 | `FeatureQualityFloorGate` | HARD | Block if EMA/RSI/zone_detector returned degraded defaults |
+| 8 | `ZoneEntryCapGate` | HARD | Max N entries per zone+direction per day |
+| 9 | `RegimeCompatGate` | observe | Per-(regime,family,dir) compatibility classifier (observe-only) |
+| 10 | `RegimeStrategyRouterGate` | HARD | (regime53,family,dir_vs_hint) allow-list router |
+| 11 | `SubRegimeFilterGate` | HARD | Veto bottom MTB sub-regimes; routing-cell override at trade-tier |
+| 12 | `EntryFilterGate` | HARD | Per-strategy routing-cell match (exact_strategy / exact_family); `family_loose_override` config-gated default OFF |
+| 13 | `BoxV3ShadowGate` | observe | Box-branch shadow scorer |
+| 14 | `EntryFilterShadowGate` | observe | Shadow routing slate (v9_observe) for parallel evaluation |
 
-**Not live (handled by V3 scorer instead):** spread, OTR, RR, exhaustion, nat_stop_validity, spread_vs_stop.
+**HARD = veto on fail. observe = log only, no block.**
+
+**Recent gate additions (2026-05-25):**
+- `NaturalTargetFloorGate` — recomputes per-symbol per-cycle market projection from live M5 ticks; blocks ALL strategies on a symbol whose realistic move-potential is below the 7-pip scalp floor.
+- `FeatureQualityFloorGate` — blocks candidates on symbols where EMA/RSI/zone_detector returned insufficient-bars defaults (formerly silently consumed by scorer as if real).
+
+**Recent default changes (2026-05-25):**
+- `EntryFilter.enable_family_loose_override` defaults `false` — was permitting cross-family cell approvals on live trade-tier entries (P2 audit finding).
+
+See `/data/obsidian-vault/postmortems/scrooge-bug-fix-arc-2026-05-25.md` for the full 2026-05-25 arc.
 
 ## V3.1 Scorer
 
