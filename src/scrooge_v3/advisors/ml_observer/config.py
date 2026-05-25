@@ -50,6 +50,10 @@ BOT_LOGS_FILE     = DATA_DIR / "bot-logs.jsonl"
 STATE_FILE        = DATA_DIR / "observer-state.json"
 MODEL_FILE        = DATA_DIR / "model.xgb"
 PROTESTS_FILE     = DATA_DIR / "ml-protests.jsonl"
+SHADOW_DECISIONS_FILE = DATA_DIR / "shadow-decisions.jsonl"
+SHADOW_TRADES_FILE    = DATA_DIR / "shadow-trades.jsonl"
+SHADOW_BANK_FILE      = DATA_DIR / "shadow-bank.json"
+SHADOW_COMPARISON_FILE = DATA_DIR / "shadow-comparison.json"
 
 # --- journald cursor (resume reads across observer restarts) ---
 JOURNAL_CURSOR_FILE = DATA_DIR / "journal.cursor"
@@ -65,15 +69,17 @@ CYCLE_SECONDS = 300  # 5 min, matches bot cycle
 # --- Phase thresholds ---
 PHASE2_MIN_TRADES = 50          # trades with outcomes before training
 PHASE3_MIN_CV_ACCURACY = 0.60   # min CV accuracy before advising
-# 2026-05-15: disabled (effectively) — the model is now fixed-config,
-# trained on the seed-bank corpus (54,829 moving-regime trades) not on
-# live outcomes. Auto-retrain on live data caused the prior overfit
-# (143 outcomes across N bot configs -> 0.99 cv_accuracy / 25% recall).
-# Manual retrain via /tmp/train_seed_on_ec2.py only.
-RETRAIN_INTERVAL_TRADES = 999999  # disabled
+RETRAIN_INTERVAL_TRADES = 25    # retrain after this many new closed trades
 
 # --- Advisor thresholds ---
 PROTEST_CONFIDENCE = 0.70
+
+# --- Current-corpus shadow observer thresholds ---
+SHADOW_MIN_TRADES_EXACT = 2
+SHADOW_MIN_TRADES_STRATEGY = 3
+SHADOW_MIN_TRADES_FAMILY = 5
+SHADOW_MIN_WIN_RATE = 0.45
+SHADOW_MIN_AVG_PNL_USD = 0.0
 
 # --- Trade association window ---
 TRADE_ASSOCIATION_WINDOW_SEC = 600  # 10 min

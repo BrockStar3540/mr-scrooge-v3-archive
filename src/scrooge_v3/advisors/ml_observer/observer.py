@@ -45,21 +45,32 @@ from config import (  # noqa: E402
     CYCLE_SECONDS, V3_DATA_DIR,
     SCANS_FILE, ACTIONS_FILE, ACCOUNT_FILE, OUTCOMES_FILE, BOT_LOGS_FILE,
     STATE_FILE, MODEL_FILE, PROTESTS_FILE,
+    SHADOW_BANK_FILE, SHADOW_DECISIONS_FILE, SHADOW_TRADES_FILE, SHADOW_COMPARISON_FILE,
     JOURNAL_CURSOR_FILE, JOURNAL_UNIT, JOURNAL_MAX_ENTRIES_PER_CYCLE,
     LOG_DIR, DATA_DIR,
     PHASE2_MIN_TRADES, RETRAIN_INTERVAL_TRADES, PROTEST_CONFIDENCE,
     TRADE_ASSOCIATION_WINDOW_SEC,
 )
-# Patch B.right: order_id → strategy attribution lookup. Reads the bot's
-# data/order-attribution.jsonl deterministically; no time-window walk.
-ATTRIBUTION_FILE = V3_DATA_DIR / "order-attribution.jsonl"
-from scrooge_v3.telemetry.order_attribution import lookup_attribution  # noqa: E402
 from features import build_scan_row, extract_features, FEATURE_NAMES  # noqa: E402
 from v3_scorer_parser import parse_v3_scorer_line  # noqa: E402
 from journal_reader import iter_journal_events  # noqa: E402
 from account_snapshot import build_snapshot  # noqa: E402
 from oanda_poll import OandaPoller, classify_fill, load_env  # noqa: E402
-from trainer import train_model, predict  # noqa: E402
+from shadow import (  # noqa: E402
+    build_shadow_bank,
+    build_comparison_summary,
+    decide_shadow,
+    save_shadow_bank,
+    save_comparison_summary,
+    shadow_decision_record,
+    update_shadow_positions,
+)
+
+try:  # noqa: E402
+    from trainer import train_model, predict  # type: ignore
+except Exception:  # noqa: BLE001
+    train_model = None
+    predict = None
 
 
 # --- Logging setup ---
@@ -93,6 +104,8 @@ class ObserverState:
         self.last_cycle_seen: Optional[int] = None
         self.last_transaction_id_seen: Optional[str] = None
         self.known_trade_ids: set = set()
+        self.shadow_next_id = 1
+        self.shadow_positions: list[dict] = []
 
     def save(self):
         STATE_FILE.write_text(json.dumps({
@@ -107,6 +120,8 @@ class ObserverState:
             "last_cycle_seen": self.last_cycle_seen,
             "last_transaction_id_seen": self.last_transaction_id_seen,
             "known_trade_ids": list(self.known_trade_ids),
+            "shadow_next_id": self.shadow_next_id,
+            "shadow_positions": self.shadow_positions,
         }, indent=2))
 
     def load(self):
@@ -128,6 +143,8 @@ class ObserverState:
         self.last_cycle_seen = data.get("last_cycle_seen")
         self.last_transaction_id_seen = data.get("last_transaction_id_seen")
         self.known_trade_ids = set(data.get("known_trade_ids", []))
+        self.shadow_next_id = int(data.get("shadow_next_id", 1) or 1)
+        self.shadow_positions = list(data.get("shadow_positions", []))
 
 
 def _append_jsonl(path: Path, record: dict) -> None:
@@ -236,57 +253,56 @@ def drain_journal(state: ObserverState) -> tuple[dict, int, int]:
 
 # ----------------------------- Scans -----------------------------
 
-def collect_scans(
-    state: ObserverState,
-    data: dict,
-    scorer_by_symbol: dict,
-) -> int:
-    """Build one scan row per scored candidate in the current cycle.
-
-    Skips if the cycle hasn't advanced (dedup).
-    """
+def build_current_scan_rows(data: dict, scorer_by_symbol: dict) -> tuple[int, list[dict]]:
+    """Build current-cycle scan rows without mutating persistent state."""
     system = data.get("system", {})
     cycle = system.get("cycle_count", 0)
-
-    if state.last_cycle_seen is not None and cycle == state.last_cycle_seen:
-        return 0
-    state.last_cycle_seen = cycle
-
     signals = data.get("signals", [])
     if not signals:
-        return 0
+        return cycle, []
 
     ts = datetime.now(timezone.utc).isoformat()
-    # Order scorer-log entries by timestamp so we can align to API
-    # signal order (both are scanned in the same pair order within a
-    # cycle). Fallback: iterate entries as we go.
     ordered_parsed = sorted(scorer_by_symbol.values(),
                             key=lambda p: p.get("_log_ts", ""))
     parsed_iter = iter(ordered_parsed)
-
-    recorded = 0
+    rows: list[dict] = []
     for signal in signals:
         scorer = signal.get("scorer", {})
         if not scorer.get("breakdown"):
             continue
-        # Best-effort pair with the next unconsumed parsed log line.
-        # Enrichment is additive — if pairing is wrong, the API-side
-        # fields still make the row usable. context.px can be checked
-        # offline for alignment.
         parsed = next(parsed_iter, None)
-        row = build_scan_row(
+        rows.append(build_scan_row(
             signal,
             cycle=cycle,
             timestamp=ts,
             scorer_log_parsed=parsed,
-        )
-        _append_jsonl(SCANS_FILE, row)
-        recorded += 1
+        ))
+    return cycle, rows
 
+
+def collect_scans(
+    state: ObserverState,
+    data: dict,
+    scorer_by_symbol: dict,
+) -> tuple[int, list[dict]]:
+    """Build one scan row per scored candidate in the current cycle.
+
+    Skips if the cycle hasn't advanced (dedup).
+    """
+    cycle, rows = build_current_scan_rows(data, scorer_by_symbol)
+
+    if state.last_cycle_seen is not None and cycle == state.last_cycle_seen:
+        return 0, []
+    state.last_cycle_seen = cycle
+
+    for row in rows:
+        _append_jsonl(SCANS_FILE, row)
+
+    recorded = len(rows)
     state.total_scans += recorded
     if recorded:
         log.info("[scans] cycle=%s recorded=%d", cycle, recorded)
-    return recorded
+    return recorded, rows
 
 
 # ----------------------------- Account snapshot -----------------------------
@@ -369,38 +385,7 @@ def poll_oanda_outcomes(state: ObserverState, poller: OandaPoller) -> int:
 
         if ev["kind"] == "open":
             for trade_id in ev["trade_ids_opened"]:
-                # Patch B.right: order_id → strategy lookup is the primary
-                # attribution path. The bot writes one row per placed order
-                # to data/order-attribution.jsonl; we resolve strategy +
-                # scan_cycle deterministically from the OANDA orderID. Falls
-                # back to the legacy scan window walk only when attribution
-                # is missing (pre-patch backfill / externally placed orders).
-                attribution = None
-                source = "none"
-                ord_id = ev.get("order_id") or ""
-                if ord_id:
-                    attribution = lookup_attribution(ATTRIBUTION_FILE, ord_id)
-                    if attribution:
-                        source = "order_id_lookup"
-                if attribution is None and trade_id:
-                    attribution = lookup_attribution(ATTRIBUTION_FILE, trade_id)
-                    if attribution:
-                        source = "order_id_lookup"
-                matched = None
-                if attribution is None:
-                    matched = _find_scan_for_trade(
-                        ev["symbol"], TRADE_ASSOCIATION_WINDOW_SEC,
-                    )
-                    if matched:
-                        source = "scan_window_fallback"
-                strategy = (
-                    (attribution or {}).get("strategy", "") if attribution
-                    else ((matched or {}).get("strategy", "") if matched else "")
-                )
-                scan_cycle = (
-                    (attribution or {}).get("scan_cycle") if attribution
-                    else ((matched or {}).get("cycle") if matched else None)
-                )
+                matched = _find_scan_for_trade(ev["symbol"], TRADE_ASSOCIATION_WINDOW_SEC)
                 _append_jsonl(OUTCOMES_FILE, {
                     "kind": "trade_open",
                     "ts": ev["time"],
@@ -408,24 +393,13 @@ def poll_oanda_outcomes(state: ObserverState, poller: OandaPoller) -> int:
                     "symbol": ev["symbol"],
                     "price": ev["price"],
                     "units": ev["units"],
-                    "order_id": ord_id,
-                    "strategy": strategy,
-                    "scan_cycle": scan_cycle,
-                    "tier": (attribution or {}).get("tier", "") if attribution else "",
-                    "score": (attribution or {}).get("score", 0) if attribution else 0,
-                    "attribution_source": source,
-                    # Legacy fields preserved for backward compat.
-                    "matched_scan_ts": (
-                        matched.get("ts") if matched
-                        else ((attribution or {}).get("placed_at")
-                              if attribution else None)
-                    ),
-                    "matched_scan_cycle": scan_cycle,
+                    "matched_scan_ts": matched.get("ts") if matched else None,
+                    "matched_scan_cycle": matched.get("cycle") if matched else None,
                     "matched_scan_verdict": matched.get("verdict") if matched else None,
                 })
                 state.known_trade_ids.add(trade_id)
-                log.info("[oanda] trade_open %s %s strategy=%s source=%s",
-                         trade_id, ev["symbol"], strategy or "?", source)
+                log.info("[oanda] trade_open %s %s matched=%s",
+                         trade_id, ev["symbol"], bool(matched))
         elif ev["kind"] == "close":
             for trade_id in ev["trade_ids_closed"]:
                 pl = ev["realized_pl_usd"]
@@ -457,6 +431,8 @@ def poll_oanda_outcomes(state: ObserverState, poller: OandaPoller) -> int:
 # ----------------------------- Train/advise -----------------------------
 
 def maybe_train(state: ObserverState) -> bool:
+    if train_model is None:
+        return False
     new_outcomes = state.total_outcomes - state.last_train_outcomes
     needs_initial = not MODEL_FILE.exists() and state.total_outcomes >= PHASE2_MIN_TRADES
     needs_retrain = MODEL_FILE.exists() and new_outcomes >= RETRAIN_INTERVAL_TRADES
@@ -478,7 +454,7 @@ def maybe_train(state: ObserverState) -> bool:
 
 
 def advise(state: ObserverState, data: dict):
-    if state.phase < 3 or not MODEL_FILE.exists():
+    if predict is None or state.phase < 3 or not MODEL_FILE.exists():
         return
     signals = data.get("signals", [])
     ts = datetime.now(timezone.utc).isoformat()
@@ -519,6 +495,34 @@ def advise(state: ObserverState, data: dict):
                      protest["type"], symbol, protest["detail"])
 
 
+def run_shadow_cycle(state: ObserverState, scan_rows: list[dict]) -> dict:
+    """Refresh current-corpus bank and emit parallel shadow decisions."""
+    bank = build_shadow_bank(SCANS_FILE, OUTCOMES_FILE)
+    save_shadow_bank(bank, SHADOW_BANK_FILE)
+    save_comparison_summary(
+        build_comparison_summary(OUTCOMES_FILE, SHADOW_TRADES_FILE),
+        SHADOW_COMPARISON_FILE,
+    )
+
+    decisions = [decide_shadow(row, bank) for row in scan_rows]
+    for row, decision in zip(scan_rows, decisions):
+        _append_jsonl(SHADOW_DECISIONS_FILE, shadow_decision_record(row, decision))
+
+    trade_events = update_shadow_positions(state, scan_rows, decisions)
+    for event in trade_events:
+        _append_jsonl(SHADOW_TRADES_FILE, event)
+
+    return {
+        "bank_examples": int(((bank.get("source_counts") or {}).get("labeled_examples")) or 0),
+        "take": sum(1 for d in decisions if d.get("decision") == "TAKE"),
+        "skip": sum(1 for d in decisions if d.get("decision") == "SKIP"),
+        "abstain": sum(1 for d in decisions if d.get("decision") == "ABSTAIN"),
+        "opened": sum(1 for e in trade_events if e.get("kind") == "shadow_trade_open"),
+        "closed": sum(1 for e in trade_events if e.get("kind") == "shadow_trade_close"),
+        "live": len(state.shadow_positions),
+    }
+
+
 # ----------------------------- Main loop -----------------------------
 
 def run():
@@ -556,14 +560,22 @@ def run():
                          n_actions, n_logs, len(scorer_map))
 
             if data:
-                collect_scans(state, data, scorer_map)
+                _, scan_rows = collect_scans(state, data, scorer_map)
                 snapshot_account(state, data)
                 if poller:
                     poll_oanda_outcomes(state, poller)
 
-                model_ready = maybe_train(state)
-                if model_ready and state.phase >= 3:
-                    advise(state, data)
+                shadow_summary = run_shadow_cycle(state, scan_rows)
+                log.info(
+                    "[shadow] bank=%d take=%d skip=%d abstain=%d opened=%d closed=%d live=%d",
+                    shadow_summary["bank_examples"],
+                    shadow_summary["take"],
+                    shadow_summary["skip"],
+                    shadow_summary["abstain"],
+                    shadow_summary["opened"],
+                    shadow_summary["closed"],
+                    shadow_summary["live"],
+                )
 
             state.save()
 

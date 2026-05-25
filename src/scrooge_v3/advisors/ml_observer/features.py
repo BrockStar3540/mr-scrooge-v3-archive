@@ -44,57 +44,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
-import json as _json
-from pathlib import Path as _Path
-
-# --- 2026-05-15: seed-bank-trained model schema ---
-SEED_FEATURE_NAMES = [
-    "ATR14", "BB_width", "ADX14", "EMA_slope", "RSI14", "close_pos",
-    "regime53_id", "pair_id", "session_id", "strategy_id",
-    "direction_long", "hour_utc", "day_of_week",
-]
-# Categorical features handled with XGBoost native categorical support
-SEED_CATEGORICAL = {"regime53_id", "pair_id", "session_id", "strategy_id"}
-
-_ENCODINGS_PATH = _Path(__file__).resolve().parent.parent.parent.parent.parent / "data" / "ml-observer" / "seed_ml_encodings.json"
-_SEED_ENCODINGS = None
-try:
-    if _ENCODINGS_PATH.exists():
-        _SEED_ENCODINGS = _json.loads(_ENCODINGS_PATH.read_text())
-except Exception:
-    _SEED_ENCODINGS = None
-
-
-def _seed_regime_id(code: str) -> int:
-    if _SEED_ENCODINGS:
-        return int(_SEED_ENCODINGS.get("regime53_to_id", {}).get(str(code), -1))
-    return -1
-
-
-def _seed_pair_id(symbol: str) -> int:
-    if _SEED_ENCODINGS:
-        return int(_SEED_ENCODINGS.get("pair_to_id", {}).get(str(symbol), -1))
-    return -1
-
-
-def _seed_strategy_id(strategy: str) -> int:
-    if _SEED_ENCODINGS:
-        return int(_SEED_ENCODINGS.get("strategy_to_id", {}).get(str(strategy), -1))
-    return -1
-
-
-_SESSION_BUCKETS = ["asia","asia_late","london_open","london","ny_open","ny_mid","ny_close","off_hours"]  # 2026-05-24: +london per session_bucket.py alignment
-
-
-def _seed_session_id_from_hour(h: int) -> int:
-    if 0 <= h < 4:   return 0
-    if 4 <= h < 6:   return 1
-    if 6 <= h < 9:   return 2
-    if 9 <= h < 13:  return 3
-    if 13 <= h < 17: return 4
-    if 17 <= h < 21: return 5
-    return 6
-
 
 
 # Stable, append-only ordering of ML feature names.
@@ -123,29 +72,11 @@ FEATURE_NAMES = [
     "ctx_px", "ctx_ema20", "ctx_ema50", "ctx_box", "ctx_box_age_hours",
     # Temporal
     "hour_utc", "day_of_week", "minute_of_day",
-    # Enriched factors (added 2026-04-28 — Factor Bible coverage)
-    "sma20_dist_signed_bps",
-    "bb_band_width_a_bps", "bb_band_width_b_bps",
-    "bb_percent_b_a", "bb_percent_b_b",
-    "bb_state_id", "regime_id",
-    "strategy_id", "direction_long",
-    "tier_b_flag", "tier_a_flag",
-    "score_minus_floor", "score_above_b",
-    "natural_stop_pips", "tp_distance_pips", "rr_ratio",
-    "spread_pips", "spread_to_stop_ratio",
-    # Shadow raw-M5 survivor context (added 2026-05-13)
-    "m15_trend_id", "h1_regime_id", "h1_range_rank_48",
-    "raw_m5_structural_gate_long", "raw_m5_structural_gate_short",
 ]
 
 # Sanity: must be at least 47 as documented in the scope brief.
 assert len(FEATURE_NAMES) >= 47, \
     f"FEATURE_NAMES has {len(FEATURE_NAMES)} entries — spec requires >=47"
-
-# --- 2026-05-15: FEATURE_NAMES now references the seed schema for trainer/predict.
-# The full V3-scorer-derived list is preserved as ALL_FEATURE_NAMES for back-compat.
-ALL_FEATURE_NAMES = FEATURE_NAMES
-FEATURE_NAMES = SEED_FEATURE_NAMES
 
 
 def _safe_get(d: dict, *keys, default=0.0) -> float:
@@ -210,6 +141,10 @@ def build_scan_row(
     feat = signal.get("features", {}) or {}
     cls = signal.get("classifications", {}) or {}
     gates = signal.get("gates", {}) or {}
+    candidate = signal.get("candidate", {}) or {}
+    candidate_md = candidate.get("metadata", {}) if isinstance(candidate, dict) else {}
+    if not isinstance(candidate_md, dict):
+        candidate_md = {}
 
     # Parse temporal from timestamp
     hour_utc = 0.0
@@ -340,117 +275,7 @@ def build_scan_row(
         "hour_utc":      float(hour_utc),
         "day_of_week":   float(day_of_week),
         "minute_of_day": float(minute_of_day),
-        # Shadow raw-M5 survivor context
-        "m15_trend_id": _safe_get(feat, "technical_context", "m15_trend_id"),
-        "h1_regime_id": _safe_get(feat, "technical_context", "h1_regime_id"),
-        "h1_range_rank_48": _safe_get(feat, "technical_context", "h1_range_rank_48"),
-        "raw_m5_structural_gate_long": _safe_get(feat, "technical_context", "raw_m5_structural_gate_long"),
-        "raw_m5_structural_gate_short": _safe_get(feat, "technical_context", "raw_m5_structural_gate_short"),
     }
-
-    # === Enriched factors (2026-04-28) — recoverable from existing report dicts ===
-    # These were missing from the original 61-feature vector. Adding them here
-    # so live capture starts collecting the data XGBoost needs to learn from.
-    boll = (feat.get("bollinger") or {}) if isinstance(feat.get("bollinger"), dict) else {}
-    sma_a = float(boll.get("sma_a") or 0.0)
-    upper_a = float(boll.get("upper_a") or 0.0)
-    lower_a = float(boll.get("lower_a") or 0.0)
-    upper_b = float(boll.get("upper_b") or 0.0)
-    lower_b = float(boll.get("lower_b") or 0.0)
-    cur_close = float(boll.get("current_close") or 0.0)
-    pct_b_a = float(boll.get("percent_b_a") or boll.get("percent_b") or 0.0)
-    pct_b_b = float(boll.get("percent_b_b") or 0.0)
-
-    sma_dist_bps = ((cur_close - sma_a) / sma_a * 1e4) if sma_a > 0 else 0.0
-    bw_a_bps = ((upper_a - lower_a) / sma_a * 1e4) if sma_a > 0 else 0.0
-    bw_b_bps = ((upper_b - lower_b) / sma_a * 1e4) if sma_a > 0 else 0.0
-
-    _BB_STATE_MAP = {"NORMAL": 0, "REJECTION_LONG": 1, "REJECTION_SHORT": 2,
-                     "STRETCH_UP": 3, "STRETCH_DOWN": 4,
-                     "TREND_UP": 5, "TREND_DOWN": 6}
-    _REGIME_MAP = {"NORMAL": 0, "CAUTION": 1, "RESTRICTED": 2}
-    _STRATEGY_MAP = {"reversal": 0, "direct": 1, "dbb_trend": 2, "trend": 3}
-
-    bb_label = _safe_str(cls, "bb_state", "label") or "NORMAL"
-    regime_label = _safe_str(cls, "regime", "label") or "NORMAL"
-
-    candidate = signal.get("candidate") or {}
-    if not isinstance(candidate, dict):
-        candidate = {}
-    cand_dir = str(candidate.get("direction") or "")
-    cand_strat = str(candidate.get("strategy") or "")
-    entry_p = float(candidate.get("entry_price") or 0.0)
-    stop_p = float(candidate.get("stop_price") or 0.0)
-    tp_p = float(candidate.get("take_profit") or 0.0)
-
-    sym_str = str(signal.get("symbol") or "")
-    pip_size = 0.01 if any(j in sym_str for j in ("JPY", "MXN")) else 0.0001
-    nat_stop_pips = abs(entry_p - stop_p) / pip_size if (entry_p and stop_p) else 0.0
-    tp_dist_pips = abs(entry_p - tp_p) / pip_size if (entry_p and tp_p) else 0.0
-    rr = (tp_dist_pips / nat_stop_pips) if nat_stop_pips > 0 else 0.0
-
-    spread_raw = float(signal.get("spread") or 0.0)
-    spread_pips = (spread_raw * 1e4) if pip_size == 0.0001 else (spread_raw * 1e2)
-    sp_to_stop = (spread_pips / nat_stop_pips) if nat_stop_pips > 0 else 0.0
-
-    score_v = float(scorer_section.get("score") or 0)
-    floor_v = float(scorer_section.get("floor") or 0)
-    b_thr_v = float(scorer_section.get("b") or 0)
-    a_thr_v = float(scorer_section.get("a") or 0)
-
-    ml_features.update({
-        "sma20_dist_signed_bps": sma_dist_bps,
-        "bb_band_width_a_bps":   bw_a_bps,
-        "bb_band_width_b_bps":   bw_b_bps,
-        "bb_percent_b_a":        pct_b_a,
-        "bb_percent_b_b":        pct_b_b,
-        "bb_state_id":           float(_BB_STATE_MAP.get(bb_label, 0)),
-        "regime_id":             float(_REGIME_MAP.get(regime_label, 0)),
-        "strategy_id":           float(_STRATEGY_MAP.get(cand_strat, 0)),
-        "direction_long":        1.0 if cand_dir == "long" else 0.0,
-        "tier_b_flag":           1.0 if (b_thr_v and score_v >= b_thr_v) else 0.0,
-        "tier_a_flag":           1.0 if (a_thr_v and score_v >= a_thr_v) else 0.0,
-        "score_minus_floor":     score_v - floor_v,
-        "score_above_b":         score_v - b_thr_v,
-        "natural_stop_pips":     nat_stop_pips,
-        "tp_distance_pips":      tp_dist_pips,
-        "rr_ratio":              rr,
-        "spread_pips":           spread_pips,
-        "spread_to_stop_ratio":  sp_to_stop,
-    })
-
-    # --- 2026-05-15: seed-bank model features ---
-    # Pulled from technical_regime_53 V3 feature (already live).
-    tr53 = (feat.get("technical_regime_53") or {}) if isinstance(feat.get("technical_regime_53"), dict) else {}
-    tr53_vals = tr53 if "technical_regime_53" in tr53 else (tr53.get("values") if isinstance(tr53.get("values"), dict) else tr53)
-    if not isinstance(tr53_vals, dict):
-        tr53_vals = {}
-
-    def _f(k):
-        v = tr53_vals.get(k)
-        try: return float(v) if v is not None else 0.0
-        except (TypeError, ValueError): return 0.0
-
-    regime53_code = str(tr53_vals.get("technical_regime_53") or "unknown")
-    sym_for_seed = str(signal.get("symbol") or "")
-    hour_int = int(hour_utc) if isinstance(hour_utc, (int, float)) else 0
-    cand_for_seed = signal.get("candidate") or {}
-    if not isinstance(cand_for_seed, dict):
-        cand_for_seed = {}
-    strat_for_seed = str(cand_for_seed.get("strategy") or "unknown")
-    ml_features.update({
-        "ATR14":       _f("ATR14"),
-        "BB_width":    _f("BB_width"),
-        "ADX14":       _f("ADX14"),
-        "EMA_slope":   _f("EMA_slope"),
-        "RSI14":       _f("RSI14"),
-        "close_pos":   _f("close_pos"),
-        "regime53_id": float(_seed_regime_id(regime53_code)),
-        "pair_id":     float(_seed_pair_id(sym_for_seed)),
-        "session_id":  float(_seed_session_id_from_hour(hour_int)),
-        "strategy_id": float(_seed_strategy_id(strat_for_seed)),
-        # direction_long, hour_utc, day_of_week already populated above
-    })
 
     classifications_clean = {
         label_key: {
@@ -462,14 +287,77 @@ def build_scan_row(
         for label_key in ("regime", "bb_state", "opening_state", "structure")
     }
 
+    strategy_allowed = signal.get("strategy_allowed", "")
+    candidate_strategy = str(candidate.get("strategy") or "")
+    candidate_direction = str(candidate.get("direction") or "")
+    candidate_family = (
+        str(candidate.get("family") or "")
+        or str(candidate_md.get("routing_cell_family") or "")
+        or scorer_section.get("fam", "")
+    )
+    routing_cell_strategy = str(candidate_md.get("routing_cell_strategy") or "")
+    routing_cell_family = str(candidate_md.get("routing_cell_family") or "")
+    routing_cell_tier = str(candidate_md.get("routing_cell_tier") or "")
+    routing_match_kind = str(candidate_md.get("routing_match_kind") or "")
+    regime53 = _safe_str(feat, "technical_regime_53", "technical_regime_53")
+    sub_regime = _safe_str(feat, "technical_regime_53", "sub_regime")
+    session_bucket = scorer_section.get("session", "")
+    if not session_bucket:
+        try:
+            h = int(hour_utc)
+        except (TypeError, ValueError):
+            h = 0
+        if 0 <= h < 4:
+            session_bucket = "asia"
+        elif 4 <= h < 6:
+            session_bucket = "asia_late"
+        elif 6 <= h < 9:
+            session_bucket = "london_open"
+        elif 9 <= h < 13:
+            session_bucket = "ny_open"
+        elif 13 <= h < 17:
+            session_bucket = "ny_mid"
+        elif 17 <= h < 21:
+            session_bucket = "ny_close"
+        else:
+            session_bucket = "off_hours"
+
     return {
         "ts": timestamp,
         "cycle": cycle,
         "symbol": signal.get("symbol", ""),
         "verdict": signal.get("verdict", ""),
-        "strategy_allowed": signal.get("strategy_allowed", ""),
+        "strategy_allowed": strategy_allowed,
         "spread": signal.get("spread", 0),
         "scorer": scorer_section,
+        "candidate": {
+            "strategy": candidate_strategy,
+            "direction": candidate_direction,
+            "family": candidate_family,
+            "entry_price": float(candidate.get("entry_price") or 0.0),
+            "stop_price": float(candidate.get("stop_price") or 0.0),
+            "take_profit": float(candidate.get("take_profit") or 0.0),
+            "size": float(candidate.get("size") or 0.0),
+            "risk_reward": float(candidate.get("risk_reward") or 0.0),
+            "score": float(candidate.get("score") or 0.0),
+            "routing_cell_strategy": routing_cell_strategy,
+            "routing_cell_family": routing_cell_family,
+            "routing_cell_tier": routing_cell_tier,
+            "routing_match_kind": routing_match_kind,
+            "metadata": candidate_md,
+        },
+        "identity": {
+            "strategy": candidate_strategy,
+            "family": candidate_family,
+            "direction": candidate_direction,
+            "regime53": regime53,
+            "sub_regime": sub_regime,
+            "session_bucket": session_bucket,
+            "routing_cell_strategy": routing_cell_strategy,
+            "routing_cell_family": routing_cell_family,
+            "routing_cell_tier": routing_cell_tier,
+            "routing_match_kind": routing_match_kind,
+        },
         "features": feat,  # raw module outputs, preserved verbatim
         "classifications": classifications_clean,
         "gates": _normalize_gates(gates),
@@ -484,17 +372,8 @@ def build_scan_row(
 
 
 # Backwards-compat wrapper for the old call signature (used by advise()).
-def extract_features(
-    signal: dict,
-    timestamp: Optional[str] = None,
-    scorer_log_parsed: Optional[dict] = None,
-) -> dict:
-    # Default scorer_log_parsed to signal["scorer"] (V3 API already populates
-    # floor/b/a/cap/fam/session/factors there). Earlier the protest path
-    # didn''t pass any parsed dict, so those fields came out as 0.
-    if scorer_log_parsed is None:
-        scorer_log_parsed = signal.get("scorer") or None
-    row = build_scan_row(signal, timestamp=timestamp, scorer_log_parsed=scorer_log_parsed)
+def extract_features(signal: dict, timestamp: Optional[str] = None) -> dict:
+    row = build_scan_row(signal, timestamp=timestamp)
     return {"features": row["ml_features"], "metadata": {
         "symbol": row["symbol"],
         "verdict": row["verdict"],

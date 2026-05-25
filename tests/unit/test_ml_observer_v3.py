@@ -33,6 +33,7 @@ sys.path.insert(0, str(OBS_PKG))
 import features as obs_features   # noqa: E402
 import observer as obs_module     # noqa: E402
 import oanda_poll as oanda_module # noqa: E402
+import shadow as obs_shadow       # noqa: E402
 import trainer as obs_trainer     # noqa: E402
 import v3_scorer_parser as spar   # noqa: E402
 import journal_reader as jrdr     # noqa: E402
@@ -137,6 +138,24 @@ def _sample_v3_signal():
                 "pairs_total": 8, "base_score": 34,
             },
         },
+        "candidate": {
+            "strategy": "DBB3_sell_zone_sustained_short",
+            "direction": "short",
+            "family": "canonical_lien_dbb",
+            "entry_price": 1.1760,
+            "stop_price": 1.1770,
+            "take_profit": 1.1748,
+            "size": 100000,
+            "risk_reward": 1.2,
+            "score": 42,
+            "metadata": {
+                "routing_cell_strategy": "DBB3_sell_zone_sustained_short",
+                "routing_cell_family": "canonical_lien_dbb",
+                "routing_cell_tier": "Pro",
+                "routing_match_kind": "exact_strategy",
+                "tp1": 1.1754,
+            },
+        },
     }
 
 
@@ -149,7 +168,7 @@ def test_build_scan_row_merges_api_and_parsed_log():
     )
     # Scan-row shape
     for key in ("ts", "cycle", "symbol", "verdict", "spread",
-                "scorer", "features", "classifications", "gates",
+                "scorer", "candidate", "identity", "features", "classifications", "gates",
                 "ml_features", "metadata", "trade_id"):
         assert key in row, f"missing top-level key {key}"
     assert row["trade_id"] is None
@@ -161,6 +180,9 @@ def test_build_scan_row_merges_api_and_parsed_log():
     assert row["scorer"]["session"] == "ny_active" # log
     assert row["scorer"]["floor"] == 30
     assert row["scorer"]["pair_adjustments"] == {"p_z_norm": 5, "n_hr_adr": -6}
+    assert row["candidate"]["strategy"] == "DBB3_sell_zone_sustained_short"
+    assert row["identity"]["routing_match_kind"] == "exact_strategy"
+    assert row["identity"]["family"] == "canonical_lien_dbb"
     # Gates
     assert row["gates"]["debounce"]["passed"] is True
     assert row["gates"]["debounce"]["reason"] == "no prior entry"
@@ -201,14 +223,18 @@ def _redirect_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(obs_module, "OUTCOMES_FILE", tmp_path / "outcomes.jsonl")
     monkeypatch.setattr(obs_module, "BOT_LOGS_FILE", tmp_path / "bot-logs.jsonl")
     monkeypatch.setattr(obs_module, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(obs_module, "SHADOW_BANK_FILE", tmp_path / "shadow-bank.json")
+    monkeypatch.setattr(obs_module, "SHADOW_DECISIONS_FILE", tmp_path / "shadow-decisions.jsonl")
+    monkeypatch.setattr(obs_module, "SHADOW_TRADES_FILE", tmp_path / "shadow-trades.jsonl")
     return obs_module.ObserverState()
 
 
 def test_collect_scans_writes_one_row_per_scored_candidate(tmp_path, monkeypatch):
     state = _redirect_paths(tmp_path, monkeypatch)
     data = {"system": {"cycle_count": 7}, "signals": [_sample_v3_signal()]}
-    n = obs_module.collect_scans(state, data, scorer_by_symbol={})
+    n, rows = obs_module.collect_scans(state, data, scorer_by_symbol={})
     assert n == 1
+    assert len(rows) == 1
     row = json.loads((tmp_path / "scans.jsonl").read_text().splitlines()[0])
     assert row["cycle"] == 7
     assert row["symbol"] == "EUR_USD"
@@ -225,6 +251,74 @@ def test_collect_scans_cycle_dedup_uses_equality(tmp_path, monkeypatch):
     cycles = [json.loads(l)["cycle"]
               for l in (tmp_path / "scans.jsonl").read_text().splitlines() if l.strip()]
     assert cycles == [100, 1]
+
+
+def test_shadow_bank_builds_exact_strategy_bucket(tmp_path):
+    scans_file = tmp_path / "scans.jsonl"
+    outcomes_file = tmp_path / "outcomes.jsonl"
+    scan = obs_features.build_scan_row(
+        _sample_v3_signal(),
+        cycle=11,
+        timestamp="2026-04-20T10:00:00+00:00",
+    )
+    scans_file.write_text(json.dumps(scan) + "\n")
+    outcomes_file.write_text("\n".join([
+        json.dumps({
+            "kind": "trade_open",
+            "ts": "2026-04-20T10:01:00+00:00",
+            "trade_id": "T1",
+            "symbol": "EUR_USD",
+            "matched_scan_ts": "2026-04-20T10:00:00+00:00",
+        }),
+        json.dumps({
+            "kind": "trade_close",
+            "ts": "2026-04-20T10:30:00+00:00",
+            "trade_id": "T1",
+            "symbol": "EUR_USD",
+            "label": "win",
+            "outcome": 1,
+            "realized_pnl_usd": 125.0,
+        }),
+    ]) + "\n")
+
+    bank = obs_shadow.build_shadow_bank(scans_file, outcomes_file)
+    assert bank["source_counts"]["labeled_examples"] == 1
+    assert len(bank["exact"]) == 1
+    bucket = next(iter(bank["exact"].values()))
+    assert bucket["n"] == 1
+    assert bucket["wins"] == 1
+    assert bucket["win_rate"] == 1.0
+
+
+def test_shadow_decision_prefers_exact_bucket_when_profitable(tmp_path):
+    scan = obs_features.build_scan_row(
+        _sample_v3_signal(),
+        cycle=12,
+        timestamp="2026-04-20T11:00:00+00:00",
+    )
+    identity = scan["identity"]
+    ex_key = obs_shadow._exact_key(identity)
+    st_key = obs_shadow._strategy_key(identity)
+    fam_key = obs_shadow._family_key(identity)
+    bank = {
+        "exact": {
+            ex_key: {
+                "identity": identity,
+                "n": 2,
+                "wins": 2,
+                "losses": 0,
+                "scratches": 0,
+                "sum_pnl_usd": 220.0,
+                "avg_pnl_usd": 110.0,
+                "win_rate": 1.0,
+            }
+        },
+        "strategy": {st_key: {"identity": identity, "n": 4, "wins": 1, "losses": 3, "scratches": 0, "sum_pnl_usd": -40.0, "avg_pnl_usd": -10.0, "win_rate": 0.25}},
+        "family": {fam_key: {"identity": identity, "n": 6, "wins": 2, "losses": 4, "scratches": 0, "sum_pnl_usd": -60.0, "avg_pnl_usd": -10.0, "win_rate": 0.3333}},
+    }
+    decision = obs_shadow.decide_shadow(scan, bank)
+    assert decision["decision"] == "TAKE"
+    assert decision["bank_level"] == "exact"
 
 
 # =============================================================================
