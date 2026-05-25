@@ -188,7 +188,7 @@
     "trigger_side_validation": true,
     "no_mans_zone_guard": true,
     "spread_aware_trailing": true,
-    "reverse_direction": true
+    "reverse_direction": false
   },
   "advisors": {
     "ml_regime": {
