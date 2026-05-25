@@ -47,6 +47,12 @@ def resolve_cell_match(
 
     Returns (passed: bool, info: dict).
     """
+    if routing_mode == "bypass":
+        # Skip slate entirely — useful for testing raw strategy edge
+        # independent of routing-table coverage.
+        return True, {"match_kind": "bypass", "cell_strategy": strategy,
+                      "cell_family": None, "cell_tier": "bypass",
+                      "cell_score_boost": 0.0, "decisions_count": 0}
     if not regime53_label or not session:
         return False, {"reason": "cell_key_unavailable", "match_kind": None}
 

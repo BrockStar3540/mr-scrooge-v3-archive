@@ -167,12 +167,28 @@ def load_symbol_replay_bundle(
     date_from: str | None = None,
     date_to: str | None = None,
     spread_mode: str = "realistic",
+    d_lookback_days: int = 90,
+    h1_lookback_days: int = 14,
 ) -> dict:
-    """Load all timeframes needed for one symbol replay."""
-    bundle = {}
-    for tf in ("M5", "H1", "D"):
-        df = load_symbol_ohlc(symbol, tf, date_from, date_to)
-        bundle[tf] = df
+    """Load all timeframes needed for one symbol replay.
+
+    M5 uses the exact experiment window. H1 and D pre-extend the start
+    by lookback days so live-shaped indicators (regime53 needs 25+ D bars,
+    EMA needs 50+ H1 bars) have enough warmup at the FIRST replayed bar.
+    """
+    from datetime import timedelta
+    bundle = {"M5": load_symbol_ohlc(symbol, "M5", date_from, date_to)}
     if not bundle["M5"].empty:
         bundle["M5"] = attach_spread_column(bundle["M5"], symbol, spread_mode)
+
+    # Extend start for H1/D so warmup is satisfied at experiment start.
+    if date_from:
+        start = pd.Timestamp(date_from)
+        h1_start = (start - pd.Timedelta(days=h1_lookback_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        d_start  = (start - pd.Timedelta(days=d_lookback_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        h1_start = date_from
+        d_start  = date_from
+    bundle["H1"] = load_symbol_ohlc(symbol, "H1", h1_start, date_to)
+    bundle["D"]  = load_symbol_ohlc(symbol, "D",  d_start,  date_to)
     return bundle

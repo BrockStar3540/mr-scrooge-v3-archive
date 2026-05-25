@@ -44,7 +44,10 @@ class SessionBucketClassifier:
 
     def classify(self, ctx: SymbolContext) -> ClassificationResult:
         snap = getattr(ctx, "snapshot", None)
-        ts = getattr(snap, "ts", None) if snap is not None else None
+        # Bar-time first (replay-correct); legacy .ts; then wall-clock
+        ts = None
+        if snap is not None:
+            ts = getattr(snap, "timestamp", None) or getattr(snap, "ts", None)
         if ts is None:
             ts = datetime.now(timezone.utc)
         if getattr(ts, "tzinfo", None) is None:

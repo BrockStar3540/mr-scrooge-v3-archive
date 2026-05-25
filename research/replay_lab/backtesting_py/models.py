@@ -5,7 +5,7 @@ from typing import Literal
 
 DirectionMode = Literal["native", "reversed"]
 EntryMode = Literal["signal", "pullback_2", "pullback_4", "old_stop_zone"]
-RoutingMode = Literal["exact_strategy_only", "exact_plus_family", "exact_plus_loose_override"]
+RoutingMode = Literal["bypass", "exact_strategy_only", "exact_plus_family", "exact_plus_loose_override"]
 ManagementMode = Literal["none", "tp1_only", "tp1_be", "tp1_be_ratchet"]
 SpreadMode = Literal["idealized", "realistic", "wide"]
 
