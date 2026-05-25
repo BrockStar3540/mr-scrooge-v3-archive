@@ -221,10 +221,10 @@
       "ratchet_lock_pct": 0.5
     },
     "break_even": {
-      "be_trigger_r": 0.5,
-      "be_trigger_min_pips": 1.0,
-      "be_offset_r": 0.1,
-      "be_offset_min_pips": 1.0
+      "be_trigger_r": 0.7,
+      "be_trigger_min_pips": 7.0,
+      "be_offset_r": 0.6,
+      "be_offset_min_pips": 6.0
     },
     "exit_manager": {
       "early_hold_threshold_r": 0.5,
