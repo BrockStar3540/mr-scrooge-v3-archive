@@ -70,12 +70,12 @@ class ZoneDetector:
 
         if daily_bars is None or hourly_bars is None:
             log.warning(f"{symbol}: Missing daily or hourly bars for zone detection")
-            return FeatureResult(name=self.name, values={}, computed_at=datetime.now())
+            return FeatureResult(name=self.name, values={"_degraded": True}, computed_at=datetime.now())
 
         zone_map = self.build_zone_map(symbol, exchange, daily_bars, hourly_bars, current_price)
 
         if zone_map is None:
-            return FeatureResult(name=self.name, values={}, computed_at=datetime.now())
+            return FeatureResult(name=self.name, values={"_degraded": True}, computed_at=datetime.now())
 
         # Box age: hours since the session range was established (prior day close).
         # MUST use the injected clock so replay produces reproducible values

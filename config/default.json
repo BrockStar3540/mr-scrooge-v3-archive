@@ -176,7 +176,8 @@
     },
     "entry_filter": {
       "min_tier": "Seed-Pro",
-      "mode": "hard"
+      "mode": "hard",
+      "enable_family_loose_override": false
     },
     "entry_filter_shadow": {
       "routing_table_path": "data/routing_table_v9_observe.parquet",
@@ -186,6 +187,14 @@
     "natural_target_floor": {
       "min_pips": 7.0,
       "mode": "hard"
+    },
+    "feature_quality_floor": {
+      "mode": "hard",
+      "critical_features": [
+        "ema",
+        "rsi",
+        "zone_detector"
+      ]
     }
   },
   "execution": {

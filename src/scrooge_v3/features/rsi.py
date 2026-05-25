@@ -38,7 +38,7 @@ class RSICalculator:
             log.warning(f"{symbol}: Insufficient hourly bars for RSI calculation")
             return FeatureResult(
                 name=self.name,
-                values={"rsi": 50.0},
+                values={"rsi": 50.0, "_degraded": True},
                 computed_at=datetime.now(),
             )
 

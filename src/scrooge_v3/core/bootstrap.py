@@ -253,6 +253,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
     from scrooge_v3.gates.natural_target_floor import NaturalTargetFloorGate
+    from scrooge_v3.gates.feature_quality_floor import FeatureQualityFloorGate
     from scrooge_v3.telemetry.seed_telemetry_ledger import SeedTelemetryLedger
 
     gate_cfg = config.section("gates")
@@ -284,6 +285,16 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
                 gate_cfg.get("natural_target_floor") if gate_cfg else None,
                 default="hard",
                 gate_name="natural_target_floor",
+            ),
+        ),
+        # Feature-quality floor (Brock 2026-05-25): block when EMA / RSI /
+        # zone_detector return degraded defaults due to insufficient bars.
+        FeatureQualityFloorGate(
+            (gate_cfg.get("feature_quality_floor", {}) if gate_cfg else {}),
+            mode=_resolve_gate_mode(
+                gate_cfg.get("feature_quality_floor") if gate_cfg else None,
+                default="hard",
+                gate_name="feature_quality_floor",
             ),
         ),
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),

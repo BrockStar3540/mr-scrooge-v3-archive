@@ -39,7 +39,7 @@ class OverheadRatioCalculator:
             log.warning(f"{symbol}: range_half is zero or negative, OTR undefined")
             return FeatureResult(
                 name=self.name,
-                values={"otr_ratio": float("inf"), "total_overhead": total_overhead, "range_half": range_half},
+                values={"otr_ratio": float("inf"), "total_overhead": total_overhead, "range_half": range_half, "_degraded": True},
                 computed_at=datetime.now(),
             )
 

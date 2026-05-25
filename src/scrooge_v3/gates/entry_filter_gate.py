@@ -92,6 +92,7 @@ class EntryFilterGate(BaseGate):
                 "Default to 'Probationary' explicitly to disable tier-gating."
             )
         self._min_tier_rank = self._tier_rank[_raw_min]
+        self._enable_family_loose_override = bool((config or {}).get("enable_family_loose_override", False))
         log.info('[ENTRY_FILTER] min_tier=%s (rank=%d)',
                  cfg.get('min_tier', 'Probationary'), self._min_tier_rank)
 
@@ -142,7 +143,14 @@ class EntryFilterGate(BaseGate):
         # generator overproduces 'direct' but the best-fit cell for the leaf
         # may be 'dbb_trend' / 'reversal'. Only cells at trade-tier (Seed-Pro+)
         # qualify. Logs loudly when invoked.
-        if match is None and decisions and self._min_tier_rank >= self._tier_rank["Seed-Pro"]:
+        # Brock 2026-05-25: gated behind enable_family_loose_override. Default
+        # OFF — borrowed-cell approvals contaminate per-strategy research edge.
+        # Set gates.entry_filter.enable_family_loose_override=true to re-enable.
+        if (
+            match is None and decisions
+            and self._min_tier_rank >= self._tier_rank["Seed-Pro"]
+            and self._enable_family_loose_override
+        ):
             # Brock 2026-05-22: skip cells flagged with basis['family_locked']=True.
             # These cells will only approve candidates whose strategy matches the
             # cell family exactly — they refuse to absorb other-family candidates

@@ -43,6 +43,7 @@ class EMACalculator:
                 values={
                     "ema20": 0.0, "ema50": 0.0,
                     "ema20_dist_pct": 0.0, "ema50_dist_pct": 0.0,
+                    "_degraded": True,
                 },
                 computed_at=datetime.now(),
             )
