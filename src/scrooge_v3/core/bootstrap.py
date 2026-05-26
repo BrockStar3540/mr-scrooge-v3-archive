@@ -254,6 +254,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.gates.pipeline import GatePipeline
     from scrooge_v3.gates.natural_target_floor import NaturalTargetFloorGate
     from scrooge_v3.gates.feature_quality_floor import FeatureQualityFloorGate
+    from scrooge_v3.gates.htf_trend_filter import HTFTrendFilterGate
     from scrooge_v3.telemetry.seed_telemetry_ledger import SeedTelemetryLedger
 
     gate_cfg = config.section("gates")
@@ -295,6 +296,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
                 gate_cfg.get("feature_quality_floor") if gate_cfg else None,
                 default="hard",
                 gate_name="feature_quality_floor",
+            ),
+        ),
+        # HTF Trend Filter (Brock 2026-05-26): daily directional bias gate.
+        # Default OBSERVE — logs what it would have blocked, doesn'\''t block.
+        # Promote to HARD via config after lab + live observe-match confirmed.
+        HTFTrendFilterGate(
+            (gate_cfg.get("htf_trend_filter", {}) if gate_cfg else {}),
+            mode=_resolve_gate_mode(
+                gate_cfg.get("htf_trend_filter") if gate_cfg else None,
+                default="observe",
+                gate_name="htf_trend_filter",
             ),
         ),
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
