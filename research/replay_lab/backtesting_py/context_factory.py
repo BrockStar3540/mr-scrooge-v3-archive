@@ -28,7 +28,7 @@ def build_snapshot(
     symbol: str,
     m5_lookback: int = 200,
     h1_lookback: int = 200,
-    d_lookback: int = 60,   # regime53 bb_compress needs 41+ daily bars
+    d_lookback: int = 200,   # 41+ for regime53 bb_compress; 120+ for HTF Trend Filter 24w
 ) -> MarketSnapshot:
     """Build a MarketSnapshot rooted at bar index i of the M5 frame."""
     m5 = bundle["M5"]

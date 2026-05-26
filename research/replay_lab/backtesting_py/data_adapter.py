@@ -167,8 +167,8 @@ def load_symbol_replay_bundle(
     date_from: str | None = None,
     date_to: str | None = None,
     spread_mode: str = "realistic",
-    d_lookback_days: int = 90,
-    h1_lookback_days: int = 14,
+    d_lookback_days: int = 365,
+    h1_lookback_days: int = 30,
 ) -> dict:
     """Load all timeframes needed for one symbol replay.
 

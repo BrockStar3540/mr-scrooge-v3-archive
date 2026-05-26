@@ -1,0 +1,47 @@
+{
+  "pairs": [
+    "EUR_USD",
+    "GBP_USD",
+    "USD_JPY",
+    "USD_CHF",
+    "USD_CAD",
+    "AUD_USD",
+    "NZD_USD",
+    "EUR_JPY",
+    "GBP_JPY",
+    "CHF_JPY",
+    "AUD_JPY",
+    "CAD_JPY",
+    "NZD_JPY",
+    "EUR_GBP",
+    "EUR_CHF",
+    "EUR_AUD",
+    "EUR_CAD",
+    "EUR_NZD",
+    "GBP_AUD",
+    "GBP_CAD",
+    "GBP_CHF",
+    "GBP_NZD",
+    "AUD_CAD",
+    "AUD_NZD",
+    "AUD_CHF",
+    "NZD_CAD",
+    "NZD_CHF"
+  ],
+  "families": [
+    "canonical_lien_dbb",
+    "box_master_theory"
+  ],
+  "lookbacks": [
+    5,
+    20,
+    60,
+    120
+  ],
+  "window": "2025-11-25 to 2026-05-25 (6 months)",
+  "direction_mode": "native",
+  "entry": "signal",
+  "management": "tp1_only",
+  "routing": "bypass",
+  "htf_filter": "D, sign(close_now - close_lookback_periods_ago)"
+}

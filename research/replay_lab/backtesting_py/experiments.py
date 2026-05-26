@@ -192,3 +192,131 @@ def benchmark_cases() -> list[ReplaySpec]:
                    strategy_name="DBB3_buy_zone_sustained_long",
                    label="benchmark_gbpjpy_dbb3_long"),
     ]
+
+
+# ============================================================
+# Multi-pair runner — backtesting.py is single-asset; we loop + aggregate
+# ============================================================
+LIVE_PAIRS = [
+    "EUR_USD", "GBP_USD", "USD_JPY", "USD_CHF", "USD_CAD",
+    "AUD_USD", "NZD_USD",
+    "EUR_JPY", "GBP_JPY", "CHF_JPY", "AUD_JPY", "CAD_JPY", "NZD_JPY",
+    "EUR_GBP", "EUR_CHF", "EUR_AUD", "EUR_CAD", "EUR_NZD",
+    "GBP_AUD", "GBP_CAD", "GBP_CHF", "GBP_NZD",
+    "AUD_CAD", "AUD_NZD", "AUD_CHF",
+    "NZD_CAD", "NZD_CHF",
+]
+
+LIVE_FAMILIES = [
+    "canonical_lien_dbb",
+    "box_master_theory",
+    "canonical_darvas",
+    "probes",
+]
+
+
+def run_pair_sweep(
+    base_spec: ReplaySpec,
+    pairs: list[str] | None = None,
+    families: list[str] | None = None,
+) -> pd.DataFrame:
+    """For each (pair, family), run a single replay and aggregate to one summary.
+
+    Returns a DataFrame with one row per (pair, family) cell.
+    """
+    rd = _results_dir()
+    pairs = pairs or LIVE_PAIRS
+    families = families or LIVE_FAMILIES
+    rows = []
+    for pair in pairs:
+        for family in families:
+            spec = ReplaySpec(**{**base_spec.__dict__,
+                                  "symbol": pair,
+                                  "label": f"{pair}.{family}"})
+            try:
+                r = run_single_replay(spec, family=family)
+                if "error" in r:
+                    rows.append({"pair": pair, "family": family,
+                                 "error": r["error"]})
+                    continue
+                st = r["stats"]
+                rows.append({
+                    "pair": pair, "family": family,
+                    "n_trades": st.get("# Trades", 0),
+                    "wr": st.get("Win Rate [%]", 0),
+                    "return_pct": st.get("Return [%]", 0),
+                    "expectancy_pct": st.get("Expectancy [%]", 0),
+                    "max_dd_pct": st.get("Max. Drawdown [%]", 0),
+                    "avg_trade_pct": st.get("Avg. Trade [%]", 0),
+                    "sharpe": st.get("Sharpe Ratio", 0),
+                })
+                if r.get("trades"):
+                    pd.DataFrame(r["trades"]).to_csv(
+                        rd / f"trades_{pair}_{family}.csv", index=False
+                    )
+            except Exception as e:
+                log.exception("pair=%s family=%s failed", pair, family)
+                rows.append({"pair": pair, "family": family, "error": str(e)})
+    df = pd.DataFrame(rows)
+    df.to_csv(rd / "pair_sweep_summary.csv", index=False)
+    # Aggregate per family across pairs
+    g = df.dropna(subset=["n_trades"]).groupby("family").agg(
+        pairs=("pair","nunique"),
+        total_trades=("n_trades","sum"),
+        avg_wr=("wr","mean"),
+        avg_return=("return_pct","mean"),
+        avg_expectancy=("expectancy_pct","mean"),
+    ).reset_index()
+    g.to_csv(rd / "family_rollup.csv", index=False)
+    print(f"\nresults -> {rd}")
+    print("\n=== Per family rollup ===")
+    print(g.to_string(index=False))
+    return df
+
+
+def run_cell_sweep(
+    base_spec: ReplaySpec,
+    routing_table_path: str | None = None,
+    max_cells: int | None = None,
+) -> pd.DataFrame:
+    """Walk every (pair, session, regime, strategy) cell in the routing table
+    and run a focused replay per cell. Slow but exhaustive."""
+    from .router_adapter import load_routing_table
+    table = load_routing_table(routing_table_path)
+    raw = table.raw_table if hasattr(table, "raw_table") else None
+    if raw is None:
+        # Direct parquet read fallback
+        path = routing_table_path or "data/routing_table_v10_fast_v1_13_full_mirror.parquet"
+        if not Path(path).is_absolute():
+            path = "/home/ubuntu/mr-scrooge-v3/" + path
+        raw = pd.read_parquet(path)
+    cells = raw[["pair","session_bucket","technical_regime_53","strategy","family","direction"]].drop_duplicates()
+    if max_cells:
+        cells = cells.head(max_cells)
+    print(f"sweeping {len(cells)} cells...")
+    rd = _results_dir()
+    rows = []
+    for _, c in cells.iterrows():
+        spec = ReplaySpec(**{**base_spec.__dict__,
+                              "symbol": c["pair"],
+                              "label": f"{c['pair']}.{c['strategy']}.{c['session_bucket']}.{c['technical_regime_53']}"})
+        try:
+            r = run_single_replay(spec, family=c["family"])
+            if "error" in r:
+                rows.append({**c.to_dict(), "error": r["error"]}); continue
+            st = r["stats"]
+            rows.append({
+                "pair": c["pair"], "session": c["session_bucket"],
+                "regime": c["technical_regime_53"], "strategy": c["strategy"],
+                "family": c["family"], "direction": c["direction"],
+                "n_trades": st.get("# Trades", 0),
+                "wr": st.get("Win Rate [%]", 0),
+                "return_pct": st.get("Return [%]", 0),
+                "expectancy_pct": st.get("Expectancy [%]", 0),
+            })
+        except Exception as e:
+            rows.append({**c.to_dict(), "error": str(e)})
+    df = pd.DataFrame(rows)
+    df.to_csv(rd / "cell_sweep_summary.csv", index=False)
+    print(f"results -> {rd}")
+    return df
