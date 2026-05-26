@@ -292,6 +292,110 @@ class HTFTrendFilter:
         return cand
 
 
+
+
+# ============================================================
+# P1 #2 (Brock 2026-05-26): Regime-Filtered Session Momentum Filter.
+# Meta-wrapper — gates emissions by session + volatility + spread.
+# ============================================================
+class SessionMomentumFilter:
+    """Allow emissions only when session/vol/spread conditions all favor
+    momentum continuation. Wraps any strategy module.
+
+    Defaults match the dev brief's 'active sessions, volatility above
+    median, spread acceptable relative to stop':
+      - active sessions: london_open, london, ny_open, ny_mid
+      - atr_median_lookback: 20 M5 bars
+      - atr_min_multiple: 1.0 (current ATR >= rolling median)
+      - max_spread_to_stop_pct: 0.15 (spread must be < 15%% of stop distance)
+    """
+    ACTIVE_SESSIONS = {"london_open", "london", "ny_open", "ny_mid"}
+
+    def __init__(
+        self,
+        strategy_module,
+        atr_median_lookback: int = 20,
+        atr_min_multiple: float = 1.0,
+        max_spread_to_stop_pct: float = 0.15,
+        active_sessions: set | None = None,
+    ):
+        self._mod = strategy_module
+        self._atr_lookback = int(atr_median_lookback)
+        self._atr_min = float(atr_min_multiple)
+        self._max_spread_pct = float(max_spread_to_stop_pct)
+        self._active = set(active_sessions) if active_sessions else self.ACTIVE_SESSIONS
+        self.enabled = True
+
+    def _session_ok(self, ctx) -> bool:
+        sb = ctx.classifications.get("session_bucket")
+        label = getattr(sb, "label", None) if sb else None
+        return label in self._active
+
+    def _volatility_ok(self, ctx) -> tuple[bool, float, float]:
+        """Returns (ok, atr_pips, median_pips)."""
+        m5 = ctx.snapshot.candles.get("M5")
+        if m5 is None or len(m5) == 0:
+            m5 = ctx.snapshot.candles.get("5M")
+        if m5 is None or len(m5) < self._atr_lookback + 1:
+            return False, 0.0, 0.0
+        try:
+            pip = 0.01 if any(j in ctx.symbol for j in ("JPY","MXN")) else 0.0001
+            # True range over last N bars
+            highs = m5["high"].tail(self._atr_lookback + 1).astype(float).values
+            lows  = m5["low"].tail(self._atr_lookback + 1).astype(float).values
+            closes = m5["close"].tail(self._atr_lookback + 1).astype(float).values
+            trs = []
+            for i in range(1, len(highs)):
+                tr = max(highs[i] - lows[i],
+                         abs(highs[i] - closes[i-1]),
+                         abs(lows[i] - closes[i-1]))
+                trs.append(tr / pip)
+            if not trs:
+                return False, 0.0, 0.0
+            atr_now = trs[-1]
+            atr_median = sorted(trs)[len(trs)//2]
+            return atr_now >= atr_median * self._atr_min, atr_now, atr_median
+        except Exception:
+            return False, 0.0, 0.0
+
+    def _spread_ok(self, ctx, candidate) -> tuple[bool, float, float]:
+        """Returns (ok, spread_pips, stop_pips)."""
+        try:
+            pip = 0.01 if any(j in ctx.symbol for j in ("JPY","MXN")) else 0.0001
+            spread_pips = ctx.snapshot.spread / pip if ctx.snapshot.spread else 0.0
+            stop_pips = abs(candidate.entry_price - candidate.stop_price) / pip
+            if stop_pips <= 0:
+                return False, spread_pips, 0.0
+            ratio = spread_pips / stop_pips
+            return ratio <= self._max_spread_pct, spread_pips, stop_pips
+        except Exception:
+            return False, 0.0, 0.0
+
+    def evaluate(self, ctx):
+        if not self._session_ok(ctx):
+            return None
+        try:
+            cand = self._mod.evaluate(ctx)
+        except Exception:
+            return None
+        if cand is None:
+            return None
+        vol_ok, atr, med = self._volatility_ok(ctx)
+        if not vol_ok:
+            return None
+        sp_ok, sp_p, st_p = self._spread_ok(ctx, cand)
+        if not sp_ok:
+            return None
+        # Annotate
+        if cand.metadata is None: cand.metadata = {}
+        cand.metadata["sm_session"] = getattr(ctx.classifications.get("session_bucket"), "label", "?")
+        cand.metadata["sm_atr_pips"] = atr
+        cand.metadata["sm_atr_median"] = med
+        cand.metadata["sm_spread_pips"] = sp_p
+        cand.metadata["sm_spread_to_stop"] = (sp_p / st_p) if st_p > 0 else 0
+        return cand
+
+
 def instantiate_live_strategy(strategy_family: str):
     """Returns the live strategy MODULE instance to call inside next().
 
