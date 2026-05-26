@@ -35,6 +35,71 @@ from .management_adapter import (
 log = logging.getLogger("replay_lab.strategy_wrappers")
 
 
+def _capture_feature_snapshot(ctx) -> dict:
+    """Flatten SymbolContext features + classifications + snapshot into a
+    single dict for per-trade factor analysis."""
+    snap = {}
+    s = ctx.snapshot
+    pip = 0.01 if any(j in ctx.symbol for j in ("JPY","MXN")) else 0.0001
+    snap["signal_time"] = s.timestamp.isoformat() if s.timestamp else None
+    snap["mid"] = s.mid
+    snap["bid"] = s.bid
+    snap["ask"] = s.ask
+    snap["spread_pips"] = (s.spread / pip) if s.spread else 0.0
+
+    f = ctx.features
+    boll = (f.get("bollinger") or {}).values if f.get("bollinger") else {}
+    for k in ("upper_a","lower_a","sma_a","z_score","bb_position",
+              "upper_b","lower_b","sma_b"):
+        snap[f"bb_{k}"] = boll.get(k)
+    if boll.get("upper_a") is not None and boll.get("lower_a") is not None:
+        snap["bb_width_pips"] = (boll["upper_a"] - boll["lower_a"]) / pip
+
+    atr = (f.get("atr") or {}).values if f.get("atr") else {}
+    snap["atr_daily"] = atr.get("atr")
+    snap["adr_consumed"] = atr.get("adr_consumed")
+
+    ema = (f.get("ema") or {}).values if f.get("ema") else {}
+    for k in ("ema20","ema50","ema20_dist_pct","ema50_dist_pct"):
+        snap[f"ema_{k}"] = ema.get(k)
+
+    rsi = (f.get("rsi") or {}).values if f.get("rsi") else {}
+    snap["rsi14"] = rsi.get("rsi")
+
+    otr = (f.get("otr") or {}).values if f.get("otr") else {}
+    snap["otr_ratio"] = otr.get("otr_ratio")
+
+    r53 = (f.get("regime53") or {}).values if f.get("regime53") else {}
+    for k in ("technical_regime_53","ATR14","BB_width","ADX14","EMA_slope",
+              "RSI14","close_pos","ATR_ratio","BB_compress"):
+        snap[f"r53_{k}"] = r53.get(k)
+
+    c = ctx.classifications
+    snap["bb_state"] = getattr(c.get("bb_state"), "label", None)
+    snap["regime_label"] = getattr(c.get("regime"), "label", None)
+    regime_md = getattr(c.get("regime"), "metadata", {}) or {}
+    snap["regime_score"] = regime_md.get("score")
+    snap["session_bucket"] = getattr(c.get("session_bucket"), "label", None)
+    snap["sub_regime"] = getattr(c.get("mtb_sub_regime"), "label", None)
+    snap["opening_state"] = getattr(c.get("opening_state"), "label", None)
+    snap["structure"] = getattr(c.get("structure"), "label", None)
+
+    # Compute HTF bias snapshots for common lookbacks
+    bars_d = ctx.snapshot.candles.get("D")
+    if bars_d is not None and len(bars_d) > 0:
+        try:
+            closes = bars_d["close"].astype(float)
+            for lb in (5, 20, 60, 120):
+                if len(closes) > lb:
+                    c_now = float(closes.iloc[-1]); c_then = float(closes.iloc[-1-lb])
+                    snap[f"htf_pct_{lb}"] = ((c_now - c_then) / c_then) if c_then else 0.0
+                    snap[f"htf_bias_{lb}"] = "long" if c_now > c_then else ("short" if c_now < c_then else "neutral")
+        except Exception:
+            pass
+
+    return snap
+
+
 def _pip_size(symbol: str) -> float:
     return 0.01 if any(j in symbol for j in ("JPY", "MXN")) else 0.0001
 
@@ -56,6 +121,9 @@ class BaseReplayStrategy(Strategy):
         self._pip = _pip_size(self._spec.symbol)
         self._signal_log: list[dict] = []
         self._trade_meta: dict[int, dict] = {}   # bar_index -> meta
+        # Per-trade feature snapshots, keyed by bar index of entry order.
+        # Joined with backtesting.py's _trades DataFrame post-run on EntryBar.
+        self._feature_log: dict = {}   # bar_index -> snapshot dict
 
     def _build_ctx(self, i):
         return build_context(self._bundle, i, self._spec.symbol)
@@ -153,14 +221,27 @@ class BaseReplayStrategy(Strategy):
             pip_size=self._pip,
         )
 
+        # Capture feature snapshot at entry bar for factor analysis
+        snap = _capture_feature_snapshot(ctx)
+        snap["strategy"] = cand.strategy
+        snap["signal_dir"] = signal_dir
+        snap["exec_dir"] = exec_dir
+        snap["match_kind"] = info.get("match_kind")
+        snap["entry_price_set"] = entry_price
+        snap["sl_set"] = sl_price
+        snap["tp_set"] = tp_price
+        snap["candidate_rr"] = cand.risk_reward
+        snap["candidate_score"] = cand.score
+        self._feature_log[i] = snap
+
         # Place LIMIT order
         try:
             if exec_dir == "long":
                 self.buy(limit=entry_price, sl=sl_price, tp=tp_price,
-                         tag=f"{cand.strategy}|{info.get('match_kind','?')}|{signal_dir}->{exec_dir}")
+                         tag=f"{cand.strategy}|{info.get('match_kind','?')}|{signal_dir}->{exec_dir}|i={i}")
             else:
                 self.sell(limit=entry_price, sl=sl_price, tp=tp_price,
-                          tag=f"{cand.strategy}|{info.get('match_kind','?')}|{signal_dir}->{exec_dir}")
+                          tag=f"{cand.strategy}|{info.get('match_kind','?')}|{signal_dir}->{exec_dir}|i={i}")
             self._signal_log.append({
                 "i": i, "ts": self.data.index[-1], "strategy": cand.strategy,
                 "signal_dir": signal_dir, "exec_dir": exec_dir,
@@ -417,6 +498,24 @@ def instantiate_live_strategy(strategy_family: str):
         return CanonicalDarvasStrategy({})
     elif strategy_family == "probes" or strategy_family == "textbook_scalper":
         return _MultiProbeStrategy()
+    elif strategy_family == "ifvg":
+        from scrooge_v3.strategies.research_strategies.ifvg_imbalance import IFVGStrategy
+        return IFVGStrategy()
+    elif strategy_family == "session_breakout":
+        from scrooge_v3.strategies.research_strategies.session_breakout import SessionBreakoutStrategy
+        return SessionBreakoutStrategy()
+    elif strategy_family == "compression_expansion":
+        from scrooge_v3.strategies.research_strategies.compression_expansion import CompressionExpansionStrategy
+        return CompressionExpansionStrategy({"enabled": True})
+    elif strategy_family == "trend_pullback":
+        from scrooge_v3.strategies.research_strategies.intraday_trend_pullback import IntradayTrendPullbackStrategy
+        return IntradayTrendPullbackStrategy()
+    elif strategy_family == "chaikin_macd_atr":
+        from scrooge_v3.strategies.research_strategies.chaikin_macd_atr import ChaikinMACDATRStrategy
+        return ChaikinMACDATRStrategy()
+    elif strategy_family == "compression_reversion":
+        from scrooge_v3.strategies.research_strategies.compression_mean_reversion import CompressionMeanReversionStrategy
+        return CompressionMeanReversionStrategy()
     elif strategy_family == "all":
         return _AllFamiliesStrategy()
     else:
