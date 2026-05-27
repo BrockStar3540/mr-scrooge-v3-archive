@@ -62,12 +62,27 @@ def _identity_from_scan(row: dict[str, Any]) -> dict[str, Any]:
     identity.setdefault("routing_cell_family", candidate.get("routing_cell_family") or "")
     identity.setdefault("routing_cell_tier", candidate.get("routing_cell_tier") or "")
     identity.setdefault("routing_match_kind", candidate.get("routing_match_kind") or "")
+    # 2026-05-27 (Brock): cluster_serial is now the ML'"'"'s primary bucket key.
+    # MatrixRouter stamps candidate.metadata["matrix_cluster_serial"] on approved
+    # candidates; we expose it as identity["cluster_serial"] for shadow.py'"'"'s
+    # bank-keying. Falls back to empty string for legacy / pre-router scans.
+    md = candidate.get("metadata") or {}
+    if isinstance(md, dict):
+        identity.setdefault("cluster_serial", str(md.get("matrix_cluster_serial", "") or ""))
+    else:
+        identity.setdefault("cluster_serial", "")
     identity["symbol"] = str(row.get("symbol") or "")
     identity["verdict"] = str(row.get("verdict") or "")
     return identity
 
 
 def _exact_key(identity: dict[str, Any]) -> str:
+    # 2026-05-27 (Brock): if MatrixRouter stamped a cluster_serial, that IS
+    # the exact key (it encodes pair+regime+strategy+direction+session+formula).
+    # Otherwise fall back to legacy composite key.
+    cs = identity.get("cluster_serial", "") or ""
+    if cs:
+        return cs
     parts = [
         identity.get("symbol", ""),
         identity.get("strategy", ""),

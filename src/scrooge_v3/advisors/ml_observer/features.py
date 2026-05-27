@@ -357,6 +357,9 @@ def build_scan_row(
             "routing_cell_family": routing_cell_family,
             "routing_cell_tier": routing_cell_tier,
             "routing_match_kind": routing_match_kind,
+            # 2026-05-27 (Brock): MatrixRouter cluster_serial — primary
+            # bucket key for ML learning. Populated from candidate metadata.
+            "cluster_serial": str(candidate_md.get("matrix_cluster_serial", "") or ""),
         },
         "features": feat,  # raw module outputs, preserved verbatim
         "classifications": classifications_clean,
