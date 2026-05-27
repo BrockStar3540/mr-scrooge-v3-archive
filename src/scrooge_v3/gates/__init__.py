@@ -24,6 +24,7 @@ from .box_v3_shadow import BoxV3ShadowGate
 from .entry_filter_gate import EntryFilterGate
 from .entry_filter_shadow_gate import EntryFilterShadowGate
 from .sub_regime_filter_gate import SubRegimeFilterGate
+from .matrix_router_gate import MatrixRouterGate
 
 # Phase 4 Signal Discipline
 from .cooldown import CooldownGate
@@ -55,6 +56,7 @@ __all__ = [
     "EntryFilterGate",
     "EntryFilterShadowGate",
     "SubRegimeFilterGate",
+    "MatrixRouterGate",
     # Phase 4
     "CooldownGate",
     "ExpiryBackoffGate",

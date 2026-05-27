@@ -147,11 +147,9 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         "technical_context",
         TechnicalContextCalculator(feat_cfg.get("technical_context", {})),
     )
-    registry.register(
-        "features",
-        "technical_regime_53",
-        TechnicalRegime53Calculator(feat_cfg.get("technical_regime_53", {})),
-    )
+    # 2026-05-27 (Brock): hand-crafted technical_regime_53 retired.
+    # MatrixRouterGate uses live factor predicates instead of classifier labels.
+
     registry.register(
         "features",
         "tf6_short_usdjpy_observer",
@@ -170,13 +168,13 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.classifiers.structure import StructureClassifier
 
     registry.register("classifiers", "bb_state", BollingerStateClassifier())
-    registry.register("classifiers", "regime", RegimeClassifier())
+    # 2026-05-27 (Brock): regime classifier retired (MatrixRouter is the router).
     registry.register("classifiers", "opening_state", OpeningStateClassifier())
     registry.register("classifiers", "structure", StructureClassifier())
     from scrooge_v3.classifiers.session_bucket import SessionBucketClassifier
     from scrooge_v3.classifiers.mtb_sub_regime import MTBSubRegimeClassifier
     registry.register("classifiers", "session_bucket", SessionBucketClassifier())
-    registry.register("classifiers", "mtb_sub_regime", MTBSubRegimeClassifier())
+    # 2026-05-27 (Brock): mtb_sub_regime classifier retired.
 
     # --- Register strategies ---
     from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, DBBTrendStrategy, BoxMasterTheoryStrategy, V3HybridScorer
@@ -274,9 +272,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # cooldown / debounce / expiry_backoff (risk-discipline vetoes), then
     # regime_floor and the rest.
     from scrooge_v3.gates import (
-        BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate, EntryFilterGate,
-        EntryFilterShadowGate, ExpiryBackoffGate, RegimeCompatGate,
-        RegimeStrategyRouterGate, RegimeFloorGate, SubRegimeFilterGate, ZoneEntryCapGate,
+        BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate,
+        ExpiryBackoffGate, ZoneEntryCapGate, MatrixRouterGate,
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
@@ -307,7 +304,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         ExpiryBackoffGate({
             "zone_bucket_pips": risk_cfg.get("zone_bucket_pips", 20),
         }),
-        RegimeFloorGate({"min_score": -4}),
+        # 2026-05-27 (Brock): RegimeFloorGate retired -> MatrixRouterGate
         # Natural-target floor (Brock 2026-05-25): reject candidates whose
         # strategy's projected TP target is below the minimum scalp size.
         # Reads metadata["projected_tp_pips"] — emitted by canonical_lien_dbb
@@ -333,93 +330,43 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         # HTF Trend Filter (Brock 2026-05-26): daily directional bias gate.
         # Default OBSERVE — logs what it would have blocked, doesn'\''t block.
         # Promote to HARD via config after lab + live observe-match confirmed.
-        HTFTrendFilterGate(
-            (gate_cfg.get("htf_trend_filter", {}) if gate_cfg else {}),
-            mode=_resolve_gate_mode(
-                gate_cfg.get("htf_trend_filter") if gate_cfg else None,
-                default="observe",
-                gate_name="htf_trend_filter",
-            ),
-        ),
+        # 2026-05-27 (Brock): HTFTrendFilterGate retired -> MatrixRouterGate
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
         # Observe-only regime compatibility classifier. Never blocks; emits
         # (regime × family × dir_vs_hint) recommendation for audit-trail
         # analysis. Promote to HARD only after held-out validation.
-        RegimeCompatGate(mode=GateMode.OBSERVE),
+        # 2026-05-27 (Brock): RegimeCompatGate retired -> MatrixRouterGate
         # Regime → strategy allow-list router (Brock 2026-05-14 architecture).
         # Each (regime × family × dir_vs_hint) cell must be explicitly attached
         # to be tradable. Empty/unmapped cells are vetoed.
-        RegimeStrategyRouterGate(
-            config=(gate_cfg.get("regime_strategy_router", {}) if gate_cfg else {}),
-            mode=GateMode.HARD,
-        ),
+        # 2026-05-27 (Brock): RegimeStrategyRouterGate retired -> MatrixRouterGate
         # Sub-regime SKIP gate: vetoes bottom-8-of-each-parent sub-regimes
         # (C01_0..7 and C02_0..7 -- ~22% of total volume at 2-5%% WR)
         # and structurally dead rare regimes (T07, Z01, R04, X03, S01, S05).
         # Runs in OBSERVE first; flip to hard via gates.sub_regime_filter.mode.
-        SubRegimeFilterGate(
-            definitions_path="data/sub_regime_definitions_v1.csv",
-            config=(gate_cfg.get("sub_regime_filter", {}) if gate_cfg else {}),
-            mode=_resolve_gate_mode(
-                gate_cfg.get("sub_regime_filter") if gate_cfg else None,
-                default="observe",
-                gate_name="sub_regime_filter",
-            ),
-            # Brock 2026-05-18: pass the LIVE trade routing_table so explicit
-            # Pro+/Seed-Pro+ cells can override the default sub_regime SKIP map.
-            # Shadow's v9_observe is intentionally NOT wired in -- observe-only
-            # cells must not bypass hard vetoes.
-            routing_table=router.routing_table,
-        ),
+        # 2026-05-27 (Brock): SubRegimeFilterGate retired -> MatrixRouterGate
         # Per-cell entry-filter (shave_rule) enforcement -- the validated
         # band-rule from the hybrid shaver. OBSERVE for first 24-48h to
         # verify firing-rate; flip to HARD via config when telemetry is clean.
         # Closes the routing_table_v3 "validated artifact not fully enforced"
         # gap. Reads RoutingDecision.basis[shave_rule] populated by
         # routing_table_v4+ parquet schema.
-        EntryFilterGate(
-            routing_table=router.routing_table,
-            config=(gate_cfg.get("entry_filter", {}) if gate_cfg else {}),
-            mode=_resolve_gate_mode(
-                gate_cfg.get("entry_filter") if gate_cfg else None,
-                default="observe",
-                gate_name="entry_filter",
-            ),
-            ledger=seed_telemetry_ledger,
-        ),
+        # 2026-05-27 (Brock): EntryFilterGate retired -> MatrixRouterGate
         # Observe-only shadow of frozen box v3 gate tree (from trainer repo
         # 19ada0e: docs/box_gate_tree.md + data/regimes/box_gate_v3.yaml).
         # Emits would_allow / ranking_score / tier per candidate; never rejects.
+        # 2026-05-27 (Brock): MatrixRouterGate is the single authoritative router.
+        # Loads matrix CSVs from data/lab_matrix/, consults clusters via factor
+        # predicates, folds F40 (htf20 mismatch) as universal pre-filter.
+        MatrixRouterGate(
+            gate_cfg.get("matrix_router", {}),
+            mode=GateMode.HARD,
+        ),
         BoxV3ShadowGate(mode=GateMode.OBSERVE),
     ])
 
-    # Observe-only shadow EntryFilter against the broader routing surface
-    # (routing_table_v9_observe.parquet — includes Seed tier). Brock
-    # 2026-05-18: keep Seed cells OUT of live execution but record which
-    # ones would have fired, so we can promote them based on live evidence
-    # rather than corpus replay alone. Mode is forced to OBSERVE inside
-    # EntryFilterShadowGate; the config mode value is informational only.
-    shadow_cfg = gate_cfg.get("entry_filter_shadow") if gate_cfg else None
-    if shadow_cfg:
-        from scrooge_v3.strategies.routing_table import RoutingTable as _RT
-        _shadow_path = shadow_cfg.get(
-            "routing_table_path", "data/routing_table_v9_observe.parquet",
-        )
-        try:
-            _shadow_table = _RT(_shadow_path)
-            log.info(
-                "[BOOT] entry_filter_shadow routing_table loaded path=%s rows=%d leaves=%d",
-                _shadow_path, _shadow_table._rows, _shadow_table._unique_leaves,
-            )
-            gate_pipeline.register(EntryFilterShadowGate(
-                routing_table=_shadow_table,
-                config=shadow_cfg,
-                ledger=seed_telemetry_ledger,
-            ))
-        except Exception as exc:
-            log.warning(
-                "[BOOT] entry_filter_shadow disabled — load failed: %s", exc,
-            )
+    # 2026-05-27 (Brock): EntryFilterShadow + v9_observe routing retired.
+    # MatrixRouter is the only router.
 
     # --- Wire scorer and gate pipeline into scan pipeline ---
     scorer = V3HybridScorer(config.section("scoring"))
