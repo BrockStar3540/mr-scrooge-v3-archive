@@ -97,6 +97,7 @@ class CompressionExpansionStrategy:
       - ``evaluate(ctx) -> TradeCandidate | None``
     """
 
+    _family = "compression_expansion"  # routing-table family (matches lab matrix)
     name = "compression_expansion"
 
     def __init__(self, config: dict | None = None):

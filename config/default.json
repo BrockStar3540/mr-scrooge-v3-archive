@@ -87,7 +87,7 @@
       "stop_buffer_pips": 2,
       "fixed_score": 32
     },
-    "routing_table_path": "data/routing_table_v10_fast_v1_13_full_mirror.parquet",
+    "routing_table_path": "data/routing_table_v10_fast_v1_14_lab_promoted.parquet",
     "routing_table_mode": "hard",
     "routing_telemetry": {
       "enabled": true,
@@ -146,6 +146,24 @@
       "TF4_sar_long": {
         "enabled": true
       }
+    },
+    "ifvg": {
+      "enabled": true
+    },
+    "session_breakout": {
+      "enabled": true
+    },
+    "compression_expansion": {
+      "enabled": true
+    },
+    "trend_pullback": {
+      "enabled": true
+    },
+    "chaikin_macd_atr": {
+      "enabled": true
+    },
+    "compression_reversion": {
+      "enabled": true
     }
   },
   "gates": {

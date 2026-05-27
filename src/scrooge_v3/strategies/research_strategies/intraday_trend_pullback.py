@@ -76,6 +76,7 @@ class IntradayTrendPullbackStrategy:
     Implements the V3 StrategyModule Protocol (eligible/evaluate).
     """
 
+    _family = "trend_pullback"  # routing-table family (matches lab matrix)
     name = "intraday_trend_pullback"
 
     def __init__(self, config: dict | None = None):

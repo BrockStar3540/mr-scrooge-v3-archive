@@ -101,6 +101,7 @@ def _atr(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) ->
 class ChaikinMACDATRStrategy:
     """Chaikin Money Flow bias + MACD cross trigger + ATR geometry."""
 
+    _family = "chaikin_macd_atr"  # routing-table family
     name = "chaikin_macd_atr"
 
     # Geometry / indicator defaults

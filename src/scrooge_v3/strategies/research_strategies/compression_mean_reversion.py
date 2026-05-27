@@ -103,6 +103,7 @@ class CompressionMeanReversionStrategy:
     None outside compression — never trades trend.
     """
 
+    _family = "compression_reversion"  # routing-table family (matches lab matrix)
     name = "compression_mean_reversion"
 
     def __init__(self, config: dict | None = None):

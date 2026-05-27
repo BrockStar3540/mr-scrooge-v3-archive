@@ -83,6 +83,7 @@ class IFVGStrategy:
       fixed_score          : float  (default 30)   placeholder score
     """
 
+    _family = "ifvg"  # routing-table family (matches lab matrix)
     name = "ifvg_imbalance"
 
     def __init__(self, config: dict | None = None):

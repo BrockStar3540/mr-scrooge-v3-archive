@@ -201,6 +201,34 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.strategies.canonical_darvas import CanonicalDarvasStrategy
     registry.register("strategies", "canonical_darvas", CanonicalDarvasStrategy(strat_cfg.get("canonical_darvas", {})))
 
+    # --- Research strategies (6 lab-validated families, 2026-05-27 promotion) ---
+    # All carry _family attribute matching the lab matrix family names. The
+    # routing table v1.14+ has cells for these so they can be allowed by the
+    # router. Each is enabled-by-default; flip `enabled: false` in config to
+    # silence individually.
+    from scrooge_v3.strategies.research_strategies.ifvg_imbalance import IFVGStrategy
+    from scrooge_v3.strategies.research_strategies.session_breakout import SessionBreakoutStrategy
+    from scrooge_v3.strategies.research_strategies.compression_expansion import CompressionExpansionStrategy
+    from scrooge_v3.strategies.research_strategies.intraday_trend_pullback import IntradayTrendPullbackStrategy
+    from scrooge_v3.strategies.research_strategies.chaikin_macd_atr import ChaikinMACDATRStrategy
+    from scrooge_v3.strategies.research_strategies.compression_mean_reversion import CompressionMeanReversionStrategy
+
+    registry.register("strategies", "ifvg",
+        IFVGStrategy(strat_cfg.get("ifvg", {"enabled": True})))
+    registry.register("strategies", "session_breakout",
+        SessionBreakoutStrategy(strat_cfg.get("session_breakout", {"enabled": True})))
+    registry.register("strategies", "compression_expansion",
+        CompressionExpansionStrategy(strat_cfg.get("compression_expansion", {"enabled": True})))
+    registry.register("strategies", "trend_pullback",
+        IntradayTrendPullbackStrategy(strat_cfg.get("trend_pullback", {"enabled": True})))
+    registry.register("strategies", "chaikin_macd_atr",
+        ChaikinMACDATRStrategy(strat_cfg.get("chaikin_macd_atr", {"enabled": True})))
+    registry.register("strategies", "compression_reversion",
+        CompressionMeanReversionStrategy(strat_cfg.get("compression_reversion", {"enabled": True})))
+    log.info("[BOOT] Research strategies registered: ifvg, session_breakout, "
+             "compression_expansion, trend_pullback, chaikin_macd_atr, compression_reversion")
+
+
     # --- Register trainer-v2 probes as live strategies (disabled by default) ---
     from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
     probes_cfg = strat_cfg.get("probes_v2", {}) or {}

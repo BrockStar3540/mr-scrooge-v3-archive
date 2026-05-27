@@ -75,6 +75,7 @@ class SessionBreakoutStrategy:
     session.
     """
 
+    _family = "session_breakout"  # routing-table family (matches lab matrix)
     name = "session_breakout"
 
     def __init__(self, config: dict | None = None):
