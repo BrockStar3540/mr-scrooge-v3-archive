@@ -293,7 +293,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     seed_telemetry_ledger = SeedTelemetryLedger("data/seed-telemetry.jsonl")
     gate_pipeline = GatePipeline()
     gate_pipeline.register_many([
-        DailyCircuitGate(),
+        DailyCircuitGate(
+            mode=GateMode.OBSERVE if (
+                gate_cfg.get("daily_circuit", {}).get("mode", "hard") == "observe"
+            ) else GateMode.HARD,
+        ),
         CooldownGate(risk_cfg),
         DebounceGate({
             **gate_cfg.get("debounce", {}),

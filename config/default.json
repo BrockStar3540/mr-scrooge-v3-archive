@@ -219,6 +219,10 @@
       "lookback_periods": 20,
       "htf": "D",
       "neutral_pct": 0.0
+    },
+    "daily_circuit": {
+      "enabled": true,
+      "mode": "observe"
     }
   },
   "execution": {
