@@ -170,6 +170,43 @@ class LiveState:
             }
 
     @staticmethod
+    def _serialize_candidate(cand) -> dict:
+        """JSON-safe candidate snapshot for dashboard + ml-observer.
+
+        Accepts a TradeCandidate object OR a dict OR None. Returns a stable
+        dict so build_scan_row in ml-observer can populate identity.strategy
+        and identity.direction. Without this, scans.jsonl has empty candidate
+        fields and the entire downstream ML/attribution chain is blinded.
+        """
+        if cand is None:
+            return {}
+        if isinstance(cand, dict):
+            get = cand.get
+        else:
+            def get(k, default=None):
+                return getattr(cand, k, default)
+        d = get("direction")
+        if d is not None and not isinstance(d, str):
+            d = getattr(d, "value", str(d))
+        md = get("metadata")
+        return {
+            "strategy": str(get("strategy", "") or ""),
+            "direction": str(d or ""),
+            "family": str(get("family", "") or ""),
+            "entry_price": float(get("entry_price", 0) or 0),
+            "stop_price": float(get("stop_price", 0) or 0),
+            "take_profit": float(get("take_profit", 0) or 0),
+            "size": float(get("size", 0) or 0),
+            "risk_reward": float(get("risk_reward", 0) or 0),
+            "score": float(get("score", 0) or 0),
+            "routing_cell_strategy": str(get("routing_cell_strategy", "") or ""),
+            "routing_cell_family": str(get("routing_cell_family", "") or ""),
+            "routing_cell_tier": str(get("routing_cell_tier", "") or ""),
+            "routing_match_kind": str(get("routing_match_kind", "") or ""),
+            "metadata": md if isinstance(md, dict) else {},
+        }
+
+    @staticmethod
     def _clean_reports(reports: list[dict]) -> list[dict]:
         """Serialize scan reports for JSON — strip non-serializable objects."""
         clean = []
@@ -183,6 +220,11 @@ class LiveState:
                 "strategy_allowed": r.get("strategy_allowed", []),
                 "gates": r.get("gates", {}),
                 "scorer": r.get("scorer", {}),
+                # B-1 Patch C (2026-05-27): include candidate so ml-observer
+                # can populate identity.strategy/direction. Without this,
+                # scans.jsonl has empty candidate.{strategy,direction,...} on
+                # every cycle including TAKE_A/TAKE_B verdicts.
+                "candidate": LiveState._serialize_candidate(r.get("candidate")),
             }
             # Clean features — extract only serializable values
             for fname, fvals in r.get("features", {}).items():
