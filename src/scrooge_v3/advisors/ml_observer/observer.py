@@ -56,6 +56,7 @@ from v3_scorer_parser import parse_v3_scorer_line  # noqa: E402
 from journal_reader import iter_journal_events  # noqa: E402
 from account_snapshot import build_snapshot  # noqa: E402
 from oanda_poll import OandaPoller, classify_fill, load_env  # noqa: E402
+from matrix_advisor import get_advisor as get_matrix_advisor  # noqa: E402
 from shadow import (  # noqa: E402
     build_shadow_bank,
     build_comparison_summary,
@@ -496,7 +497,11 @@ def advise(state: ObserverState, data: dict):
 
 
 def run_shadow_cycle(state: ObserverState, scan_rows: list[dict]) -> dict:
-    """Refresh current-corpus bank and emit parallel shadow decisions."""
+    """Refresh current-corpus bank and emit parallel shadow decisions.
+
+    Also overlays the MatrixAdvisor verdict (lab-derived factor formulas) so
+    decisions are never purely ABSTAIN when the live-corpus bank is thin.
+    """
     bank = build_shadow_bank(SCANS_FILE, OUTCOMES_FILE)
     save_shadow_bank(bank, SHADOW_BANK_FILE)
     save_comparison_summary(
@@ -504,19 +509,35 @@ def run_shadow_cycle(state: ObserverState, scan_rows: list[dict]) -> dict:
         SHADOW_COMPARISON_FILE,
     )
 
+    advisor = get_matrix_advisor()
+
     decisions = [decide_shadow(row, bank) for row in scan_rows]
-    for row, decision in zip(scan_rows, decisions):
-        _append_jsonl(SHADOW_DECISIONS_FILE, shadow_decision_record(row, decision))
+    matrix_decisions = [advisor.advise(row) for row in scan_rows]
+    for row, decision, mdec in zip(scan_rows, decisions, matrix_decisions):
+        rec = shadow_decision_record(row, decision)
+        # Merge matrix overlay
+        rec.update(mdec)
+        _append_jsonl(SHADOW_DECISIONS_FILE, rec)
 
     trade_events = update_shadow_positions(state, scan_rows, decisions)
     for event in trade_events:
         _append_jsonl(SHADOW_TRADES_FILE, event)
+
+    # Matrix counts
+    mtake = sum(1 for d in matrix_decisions if d.get("matrix_decision") == "TAKE")
+    mblock = sum(1 for d in matrix_decisions if d.get("matrix_decision") == "BLOCK")
+    mnomatch = sum(1 for d in matrix_decisions if d.get("matrix_decision") == "NO_MATCH")
+    mno_cand = sum(1 for d in matrix_decisions if d.get("matrix_decision") == "NO_CANDIDATE")
 
     return {
         "bank_examples": int(((bank.get("source_counts") or {}).get("labeled_examples")) or 0),
         "take": sum(1 for d in decisions if d.get("decision") == "TAKE"),
         "skip": sum(1 for d in decisions if d.get("decision") == "SKIP"),
         "abstain": sum(1 for d in decisions if d.get("decision") == "ABSTAIN"),
+        "matrix_take": mtake,
+        "matrix_block": mblock,
+        "matrix_nomatch": mnomatch,
+        "matrix_nocand": mno_cand,
         "opened": sum(1 for e in trade_events if e.get("kind") == "shadow_trade_open"),
         "closed": sum(1 for e in trade_events if e.get("kind") == "shadow_trade_close"),
         "live": len(state.shadow_positions),
@@ -567,7 +588,8 @@ def run():
 
                 shadow_summary = run_shadow_cycle(state, scan_rows)
                 log.info(
-                    "[shadow] bank=%d take=%d skip=%d abstain=%d opened=%d closed=%d live=%d",
+                    "[shadow] bank=%d take=%d skip=%d abstain=%d opened=%d closed=%d live=%d "
+                    "| matrix take=%d block=%d nomatch=%d nocand=%d",
                     shadow_summary["bank_examples"],
                     shadow_summary["take"],
                     shadow_summary["skip"],
@@ -575,6 +597,10 @@ def run():
                     shadow_summary["opened"],
                     shadow_summary["closed"],
                     shadow_summary["live"],
+                    shadow_summary.get("matrix_take", 0),
+                    shadow_summary.get("matrix_block", 0),
+                    shadow_summary.get("matrix_nomatch", 0),
+                    shadow_summary.get("matrix_nocand", 0),
                 )
 
             state.save()
