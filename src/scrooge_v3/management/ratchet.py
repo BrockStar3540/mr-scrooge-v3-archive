@@ -21,12 +21,13 @@ from scrooge_v3.core.types import StopPlan, TradeDirection
 
 log = logging.getLogger("scrooge_v3.management.ratchet")
 
-# Default stepwise schedule (Brock 2026-05-21).
+# Cheese-slicer schedule (Brock 2026-05-27, replaces 2026-05-21 schedule).
+# With 7p entry SL the old -6/-3/0 steps were unreachable or weakly useful.
+# This single positive step locks 5 pips of profit once MFE hits 5.5p,
+# so we slice cheese off the table at every meaningful favorable move.
 DEFAULT_STEPS: List[Tuple[float, float]] = [
-    # (trigger_mfe_pips, new_sl_pips_from_entry  -- negative = below entry for long)
-    (6.0,  -6.0),   # at +6 MFE, cap loss at -6 from entry
-    (8.0,  -3.0),   # at +8 MFE, cap loss at -3 from entry
-    (10.0,  0.0),   # at +10 MFE, breakeven
+    # (trigger_mfe_pips, new_sl_pips_from_entry  -- POSITIVE = above entry = profit lock for long)
+    (5.5,  5.0),   # at +5.5 MFE, lock SL at entry+5 (5p profit guaranteed)
 ]
 
 
