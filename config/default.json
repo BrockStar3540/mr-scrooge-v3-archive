@@ -197,7 +197,7 @@
       ]
     },
     "htf_trend_filter": {
-      "mode": "observe",
+      "mode": "hard",
       "lookback_periods": 20,
       "htf": "D",
       "neutral_pct": 0.0
