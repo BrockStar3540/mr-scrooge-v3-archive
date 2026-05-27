@@ -592,9 +592,22 @@ class StateRecovery:
                 continue
 
             parent_trade_id = (order.parent_trade_id or "").strip()
-            # Missing parent_trade_id is now treated as orphan-confirmed
-            # (broker only clears the link after parent closes; REDUCE_ONLY
-            # is only stamped by V3 harvest). Proceed to cancel.
+            # 2026-05-27 (Brock): broker API may transiently return empty
+            # parent_trade_id immediately after we place the harvest LIMIT
+            # (race between our placement and OANDA propagating the link).
+            # Consult our own ledger before declaring orphan — we know
+            # the trade_id from when we PLACED the harvest.
+            if not parent_trade_id:
+                ledger_entry = ledger.get(order_id, {}) or {}
+                ledger_trade_id = str(ledger_entry.get("trade_id", "") or "").strip()
+                if ledger_trade_id:
+                    parent_trade_id = ledger_trade_id
+                    log.info(
+                        "[RECOVERY] orphan-harvest sweep: broker reported "
+                        "empty parent_trade_id for order=%s but ledger has "
+                        "trade_id=%s — using ledger link",
+                        order_id, parent_trade_id,
+                    )
             if parent_trade_id:
                 parent_alive_on_broker = parent_trade_id in open_trade_ids
                 parent_in_tracker = ctx.tracker.get(parent_trade_id) is not None
@@ -603,8 +616,9 @@ class StateRecovery:
             else:
                 log.warning(
                     "[RECOVERY] orphan-harvest sweep: REDUCE_ONLY LIMIT "
-                    "order=%s symbol=%s has empty parent_trade_id "
-                    "(parent closed/broker cleared link) -> treating as orphan",
+                    "order=%s symbol=%s has empty parent_trade_id AND no "
+                    "ledger entry (parent closed/broker cleared link) -> "
+                    "treating as orphan",
                     order_id, symbol,
                 )
 

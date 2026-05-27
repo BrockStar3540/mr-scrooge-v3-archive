@@ -268,49 +268,20 @@ class ScanPipeline:
                 routing_cell_tier = candidate.metadata.get("routing_cell_tier")
                 routing_approved = routing_cell_tier in TRADE_TIERS
 
-                if result.tier == "BLOCKED":
-                    self._emit(
-                        CANDIDATE_REJECTED,
-                        symbol=symbol,
-                        strategy=candidate.strategy,
-                        reason=f"V3_BLOCKED:{','.join(result.blocks)}",
-                    )
-                    continue
-
-                if result.tier == "REJECT":
-                    if not routing_approved:
-                        # Legacy / observe / no-cell path: keep old hard veto.
-                        self._emit(
-                            CANDIDATE_REJECTED,
-                            symbol=symbol,
-                            strategy=candidate.strategy,
-                            reason=f"V3_REJECT:score={result.score}",
-                        )
-                        continue
-                    # Routing-approved candidate at trade-tier cell:
-                    # scorer cannot veto. Log loudly with full context
-                    # so we know exactly what the old scorer would have
-                    # killed. Per Brock 2026-05-18 spec.
-                    _floor = getattr(result, "base_floor", None)
-                    if _floor is None:
-                        try:
-                            _st = _synthesize_session_thresholds(self.scorer, "default")
-                            _floor = _st.get("floor", 0)
-                        except Exception:
-                            _floor = 0
+                # SCORER VETO REMOVED 2026-05-27 (Brock'"'"'s call):
+                # The scorer is now PURELY a ranker. BLOCKED + REJECT tiers
+                # no longer drop candidates. The score still gets attached
+                # to the candidate so the best-by-score selection at the
+                # end of this loop still works. Log full context so we can
+                # see what the old scorer would have killed.
+                if result.tier in ("BLOCKED", "REJECT"):
                     log.info(
-                        "[V3_SCORER] scorer_bypassed_by_routing_cell "
-                        "scorer_soft_rank_only symbol=%s direction=%s "
-                        "strategy=%s cell_label=%s cell_tier=%s "
-                        "raw_score=%d base_score=%d old_floor=%d",
-                        symbol,
-                        getattr(candidate.direction, "value", str(candidate.direction)),
-                        candidate.strategy,
-                        candidate.metadata.get("routing_cell_label", "?"),
-                        routing_cell_tier,
-                        result.score, result.base_score, _floor,
+                        "[V3_SCORER] scorer_bypassed_brock_2026_05_27 "
+                        "symbol=%s strategy=%s tier=%s raw_score=%d "
+                        "(would_have_blocked_at_old_floor)",
+                        symbol, candidate.strategy, result.tier, result.score,
                     )
-                    candidate.metadata["v3_bypassed_by_routing"] = True
+                    candidate.metadata["v3_bypassed_by_brock_override"] = True
                     candidate.metadata["v3_would_have_rejected_at"] = result.score
                 # Replace strategy's fixed score with V3 score
                 candidate.score = float(result.score)
@@ -623,32 +594,18 @@ class ScanPipeline:
                         "floor": _st.get("floor", 0), "b": _st.get("b", 0),
                         "a": _st.get("a", 0), "cap": _st.get("cap", 0),
                     }
-                    # Surgical V3 scorer demotion (Brock 2026-05-18,
-                    # mirrored from scan_symbol). BLOCKED always drops.
-                    # REJECT drops only if the candidate is NOT routing-
-                    # approved at trade tier. Routing-approved REJECT
-                    # bypasses the veto and continues as a soft rank.
-                    TRADE_TIERS = {"Seed-Pro", "Pro", "Elite"}
-                    routing_cell_tier = candidate.metadata.get("routing_cell_tier")
-                    routing_approved = routing_cell_tier in TRADE_TIERS
-                    if sr.tier == "BLOCKED":
-                        continue
-                    if sr.tier == "REJECT" and not routing_approved:
-                        continue
-                    if sr.tier == "REJECT" and routing_approved:
+                    # SCORER VETO REMOVED 2026-05-27 (Brock'"'"'s call).
+                    # The v3_scorer is now PURELY a ranker — BLOCKED + REJECT
+                    # tiers no longer veto candidates. Score still attaches
+                    # so max(approved, key=c.score) selection works.
+                    if sr.tier in ("BLOCKED", "REJECT"):
                         log.info(
-                            "[V3_SCORER] scorer_bypassed_by_routing_cell "
-                            "scorer_soft_rank_only symbol=%s direction=%s "
-                            "strategy=%s cell_label=%s cell_tier=%s "
-                            "raw_score=%d base_score=%d",
-                            candidate.symbol,
-                            getattr(candidate.direction, "value", str(candidate.direction)),
-                            candidate.strategy,
-                            candidate.metadata.get("routing_cell_label", "?"),
-                            routing_cell_tier,
-                            sr.score, sr.base_score,
+                            "[V3_SCORER] scorer_bypassed_brock_2026_05_27 "
+                            "symbol=%s strategy=%s tier=%s score=%d "
+                            "(would_have_killed_old_floor)",
+                            candidate.symbol, candidate.strategy, sr.tier, sr.score,
                         )
-                        candidate.metadata["v3_bypassed_by_routing"] = True
+                        candidate.metadata["v3_bypassed_by_brock_override"] = True
                         candidate.metadata["v3_would_have_rejected_at"] = sr.score
                     candidate.score = float(sr.score)
                     candidate.metadata["v3_tier"] = sr.tier
