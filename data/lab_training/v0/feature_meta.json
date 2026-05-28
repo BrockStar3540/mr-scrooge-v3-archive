@@ -1,0 +1,220 @@
+{
+  "version": "v0_2026-05-28",
+  "trained_at": "2026-05-28T23:18:29Z",
+  "feature_order": [
+    "BB",
+    "BBP",
+    "A5",
+    "A1",
+    "RSI",
+    "E20",
+    "E50",
+    "ZS",
+    "SPR",
+    "ADR",
+    "H20",
+    "H60",
+    "T1",
+    "T4",
+    "pair",
+    "strategy_id",
+    "direction_exec",
+    "session_bucket"
+  ],
+  "target": "win",
+  "categorical_levels": {
+    "BB": [
+      "BB0",
+      "BB1",
+      "BB2",
+      "BB3"
+    ],
+    "BBP": [
+      "BBP0",
+      "BBP1",
+      "BBP2",
+      "BBP3",
+      "BBP4",
+      "BBP5",
+      "BBP6"
+    ],
+    "A5": [
+      "A5_0",
+      "A5_1",
+      "A5_2",
+      "A5_3"
+    ],
+    "A1": [
+      "A1_0",
+      "A1_1",
+      "A1_2",
+      "A1_3"
+    ],
+    "RSI": [
+      "RSI0",
+      "RSI1",
+      "RSI2",
+      "RSI3",
+      "RSI4",
+      "RSI5",
+      "RSI6",
+      "RSI7"
+    ],
+    "E20": [
+      "E20a",
+      "E20b",
+      "E20c",
+      "E20d",
+      "E20e"
+    ],
+    "E50": [
+      "E50a",
+      "E50b",
+      "E50c",
+      "E50d",
+      "E50e"
+    ],
+    "ZS": [
+      "ZS0",
+      "ZS1",
+      "ZS2",
+      "ZS3",
+      "ZS4",
+      "ZS5",
+      "ZS6"
+    ],
+    "SPR": [
+      "SPR1",
+      "SPR2",
+      "SPR3"
+    ],
+    "ADR": [
+      "ADR1",
+      "ADR2",
+      "ADR3",
+      "ADR4",
+      "ADR5"
+    ],
+    "H20": [
+      "H20a",
+      "H20b",
+      "H20c",
+      "H20d",
+      "H20e"
+    ],
+    "H60": [
+      "H60a",
+      "H60b",
+      "H60c",
+      "H60d",
+      "H60e"
+    ],
+    "T1": [
+      "T1a",
+      "T1b",
+      "T1c"
+    ],
+    "T4": [
+      "T4a",
+      "T4b",
+      "T4c"
+    ],
+    "pair": [
+      "AUD_CAD",
+      "AUD_CHF",
+      "AUD_JPY",
+      "AUD_NZD",
+      "AUD_USD",
+      "CAD_JPY",
+      "CHF_JPY",
+      "EUR_AUD",
+      "EUR_CAD",
+      "EUR_CHF",
+      "EUR_GBP",
+      "EUR_JPY",
+      "EUR_NZD",
+      "EUR_USD",
+      "GBP_AUD",
+      "GBP_CAD",
+      "GBP_CHF",
+      "GBP_JPY",
+      "GBP_NZD",
+      "GBP_USD",
+      "NZD_CAD",
+      "NZD_CHF",
+      "NZD_JPY",
+      "NZD_USD",
+      "USD_CAD",
+      "USD_CHF",
+      "USD_JPY",
+      "USD_MXN"
+    ],
+    "strategy_id": [
+      "box_master_theory",
+      "canonical_darvas",
+      "canonical_lien_dbb",
+      "chaikin_macd_atr",
+      "compression_expansion",
+      "compression_reversion",
+      "dbb_trend",
+      "direct",
+      "htf_all",
+      "ifvg",
+      "probes",
+      "reversal",
+      "session_breakout",
+      "session_momentum_all",
+      "trend",
+      "trend_aligned_breakout",
+      "trend_pullback"
+    ],
+    "direction_exec": [
+      "long",
+      "short"
+    ],
+    "session_bucket": [
+      "asia",
+      "asia_late",
+      "london",
+      "london_open",
+      "ny_close",
+      "ny_mid",
+      "ny_open",
+      "off_hours"
+    ]
+  },
+  "n_train": 670545,
+  "n_holdout": 167637,
+  "holdout_auc": 0.6025016639877573,
+  "holdout_logloss": 0.6464773476451856,
+  "holdout_accuracy": 0.6312210311566062,
+  "holdout_wr_baseline": 0.6248620531266964,
+  "holdout_wr_at_top10": 0.756845433394977,
+  "holdout_wr_at_top25": 0.7282922522608509,
+  "holdout_wr_at_bot10": 0.46310326313905625,
+  "holdout_confusion_matrix": [
+    [
+      5721,
+      57166
+    ],
+    [
+      4655,
+      100095
+    ]
+  ],
+  "best_iteration": 200,
+  "params": {
+    "objective": "binary",
+    "metric": [
+      "auc",
+      "binary_logloss"
+    ],
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_data_in_leaf": 200,
+    "feature_fraction": 0.9,
+    "bagging_fraction": 0.85,
+    "bagging_freq": 5,
+    "verbose": -1
+  }
+}

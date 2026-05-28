@@ -1,0 +1,59 @@
+{
+  "version": "v0_2026-05-28",
+  "trained_at": "2026-05-28T23:18:29Z",
+  "feature_order": [
+    "BB",
+    "BBP",
+    "A5",
+    "A1",
+    "RSI",
+    "E20",
+    "E50",
+    "ZS",
+    "SPR",
+    "ADR",
+    "H20",
+    "H60",
+    "T1",
+    "T4",
+    "pair",
+    "strategy_id",
+    "direction_exec",
+    "session_bucket"
+  ],
+  "target": "win",
+  "n_train": 670545,
+  "n_holdout": 167637,
+  "holdout_auc": 0.6025016639877573,
+  "holdout_logloss": 0.6464773476451856,
+  "holdout_accuracy": 0.6312210311566062,
+  "holdout_wr_baseline": 0.6248620531266964,
+  "holdout_wr_at_top10": 0.756845433394977,
+  "holdout_wr_at_top25": 0.7282922522608509,
+  "holdout_wr_at_bot10": 0.46310326313905625,
+  "holdout_confusion_matrix": [
+    [
+      5721,
+      57166
+    ],
+    [
+      4655,
+      100095
+    ]
+  ],
+  "best_iteration": 200,
+  "params": {
+    "objective": "binary",
+    "metric": [
+      "auc",
+      "binary_logloss"
+    ],
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_data_in_leaf": 200,
+    "feature_fraction": 0.9,
+    "bagging_fraction": 0.85,
+    "bagging_freq": 5,
+    "verbose": -1
+  }
+}

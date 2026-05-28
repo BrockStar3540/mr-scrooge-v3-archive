@@ -405,6 +405,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         "[BOOT] V3HybridScorer DISABLED — ML routing + strategy-native "
         "scores only"
     )
+    # LightGBM shadow scorer (Brock 2026-05-28): load v0 model trained on
+    # 838k lab trades (holdout AUC 0.6025). Observe-only — never blocks.
+    from scrooge_v3.advisors import lightgbm_shadow as _shadow
+    if _shadow.load():
+        _lg.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] LightGBM shadow scorer ENABLED (observe-only)"
+        )
+    else:
+        _lg.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] LightGBM shadow scorer not loaded (no model file)"
+        )
 
     # --- ML strategy filter (post-scorer, per-strategy XGBoost) ---
     # Off by default. Enable via config.scoring.ml_filter = {mode: "observe" | "hard"}
