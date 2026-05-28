@@ -36,17 +36,21 @@ log = logging.getLogger("replay_lab.strategy_wrappers")
 
 
 def _capture_feature_snapshot(ctx) -> dict:
-    """Flatten SymbolContext features + classifications + snapshot into a
-    single dict for per-trade factor analysis."""
+    """Flatten SymbolContext into per-trade feature dict (Brock spec 2026-05-26).
+    Required 14 + 'also add' factors + diagnostics."""
     snap = {}
     s = ctx.snapshot
     pip = 0.01 if any(j in ctx.symbol for j in ("JPY","MXN")) else 0.0001
+    snap["pair"] = ctx.symbol
     snap["signal_time"] = s.timestamp.isoformat() if s.timestamp else None
+    snap["hour_utc"] = s.timestamp.hour if s.timestamp else None
+    snap["dow_utc"] = s.timestamp.weekday() if s.timestamp else None
     snap["mid"] = s.mid
     snap["bid"] = s.bid
     snap["ask"] = s.ask
     snap["spread_pips"] = (s.spread / pip) if s.spread else 0.0
 
+    # Bollinger
     f = ctx.features
     boll = (f.get("bollinger") or {}).values if f.get("bollinger") else {}
     for k in ("upper_a","lower_a","sma_a","z_score","bb_position",
@@ -54,26 +58,86 @@ def _capture_feature_snapshot(ctx) -> dict:
         snap[f"bb_{k}"] = boll.get(k)
     if boll.get("upper_a") is not None and boll.get("lower_a") is not None:
         snap["bb_width_pips"] = (boll["upper_a"] - boll["lower_a"]) / pip
+    snap["zscore"] = boll.get("z_score")
+    snap["bb_position"] = boll.get("bb_position")
 
-    atr = (f.get("atr") or {}).values if f.get("atr") else {}
-    snap["atr_daily"] = atr.get("atr")
-    snap["adr_consumed"] = atr.get("adr_consumed")
+    # ATR — daily from feature + compute M5 + H1 from candles
+    atr_d = (f.get("atr") or {}).values if f.get("atr") else {}
+    snap["atr_daily"] = atr_d.get("atr")
+    snap["adr_consumed"] = atr_d.get("adr_consumed")
 
-    ema = (f.get("ema") or {}).values if f.get("ema") else {}
-    for k in ("ema20","ema50","ema20_dist_pct","ema50_dist_pct"):
-        snap[f"ema_{k}"] = ema.get(k)
+    def _atr_pips(bars, n, p_pip):
+        if bars is None or len(bars) < n+1: return None
+        try:
+            h = bars["high"].astype(float).tail(n+1).values
+            l = bars["low"].astype(float).tail(n+1).values
+            c = bars["close"].astype(float).tail(n+1).values
+            trs = []
+            for i in range(1, len(h)):
+                trs.append(max(h[i]-l[i], abs(h[i]-c[i-1]), abs(l[i]-c[i-1])))
+            return (sum(trs)/len(trs)) / p_pip if trs else None
+        except Exception: return None
 
+    m5 = ctx.snapshot.candles.get("M5")
+    if m5 is None or len(m5) == 0: m5 = ctx.snapshot.candles.get("5M")
+    h1 = ctx.snapshot.candles.get("1H")
+    if h1 is None or len(h1) == 0: h1 = ctx.snapshot.candles.get("H1")
+    d  = ctx.snapshot.candles.get("D")
+
+    snap["atr_5m_pips"] = _atr_pips(m5, 14, pip)
+    snap["atr_1h_pips"] = _atr_pips(h1, 14, pip)
+    snap["atr_d_pips"]  = _atr_pips(d,  14, pip) if d is not None and len(d) > 14 else None
+
+    # Realized volatility — stddev of last 20 M5 returns, annualized rough proxy
+    if m5 is not None and len(m5) >= 21:
+        try:
+            closes = m5["close"].astype(float).tail(21).values
+            import math
+            rets = [(closes[i]/closes[i-1] - 1) for i in range(1, len(closes))]
+            mean = sum(rets)/len(rets)
+            var = sum((r-mean)**2 for r in rets)/len(rets)
+            snap["realized_vol"] = math.sqrt(var)
+        except Exception: snap["realized_vol"] = None
+
+    # EMA + slopes
+    ema_f = (f.get("ema") or {}).values if f.get("ema") else {}
+    snap["ema20"] = ema_f.get("ema20")
+    snap["ema50"] = ema_f.get("ema50")
+    snap["ema20_dist_pct"] = ema_f.get("ema20_dist_pct")
+    snap["ema50_dist_pct"] = ema_f.get("ema50_dist_pct")
+    # Slope: re-compute from H1 closes
+    if h1 is not None and len(h1) >= 22:
+        try:
+            closes_h1 = h1["close"].astype(float)
+            def _ema(series, n):
+                k = 2/(n+1); e = series.iloc[:n].mean()
+                for v in series.iloc[n:]: e = v*k + e*(1-k)
+                return e
+            e20_now = _ema(closes_h1, 20)
+            e20_prev = _ema(closes_h1.iloc[:-2], 20)
+            e50_now = _ema(closes_h1, 50) if len(closes_h1) >= 50 else None
+            e50_prev = _ema(closes_h1.iloc[:-2], 50) if len(closes_h1) >= 52 else None
+            snap["ema20_slope"] = (e20_now - e20_prev) / pip if e20_prev else 0.0
+            snap["ema50_slope"] = (e50_now - e50_prev) / pip if (e50_now and e50_prev) else None
+        except Exception:
+            snap["ema20_slope"] = snap["ema50_slope"] = None
+
+    # RSI
     rsi = (f.get("rsi") or {}).values if f.get("rsi") else {}
     snap["rsi14"] = rsi.get("rsi")
 
+    # OTR
     otr = (f.get("otr") or {}).values if f.get("otr") else {}
     snap["otr_ratio"] = otr.get("otr_ratio")
 
+    # Regime53 features
     r53 = (f.get("regime53") or {}).values if f.get("regime53") else {}
     for k in ("technical_regime_53","ATR14","BB_width","ADX14","EMA_slope",
               "RSI14","close_pos","ATR_ratio","BB_compress"):
         snap[f"r53_{k}"] = r53.get(k)
+    snap["regime53"] = r53.get("technical_regime_53")
 
+    # Classifications
     c = ctx.classifications
     snap["bb_state"] = getattr(c.get("bb_state"), "label", None)
     snap["regime_label"] = getattr(c.get("regime"), "label", None)
@@ -84,18 +148,73 @@ def _capture_feature_snapshot(ctx) -> dict:
     snap["opening_state"] = getattr(c.get("opening_state"), "label", None)
     snap["structure"] = getattr(c.get("structure"), "label", None)
 
-    # Compute HTF bias snapshots for common lookbacks
-    bars_d = ctx.snapshot.candles.get("D")
-    if bars_d is not None and len(bars_d) > 0:
+    # HTF bias at 4 lookbacks
+    if d is not None and len(d) > 0:
         try:
-            closes = bars_d["close"].astype(float)
+            closes_d = d["close"].astype(float)
             for lb in (5, 20, 60, 120):
-                if len(closes) > lb:
-                    c_now = float(closes.iloc[-1]); c_then = float(closes.iloc[-1-lb])
-                    snap[f"htf_pct_{lb}"] = ((c_now - c_then) / c_then) if c_then else 0.0
-                    snap[f"htf_bias_{lb}"] = "long" if c_now > c_then else ("short" if c_now < c_then else "neutral")
-        except Exception:
-            pass
+                if len(closes_d) > lb:
+                    c_now = float(closes_d.iloc[-1]); c_then = float(closes_d.iloc[-1-lb])
+                    pct = ((c_now - c_then)/c_then) if c_then else 0.0
+                    snap[f"htf_pct_{lb}"] = pct
+                    snap[f"htf_bias_{lb}"] = "long" if c_now>c_then else ("short" if c_now<c_then else "neutral")
+        except Exception: pass
+
+    # H1/H4 trend (sign of close change)
+    if h1 is not None and len(h1) > 20:
+        try:
+            c1 = float(h1["close"].iloc[-1]); c1p = float(h1["close"].iloc[-21])
+            snap["trend_1h_pct"] = (c1-c1p)/c1p if c1p else 0.0
+            snap["trend_1h"] = "long" if c1>c1p else ("short" if c1<c1p else "neutral")
+            if len(h1) > 80:
+                c4 = float(h1["close"].iloc[-1]); c4p = float(h1["close"].iloc[-81])
+                snap["trend_4h_pct"] = (c4-c4p)/c4p if c4p else 0.0
+                snap["trend_4h"] = "long" if c4>c4p else ("short" if c4<c4p else "neutral")
+        except Exception: pass
+
+    # Range percentile (M5 bar range vs last 50)
+    if m5 is not None and len(m5) >= 51:
+        try:
+            highs = m5["high"].astype(float).tail(50).values
+            lows  = m5["low"].astype(float).tail(50).values
+            ranges = [(highs[i]-lows[i])/pip for i in range(len(highs))]
+            now_rng = ranges[-1]
+            sorted_rngs = sorted(ranges)
+            rank = sorted_rngs.index(now_rng) if now_rng in sorted_rngs else 0
+            snap["range_percentile"] = rank / max(len(ranges)-1, 1)
+            snap["range_pips_now"] = now_rng
+        except Exception: pass
+
+    # Distance to structure (nearest recent swing hi/lo within 50 M5 bars)
+    if m5 is not None and len(m5) >= 50:
+        try:
+            highs = m5["high"].astype(float).tail(50).values
+            lows  = m5["low"].astype(float).tail(50).values
+            close = float(m5["close"].iloc[-1])
+            swing_hi = max(highs[:-1])
+            swing_lo = min(lows[:-1])
+            snap["dist_to_swing_high_pips"] = (swing_hi - close) / pip
+            snap["dist_to_swing_low_pips"]  = (close - swing_lo) / pip
+            snap["distance_to_structure_pips"] = min(abs(snap["dist_to_swing_high_pips"]),
+                                                      abs(snap["dist_to_swing_low_pips"]))
+        except Exception: pass
+
+    # Pullback depth: how far has price retraced from the recent extreme in trend direction
+    if m5 is not None and len(m5) >= 20 and snap.get("trend_1h"):
+        try:
+            highs = m5["high"].astype(float).tail(20).values
+            lows  = m5["low"].astype(float).tail(20).values
+            close = float(m5["close"].iloc[-1])
+            if snap["trend_1h"] == "long":
+                # Uptrend: measure pullback from swing high to current close
+                hi = max(highs); lo = min(lows)
+                rng = hi - lo
+                snap["pullback_depth_pct"] = (hi - close) / rng if rng > 0 else 0.0
+            elif snap["trend_1h"] == "short":
+                hi = max(highs); lo = min(lows)
+                rng = hi - lo
+                snap["pullback_depth_pct"] = (close - lo) / rng if rng > 0 else 0.0
+        except Exception: pass
 
     return snap
 
@@ -121,9 +240,21 @@ class BaseReplayStrategy(Strategy):
         self._pip = _pip_size(self._spec.symbol)
         self._signal_log: list[dict] = []
         self._trade_meta: dict[int, dict] = {}   # bar_index -> meta
-        # Per-trade feature snapshots, keyed by bar index of entry order.
-        # Joined with backtesting.py's _trades DataFrame post-run on EntryBar.
-        self._feature_log: dict = {}   # bar_index -> snapshot dict
+        # Per-trade feature snapshots, written to a per-run JSONL sidecar.
+        # Bypasses backtesting.py's instance-shuffling issues entirely.
+        import tempfile, os
+        sidecar = os.path.join(
+            tempfile.gettempdir(),
+            f"feature_log_{self._spec.symbol}_{self._spec.label or 'run'}_"
+            f"{os.getpid()}.jsonl",
+        )
+        # Clear any previous file from a prior run with same name
+        try:
+            if os.path.exists(sidecar):
+                os.remove(sidecar)
+        except Exception: pass
+        type(self)._feature_sidecar_path = sidecar
+        type(self)._feature_log = {}  # kept for back-compat
 
     def _build_ctx(self, i):
         return build_context(self._bundle, i, self._spec.symbol)
@@ -143,6 +274,13 @@ class BaseReplayStrategy(Strategy):
         return cand
 
     def _routing_ok(self, ctx, cand) -> tuple[bool, dict]:
+        # no_router-bypass-honored (Brock 2026-05-28 Phase 3): honor the
+        # spec's routing_mode BEFORE testing _routing_table. load_routing_table
+        # auto-loads the live parquet when path is None, so _routing_table is
+        # never None — the old check was dead. Probes that aren't in the slate
+        # (BR2_vcb_short, etc.) were silently routed-blocked on every emit.
+        if self._spec.routing_mode in ("no_router", "bypass"):
+            return True, {"match_kind": self._spec.routing_mode}
         if self._routing_table is None:
             return True, {"match_kind": "no_router"}
         # regime53 is exposed as a FEATURE (values dict), not classifier
@@ -232,16 +370,38 @@ class BaseReplayStrategy(Strategy):
         snap["tp_set"] = tp_price
         snap["candidate_rr"] = cand.risk_reward
         snap["candidate_score"] = cand.score
-        self._feature_log[i] = snap
-
-        # Place LIMIT order
+        type(self)._feature_log[i] = snap
+        # Also write to sidecar JSONL — primary persistence path
         try:
+            import json
+            sidecar = getattr(type(self), "_feature_sidecar_path", None)
+            if sidecar:
+                with open(sidecar, "a") as _f:
+                    _f.write(json.dumps({"bar": i, **{k: (v if not hasattr(v, 'isoformat') else v.isoformat()) for k, v in snap.items()}}, default=str) + "\n")
+        except Exception:
+            pass
+
+        # Place entry order.
+        # 2026-05-28 Brock Phase 3 fix: entry_mode="signal" was placing LIMIT
+        # at the signal price. backtesting.py rejects LIMIT SELL whose
+        # limit == current close (and LIMIT BUY at/above market), which
+        # silently dropped 100% of probes_v2 orders (entry_price == close
+        # for every emit). Match live-broker semantics: signal-mode fills at
+        # next-bar market; offset modes (pullback_*, old_stop_zone) keep
+        # LIMIT because their entry_price is intentionally offset from price.
+        try:
+            use_market = (self._spec.entry_mode == "signal")
+            _tag = f"{cand.strategy}|{info.get('match_kind','?')}|{signal_dir}->{exec_dir}|i={i}"
             if exec_dir == "long":
-                self.buy(limit=entry_price, sl=sl_price, tp=tp_price,
-                         tag=f"{cand.strategy}|{info.get('match_kind','?')}|{signal_dir}->{exec_dir}|i={i}")
+                if use_market:
+                    self.buy(sl=sl_price, tp=tp_price, tag=_tag)
+                else:
+                    self.buy(limit=entry_price, sl=sl_price, tp=tp_price, tag=_tag)
             else:
-                self.sell(limit=entry_price, sl=sl_price, tp=tp_price,
-                          tag=f"{cand.strategy}|{info.get('match_kind','?')}|{signal_dir}->{exec_dir}|i={i}")
+                if use_market:
+                    self.sell(sl=sl_price, tp=tp_price, tag=_tag)
+                else:
+                    self.sell(limit=entry_price, sl=sl_price, tp=tp_price, tag=_tag)
             self._signal_log.append({
                 "i": i, "ts": self.data.index[-1], "strategy": cand.strategy,
                 "signal_dir": signal_dir, "exec_dir": exec_dir,
@@ -477,6 +637,54 @@ class SessionMomentumFilter:
         return cand
 
 
+
+
+# ============================================================
+# 7-pip realistic-slice filter (Brock 2026-05-26 hard rule).
+# available_slice_pips = projected_tp_pips - spread - slippage
+# Reject if < min_pips (default 7).
+# ============================================================
+class SliceFloorFilter:
+    """Meta-wrapper that rejects candidates whose realistic move-to-TP
+    after costs is below min_pips."""
+
+    def __init__(self, strategy_module, min_pips: float = 7.0,
+                 slippage_pips: float = 0.5):
+        self._mod = strategy_module
+        self._min = float(min_pips)
+        self._slip = float(slippage_pips)
+        self.enabled = True
+
+    def evaluate(self, ctx):
+        try:
+            cand = self._mod.evaluate(ctx)
+        except Exception:
+            return None
+        if cand is None:
+            return None
+        try:
+            pip = 0.01 if any(j in ctx.symbol for j in ("JPY","MXN")) else 0.0001
+            # Projected TP distance in pips
+            md = cand.metadata or {}
+            projected = md.get("projected_tp_pips")
+            if projected is None:
+                # Compute from candidate entry/tp
+                projected = abs(cand.take_profit - cand.entry_price) / pip if cand.take_profit else 0
+            spread_pips = (ctx.snapshot.spread / pip) if ctx.snapshot.spread else 0.0
+            available = float(projected) - float(spread_pips) - self._slip
+            if available < self._min:
+                return None
+            # Annotate
+            cand.metadata = {**(cand.metadata or {}),
+                              "slice_projected_pips": float(projected),
+                              "slice_spread_pips": float(spread_pips),
+                              "slice_slip_pips": self._slip,
+                              "slice_available_pips": available}
+            return cand
+        except Exception:
+            return cand
+
+
 def instantiate_live_strategy(strategy_family: str):
     """Returns the live strategy MODULE instance to call inside next().
 
@@ -498,6 +706,18 @@ def instantiate_live_strategy(strategy_family: str):
         return CanonicalDarvasStrategy({})
     elif strategy_family == "probes" or strategy_family == "textbook_scalper":
         return _MultiProbeStrategy()
+    elif strategy_family == "dbb_trend":
+        from scrooge_v3.strategies.dbb_trend import DBBTrendStrategy
+        return DBBTrendStrategy({"enabled": True})
+    elif strategy_family == "reversal":
+        from scrooge_v3.strategies.reversal import ReversalStrategy
+        return ReversalStrategy({"enabled": True})
+    elif strategy_family == "trend":
+        from scrooge_v3.strategies.trend import TrendStrategy
+        return TrendStrategy({"enabled": True})
+    elif strategy_family == "direct":
+        from scrooge_v3.strategies.direct_entry import DirectEntryStrategy
+        return DirectEntryStrategy({"enabled": True})
     elif strategy_family == "ifvg":
         from scrooge_v3.strategies.research_strategies.ifvg_imbalance import IFVGStrategy
         return IFVGStrategy()
