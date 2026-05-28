@@ -40,6 +40,10 @@ import requests
 # Flat-import style for systemd drop-in launch convenience.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# 2026-05-28 (Brock): per-pair currency-module advisor — replaces
+# the old matrix-cluster advisor as the ML's knowledge library.
+from per_pair_advisor import get_advisor as get_per_pair_advisor  # noqa: E402
+
 from config import (  # noqa: E402
     V3_API_URL, V3_AUTH, OANDA_ENV_PATH,
     CYCLE_SECONDS, V3_DATA_DIR,
@@ -557,6 +561,12 @@ def run():
 
     state = ObserverState()
     state.load()
+
+    # Load the 28 per-pair currency modules as our knowledge library.
+    # This logs every loaded pair and rule count at INFO level.
+    pp_advisor = get_per_pair_advisor()
+    log.info('[OBSERVER] per-pair advisor ready (28 currency modules expected)')
+
     log.info("Resumed phase=%s scans=%d actions=%d acct=%d outcomes=%d bot_logs=%d "
              "cursor=%s last_cycle=%s",
              state.phase, state.total_scans, state.total_actions,

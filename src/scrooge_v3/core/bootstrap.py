@@ -373,13 +373,14 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         #   2. pair_filter           - does (pair, session) have any matrix data?
         #   3. matrix_combo_filter   - does (pair, family, direction, session) exist?
         #   4. matrix_signature_filter - 14-bucket winner_allow / loser_veto.
-        SessionFilterGate(gate_cfg.get("session_filter", {}), mode=GateMode.HARD),
-        PairFilterGate(gate_cfg.get("pair_filter", {}), mode=GateMode.HARD),
-        MatrixComboFilterGate(gate_cfg.get("matrix_combo_filter", {}), mode=GateMode.HARD),
-        MatrixSignatureFilterGate(gate_cfg.get("matrix_signature_filter", {}), mode=GateMode.HARD),
+        # 2026-05-28 (Brock): ML router supersedes — strategies pre-filtered by per-pair rules
+        # SessionFilterGate(gate_cfg.get("session_filter", {}), mode=GateMode.HARD),
+        # PairFilterGate(gate_cfg.get("pair_filter", {}), mode=GateMode.HARD),
+        # MatrixComboFilterGate(gate_cfg.get("matrix_combo_filter", {}), mode=GateMode.HARD),
+        # MatrixSignatureFilterGate(gate_cfg.get("matrix_signature_filter", {}), mode=GateMode.HARD),
         # Legacy monolith kept commented for one-line rollback:
         # MatrixRouterGate(gate_cfg.get("matrix_router", {}), mode=GateMode.HARD),
-        BoxV3ShadowGate(mode=GateMode.OBSERVE),
+        # BoxV3ShadowGate(mode=GateMode.OBSERVE),
     ])
 
     # 2026-05-27 (Brock): EntryFilterShadow + v9_observe routing retired.

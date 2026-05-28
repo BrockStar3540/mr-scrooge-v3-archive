@@ -29,6 +29,8 @@ from .events import (
 )
 from .registry import ModuleRegistry
 from .strategy_router import StrategyRouter
+# 2026-05-28 (Brock): ML router replaces strategy_router for allowed-set selection
+from scrooge_v3.strategies import ml_router  # noqa: E402
 from .types import (
     FeatureResult,
     MarketSnapshot,
@@ -177,7 +179,11 @@ class ScanPipeline:
         self._emit(CONTEXT_BUILT, symbol=symbol, classifications=list(ctx.classifications.keys()))
 
         # 4. Route to eligible strategies
-        allowed = self.router.get_allowed(ctx)
+        # 2026-05-28 (Brock): ML pre-router (per-pair WIN rules) replaces
+        # strategy_router. Returns set of strategy names whose rules say
+        # they can fire in the current (regime, session, bucket) state.
+        _all_strats = {e.name for e in self.registry.get_active('strategies')}
+        allowed = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
         if not allowed:
             log.debug("[SCAN] No strategies allowed for %s", symbol)
             return None
@@ -390,7 +396,11 @@ class ScanPipeline:
                 report["classifications"][entry.name] = {"label": "ERROR", "error": True}
 
         # 3. Strategy routing
-        allowed = self.router.get_allowed(ctx)
+        # 2026-05-28 (Brock): ML pre-router (per-pair WIN rules) replaces
+        # strategy_router. Returns set of strategy names whose rules say
+        # they can fire in the current (regime, session, bucket) state.
+        _all_strats = {e.name for e in self.registry.get_active('strategies')}
+        allowed = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
         report["strategy_allowed"] = allowed
         if not allowed:
             report["verdict"] = "NO_STRATEGY"
