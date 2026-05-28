@@ -56,7 +56,11 @@ from config import (  # noqa: E402
     TRADE_ASSOCIATION_WINDOW_SEC,
 )
 from features import build_scan_row, extract_features, FEATURE_NAMES  # noqa: E402
-from v3_scorer_parser import parse_v3_scorer_line  # noqa: E402
+# v3_scorer_parser archived 2026-05-28 -- bot no longer emits V3_SCORER
+# log lines, so the parser is dead. Stub returns None on every call.
+def parse_v3_scorer_line(_line):
+    return None
+
 from journal_reader import iter_journal_events  # noqa: E402
 from account_snapshot import build_snapshot  # noqa: E402
 from oanda_poll import OandaPoller, classify_fill, load_env  # noqa: E402
