@@ -188,7 +188,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("strategies", "reversal", ReversalStrategy(strat_cfg.get("reversal", {})))
     registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
     registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
-    registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
+    # 2026-05-28 (Brock): dbb_trend DISABLED with the rest of the DBB family.
+    # registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
     registry.register("strategies", "box_master_theory", BoxMasterTheoryStrategy(strat_cfg.get("box_master_theory", {})))
     # --- canonical_lien_dbb class (6-variant router-reachable module) ---
     # Registers under name="canonical_lien_dbb" matching the family name the
@@ -196,8 +197,10 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # states. Iterates DBB1/DBB2/DBB3 variants strictest-first and emits
     # candidate.strategy=variant_name so entry_filter_gate can match
     # v1.12_FULL parquet rows (strategy=DBB1_buy_zone_long etc.).
-    from scrooge_v3.strategies.canonical_lien_dbb import CanonicalLienDBBStrategy
-    registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
+    # 2026-05-28 (Brock): canonical_lien_dbb DISABLED — live: 12 trades, 2W/10L (16.7% WR), -$3,882 net.
+    # 9 of the 12 worst single-cell losers were canonical_lien_dbb. Re-enable by uncommenting.
+    # from scrooge_v3.strategies.canonical_lien_dbb import CanonicalLienDBBStrategy
+    # registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
 
     # --- canonical_darvas class (5-variant router-reachable module) ---
     from scrooge_v3.strategies.canonical_darvas import CanonicalDarvasStrategy
@@ -242,15 +245,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
              len(probe_strategies), len(enabled_names),
              ",".join(enabled_names) if enabled_names else "none")
 
-    # --- Register canonical_lien_dbb probes (disabled by default) ---
-    from scrooge_v3.strategies.canonical_lien_dbb import build_all_lien_dbb_probes
-    lien_dbb_strategies = build_all_lien_dbb_probes(probes_cfg)
-    lien_dbb_enabled = [ps.name for ps in lien_dbb_strategies if ps.enabled]
-    for ps in lien_dbb_strategies:
-        registry.register("strategies", ps.name, ps)
-    log.info("[BOOT] canonical_lien_dbb probes: registered=%d enabled=%d (%s)",
-             len(lien_dbb_strategies), len(lien_dbb_enabled),
-             ",".join(lien_dbb_enabled) if lien_dbb_enabled else "none")
+    # --- Register canonical_lien_dbb probes (DISABLED 2026-05-28) ---
+    # See note above: family lost $3,882 across 12 trades.
+    # from scrooge_v3.strategies.canonical_lien_dbb import build_all_lien_dbb_probes
+    # lien_dbb_strategies = build_all_lien_dbb_probes(probes_cfg)
+    # lien_dbb_enabled = [ps.name for ps in lien_dbb_strategies if ps.enabled]
+    # for ps in lien_dbb_strategies:
+    #     registry.register("strategies", ps.name, ps)
+    # log.info("[BOOT] canonical_lien_dbb probes: registered=%d enabled=%d (%s)",
+    #          len(lien_dbb_strategies), len(lien_dbb_enabled),
+    #          ",".join(lien_dbb_enabled) if lien_dbb_enabled else "none")
+    log.info("[BOOT] canonical_lien_dbb probes: DISABLED 2026-05-28 (live edge negative)")
 
     # --- Register textbook_scalper probes (disabled by default) ---
     from scrooge_v3.strategies.textbook_scalper import build_all_textbook_probes
