@@ -181,7 +181,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # 2026-05-27 (Brock): mtb_sub_regime classifier retired.
 
     # --- Register strategies ---
-    from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, DBBTrendStrategy, BoxMasterTheoryStrategy, V3HybridScorer
+    from scrooge_v3.strategies import ReversalStrategy, TrendStrategy, DBBTrendStrategy, BoxMasterTheoryStrategy
     from scrooge_v3.strategies.direct_entry import DirectEntryStrategy
 
     strat_cfg = config.section("strategies")
@@ -392,10 +392,19 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # 2026-05-27 (Brock): EntryFilterShadow + v9_observe routing retired.
     # MatrixRouter is the only router.
 
-    # --- Wire scorer and gate pipeline into scan pipeline ---
-    scorer = V3HybridScorer(config.section("scoring"))
+    # --- Wire gate pipeline into scan pipeline ---
+    # V3HybridScorer-disabled (Brock 2026-05-28): scorer fully removed
+    # from the live pipeline. ML routing decides admission; strategies
+    # emit their own scores; best-by-score picks the winner. The dead
+    # `if self.scorer is not None:` block in scan_pipeline stays guarded
+    # so nothing crashes if tests inject a scorer manually.
     scan_pipeline.gate_pipeline = gate_pipeline
-    scan_pipeline.scorer = scorer
+    scan_pipeline.scorer = None
+    import logging as _lg
+    _lg.getLogger("scrooge_v3.core.bootstrap").info(
+        "[BOOT] V3HybridScorer DISABLED — ML routing + strategy-native "
+        "scores only"
+    )
 
     # --- ML strategy filter (post-scorer, per-strategy XGBoost) ---
     # Off by default. Enable via config.scoring.ml_filter = {mode: "observe" | "hard"}
