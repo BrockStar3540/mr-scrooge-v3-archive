@@ -209,10 +209,67 @@ def get_allowed(symbol: str, ctx: Any) -> set[str]:
         else:
             has_unpinned_win = True
 
+    # ---------------------------------------------------------------
+    # LOSE veto (Brock 2026-05-28): walk LOSE rules for this regime.
+    # Any LOSE rule whose conditions match current state vetoes either:
+    #   - the specific strategy_id pinned in the rule, or
+    #   - ALL strategies (unpinned LOSE → "this state loses regardless")
+    # ---------------------------------------------------------------
+    vetoed_strategies: set[str] = set()
+    unpinned_lose_match = False
+    for _, r in sub.iterrows():
+        if str(r.get("rule_type", "")) != "LOSE":
+            continue
+        raw = str(r.get("raw_rule", "") or "")
+        if not raw:
+            continue
+        conds = [c.strip() for c in raw.split("AND") if "=" in c]
+        cand_map = {"session_bucket": session, **buckets}
+        ok = True
+        rule_strategy = None
+        for c in conds:
+            ax, _, bv = c.partition("=")
+            ax, bv = ax.strip(), bv.strip()
+            if ax == "strategy_id":
+                rule_strategy = bv
+            elif ax == "direction_exec":
+                continue
+            elif cand_map.get(ax) != bv:
+                ok = False
+                break
+        if not ok:
+            continue
+        # Refinement: for LOSE rules, refine_op="include" means the sharpest
+        # AVOID condition. Require the include bucket to match.
+        ref_op = str(r.get("refine_op", "") or "")
+        ref_ax = str(r.get("refine_axis", "") or "")
+        ref_b = str(r.get("refine_bucket", "") or "")
+        if ref_op == "include" and ref_ax and ref_ax not in ("strategy_id","direction_exec"):
+            if cand_map.get(ref_ax) != ref_b:
+                continue
+        if rule_strategy:
+            vetoed_strategies.add(rule_strategy)
+        else:
+            unpinned_lose_match = True
+
+    if unpinned_lose_match:
+        # An un-pinned LOSE pattern matches this state → block every strategy.
+        log.info("[ML_ROUTER] %s regime=%s session=%s LOSE veto (unpinned) → block all",
+                 symbol, regime, session)
+        return set()
+    if vetoed_strategies:
+        log.info("[ML_ROUTER] %s regime=%s session=%s LOSE veto on %d strategy/ies: %s",
+                 symbol, regime, session, len(vetoed_strategies),
+                 ",".join(sorted(vetoed_strategies)))
+        allowed_strategies -= vetoed_strategies
+        # If we had an unpinned WIN but losers veto specific strategies, the
+        # remaining "*" sentinel still needs to honor vetoes downstream — we
+        # signal this via a tuple including a "_vetoed" hint.
+        if has_unpinned_win:
+            # Re-emit the "*" sentinel; get_allowed_or_all will subtract vetoed.
+            return {"*"} | set(f"-{s}" for s in vetoed_strategies)
+
     if has_unpinned_win and not allowed_strategies:
-        # An un-pinned WIN rule matches the state -> any registered strategy
-        # whose emit fits is acceptable. Signal "allow all" by returning a
-        # sentinel; the pipeline maps this to its full active strategy set.
         return {"*"}
     return allowed_strategies
 
@@ -220,20 +277,32 @@ def get_allowed(symbol: str, ctx: Any) -> set[str]:
 def get_allowed_or_all(symbol: str, ctx: Any, all_strategies: set[str]) -> set[str]:
     """Wrapper that maps the '*' sentinel to the full active set.
 
-    Also expands family names back to the variant strategies they cover:
-    if the ML says "box_master_theory is allowed" but the bot registered
-    only the family strategy under that name (which emits MTB* variants),
-    we include the family name itself in the allowed set so it can fire.
+    Sentinels:
+      "*"       — unpinned WIN matched → allow all registered strategies.
+      "-NAME"   — pinned LOSE veto → subtract NAME (and any variant whose
+                  family maps to NAME) from the allowed set.
+    Family-mapping: include any registered strategy whose family matches an
+    allowed family name.
     """
     sel = get_allowed(symbol, ctx)
+    vetoes = {s[1:] for s in sel if isinstance(s, str) and s.startswith("-")}
+    sel = sel - {f"-{v}" for v in vetoes}
     if "*" in sel:
         sel = (sel - {"*"}) | set(all_strategies)
-    # Family-mapping: include any registered strategy whose family matches an
-    # allowed family name. Lets the family-level strategies fire even if their
-    # canonical name is also in the allowed set explicitly.
+    # Family-mapping
     expanded = set(sel)
     for s in all_strategies:
         fam = variant_to_family(s)
         if fam in sel:
             expanded.add(s)
+    # Apply vetoes — remove vetoed family names AND any variant that maps to
+    # a vetoed family.
+    if vetoes:
+        kept = set()
+        for s in expanded:
+            fam = variant_to_family(s)
+            if s in vetoes or fam in vetoes:
+                continue
+            kept.add(s)
+        expanded = kept
     return expanded
