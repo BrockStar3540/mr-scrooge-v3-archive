@@ -49,12 +49,19 @@ class ScanCoordinator:
         ctx = self.ctx
         result = ScanResult()
 
-        # Get active pairs for current session
-        from scrooge_v3.market.screener import get_session_pairs
-        pairs = get_session_pairs(now.hour)
-        if not pairs:
-            log.debug("[SCAN] No active pairs this session")
-            return result
+        # screener-disconnected (Brock 2026-05-28): ML library encodes
+        # (pair, session, regime) edge already — let ml_router decide
+        # admit, not a hardcoded hour filter. Was returning a 6-pair
+        # subset at Sydney-only hours, blocking EUR_USD/GBP_USD/USD_JPY.
+        from scrooge_v3.market.screener import CANDIDATE_PAIRS
+        pairs = list(CANDIDATE_PAIRS)
+        if not getattr(self.__class__, "_screener_disconnect_logged", False):
+            log.info(
+                "[SCAN] Session filter DISABLED — scanning all %d pairs "
+                "every cycle (ML decides admit per pair).",
+                len(pairs),
+            )
+            self.__class__._screener_disconnect_logged = True
 
         # Fetch market snapshots from broker
         snapshots = self._fetch_snapshots(pairs, now)
