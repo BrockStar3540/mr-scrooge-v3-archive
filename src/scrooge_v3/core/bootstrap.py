@@ -127,7 +127,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
 
     # --- Register features ---
     from scrooge_v3.features import (
-        ATRCalculator, BollingerCalculator, EMACalculator,
+        ATRCalculator, BollingerCalculator, EMACalculator, MatrixFeaturesCalculator,
         OverheadRatioCalculator, RSICalculator, TechnicalContextCalculator,
         TechnicalRegime53Calculator,
         TF6ShortUSDJPYObserver,
@@ -141,6 +141,10 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("features", "otr", OverheadRatioCalculator())
     registry.register("features", "ema", EMACalculator(feat_cfg.get("ema", {})))
     registry.register("features", "rsi", RSICalculator(feat_cfg.get("rsi", {})))
+    registry.register(
+        "features", "matrix_features",
+        MatrixFeaturesCalculator(feat_cfg.get("matrix_features", {})),
+    )
     registry.register("features", "volume", VolumeCalculator(feat_cfg.get("volume", {})))
     registry.register(
         "features",
@@ -274,6 +278,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.gates import (
         BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate,
         ExpiryBackoffGate, ZoneEntryCapGate, MatrixRouterGate,
+        SessionFilterGate, PairFilterGate,
+        MatrixComboFilterGate, MatrixSignatureFilterGate,
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
@@ -355,13 +361,19 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         # Observe-only shadow of frozen box v3 gate tree (from trainer repo
         # 19ada0e: docs/box_gate_tree.md + data/regimes/box_gate_v3.yaml).
         # Emits would_allow / ranking_score / tier per candidate; never rejects.
-        # 2026-05-27 (Brock): MatrixRouterGate is the single authoritative router.
-        # Loads matrix CSVs from data/lab_matrix/, consults clusters via factor
-        # predicates, folds F40 (htf20 mismatch) as universal pre-filter.
-        MatrixRouterGate(
-            gate_cfg.get("matrix_router", {}),
-            mode=GateMode.HARD,
-        ),
+        # 2026-05-28 (Brock): 4-layer matrix cascade replacing the monolith
+        # MatrixRouterGate. Each layer is its own module with its own logger
+        # so audit is one grep away. Fail-fast order: cheapest -> most expensive.
+        #   1. session_filter        - is the candidate in a known session bucket?
+        #   2. pair_filter           - does (pair, session) have any matrix data?
+        #   3. matrix_combo_filter   - does (pair, family, direction, session) exist?
+        #   4. matrix_signature_filter - 14-bucket winner_allow / loser_veto.
+        SessionFilterGate(gate_cfg.get("session_filter", {}), mode=GateMode.HARD),
+        PairFilterGate(gate_cfg.get("pair_filter", {}), mode=GateMode.HARD),
+        MatrixComboFilterGate(gate_cfg.get("matrix_combo_filter", {}), mode=GateMode.HARD),
+        MatrixSignatureFilterGate(gate_cfg.get("matrix_signature_filter", {}), mode=GateMode.HARD),
+        # Legacy monolith kept commented for one-line rollback:
+        # MatrixRouterGate(gate_cfg.get("matrix_router", {}), mode=GateMode.HARD),
         BoxV3ShadowGate(mode=GateMode.OBSERVE),
     ])
 
