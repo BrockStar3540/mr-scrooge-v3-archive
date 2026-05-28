@@ -221,7 +221,7 @@
       "neutral_pct": 0.0
     },
     "daily_circuit": {
-      "enabled": true,
+      "enabled": false,
       "mode": "observe"
     }
   },

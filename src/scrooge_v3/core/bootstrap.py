@@ -296,12 +296,22 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # drive sibling/seed mining off live blocked candidates. Brock 2026-05-18.
     seed_telemetry_ledger = SeedTelemetryLedger("data/seed-telemetry.jsonl")
     gate_pipeline = GatePipeline()
+    # daily_circuit-enabled-honored (Brock 2026-05-28): respect enabled=false
+    # in config. Previously hard-coded into register_many — observe-mode
+    # spammed FAILED lines on every scan even after Brock disabled it.
+    _dc_enabled = bool(gate_cfg.get("daily_circuit", {}).get("enabled", True))
+    if not _dc_enabled:
+        import logging as _lg
+        _lg.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] DailyCircuitGate DISABLED via config "
+            "(gates.daily_circuit.enabled=false)"
+        )
     gate_pipeline.register_many([
-        DailyCircuitGate(
+        *( [DailyCircuitGate(
             mode=GateMode.OBSERVE if (
                 gate_cfg.get("daily_circuit", {}).get("mode", "hard") == "observe"
             ) else GateMode.HARD,
-        ),
+        )] if _dc_enabled else [] ),
         CooldownGate(risk_cfg),
         DebounceGate({
             **gate_cfg.get("debounce", {}),
