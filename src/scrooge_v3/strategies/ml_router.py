@@ -35,6 +35,32 @@ import factor_buckets as fb  # type: ignore  # noqa: E402
 log = logging.getLogger("scrooge_v3.strategies.ml_router")
 
 
+# ---------------------------------------------------------------------------
+# Variant -> family name resolution
+# ---------------------------------------------------------------------------
+# Lab rules pin family names (box_master_theory, canonical_lien_dbb).
+# The bot's strategy code emits variant names (MTB2_pitchfork_long_with_wick,
+# DBB1_buy_zone_long). When the ML router looks up rules, the variant is
+# mapped to its family so the rule pinned to the family still applies.
+
+def variant_to_family(strategy_name: str) -> str:
+    if not strategy_name:
+        return strategy_name
+    s = strategy_name.lower()
+    if s.startswith("dbb1") or s.startswith("dbb2") or s.startswith("dbb3"): return "canonical_lien_dbb"
+    if s.startswith("dbb"):     return "canonical_lien_dbb"  # also dbb_trend etc.
+    if s.startswith("mtb"):     return "box_master_theory"
+    if s.startswith("drv"):     return "canonical_darvas"
+    if s.startswith("ifvg"):    return "ifvg"
+    if s.startswith("itp"):     return "trend_pullback"
+    if s.startswith("cma"):     return "chaikin_macd_atr"
+    if s.startswith("ce_"):     return "compression_expansion"
+    if s.startswith("cmr"):     return "compression_reversion"
+    if s.startswith("sb_"):     return "session_breakout"
+    if s.startswith("rg"):      return "reversal"
+    return strategy_name  # already family-level (direct, trend, reversal, etc.)
+
+
 def _extract_row_for_buckets(symbol: str, ctx: Any) -> dict:
     """Pull the 14 factor-input values from ctx.features for bucket computation."""
     feat = ctx.features or {}
@@ -192,8 +218,22 @@ def get_allowed(symbol: str, ctx: Any) -> set[str]:
 
 
 def get_allowed_or_all(symbol: str, ctx: Any, all_strategies: set[str]) -> set[str]:
-    """Wrapper that maps the '*' sentinel to the full active set."""
+    """Wrapper that maps the '*' sentinel to the full active set.
+
+    Also expands family names back to the variant strategies they cover:
+    if the ML says "box_master_theory is allowed" but the bot registered
+    only the family strategy under that name (which emits MTB* variants),
+    we include the family name itself in the allowed set so it can fire.
+    """
     sel = get_allowed(symbol, ctx)
     if "*" in sel:
         sel = (sel - {"*"}) | set(all_strategies)
-    return sel
+    # Family-mapping: include any registered strategy whose family matches an
+    # allowed family name. Lets the family-level strategies fire even if their
+    # canonical name is also in the allowed set explicitly.
+    expanded = set(sel)
+    for s in all_strategies:
+        fam = variant_to_family(s)
+        if fam in sel:
+            expanded.add(s)
+    return expanded

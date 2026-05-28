@@ -188,8 +188,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     registry.register("strategies", "reversal", ReversalStrategy(strat_cfg.get("reversal", {})))
     registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
     registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
-    # 2026-05-28 (Brock): dbb_trend DISABLED with the rest of the DBB family.
-    # registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
+    # 2026-05-28 (Brock): dbb_trend RE-ENABLED under ML router control
+    registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
     registry.register("strategies", "box_master_theory", BoxMasterTheoryStrategy(strat_cfg.get("box_master_theory", {})))
     # --- canonical_lien_dbb class (6-variant router-reachable module) ---
     # Registers under name="canonical_lien_dbb" matching the family name the
@@ -197,10 +197,10 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # states. Iterates DBB1/DBB2/DBB3 variants strictest-first and emits
     # candidate.strategy=variant_name so entry_filter_gate can match
     # v1.12_FULL parquet rows (strategy=DBB1_buy_zone_long etc.).
-    # 2026-05-28 (Brock): canonical_lien_dbb DISABLED — live: 12 trades, 2W/10L (16.7% WR), -$3,882 net.
-    # 9 of the 12 worst single-cell losers were canonical_lien_dbb. Re-enable by uncommenting.
-    # from scrooge_v3.strategies.canonical_lien_dbb import CanonicalLienDBBStrategy
-    # registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
+    # 2026-05-28 (Brock): canonical_lien_dbb RE-ENABLED — ML router pre-filters
+    # via per-pair WIN rules. Variants (DBB1/DBB2/DBB3) family-map to canonical_lien_dbb.
+    from scrooge_v3.strategies.canonical_lien_dbb import CanonicalLienDBBStrategy
+    registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
 
     # --- canonical_darvas class (5-variant router-reachable module) ---
     from scrooge_v3.strategies.canonical_darvas import CanonicalDarvasStrategy
@@ -234,16 +234,14 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
              "compression_expansion, trend_pullback, chaikin_macd_atr, compression_reversion")
 
 
-    # --- Register trainer-v2 probes as live strategies (disabled by default) ---
-    from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
+    # 2026-05-28 (Brock): probes_v2 variants DISABLED — not in lab data, no ML rules.
+    # Re-enable after Phase 3 lab run mines rules for each variant.
     probes_cfg = strat_cfg.get("probes_v2", {}) or {}
-    probe_strategies = build_all_probe_strategies(probes_cfg)
-    enabled_names = [ps.name for ps in probe_strategies if ps.enabled]
-    for ps in probe_strategies:
-        registry.register("strategies", ps.name, ps)
-    log.info("[BOOT] probes_v2: registered=%d enabled=%d (%s)",
-             len(probe_strategies), len(enabled_names),
-             ",".join(enabled_names) if enabled_names else "none")
+    # from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
+    # probe_strategies = build_all_probe_strategies(probes_cfg)
+    # for ps in probe_strategies:
+    #     registry.register("strategies", ps.name, ps)
+    log.info("[BOOT] probes_v2: DISABLED 2026-05-28 (no lab rules — pending Phase 3)")
 
     # --- Register canonical_lien_dbb probes (DISABLED 2026-05-28) ---
     # See note above: family lost $3,882 across 12 trades.
@@ -257,15 +255,13 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     #          ",".join(lien_dbb_enabled) if lien_dbb_enabled else "none")
     log.info("[BOOT] canonical_lien_dbb probes: DISABLED 2026-05-28 (live edge negative)")
 
-    # --- Register textbook_scalper probes (disabled by default) ---
-    from scrooge_v3.strategies.textbook_scalper import build_all_textbook_probes
-    textbook_strategies = build_all_textbook_probes(probes_cfg)
-    textbook_enabled = [ps.name for ps in textbook_strategies if ps.enabled]
-    for ps in textbook_strategies:
-        registry.register("strategies", ps.name, ps)
-    log.info("[BOOT] textbook_scalper probes: registered=%d enabled=%d (%s)",
-             len(textbook_strategies), len(textbook_enabled),
-             ",".join(textbook_enabled) if textbook_enabled else "none")
+    # 2026-05-28 (Brock): textbook_scalper probes DISABLED — never in lab data,
+    # no ML rules for BR2/BR3/CP/MR/RG/TF variants. Pending Phase 3 lab run.
+    # from scrooge_v3.strategies.textbook_scalper import build_all_textbook_probes
+    # textbook_strategies = build_all_textbook_probes(probes_cfg)
+    # for ps in textbook_strategies:
+    #     registry.register("strategies", ps.name, ps)
+    log.info("[BOOT] textbook_scalper probes: DISABLED 2026-05-28 (no lab rules — pending Phase 3)")
 
     # --- Build cooldown tracker (Phase 4 Signal Discipline) ---
     from scrooge_v3.risk.cooldown_tracker import CooldownTracker
