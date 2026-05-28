@@ -203,7 +203,7 @@
       "mode": "observe"
     },
     "natural_target_floor": {
-      "min_pips": 7.0,
+      "min_pips": 5.0,
       "mode": "hard"
     },
     "feature_quality_floor": {
