@@ -185,12 +185,12 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.strategies.direct_entry import DirectEntryStrategy
 
     strat_cfg = config.section("strategies")
-    # 2026-05-28 strip-all: registry.register("strategies", "reversal", ReversalStrategy(strat_cfg.get("reversal", {})))
-    # 2026-05-28 strip-all: registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
-    # 2026-05-28 strip-all: registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
+    registry.register("strategies", "reversal", ReversalStrategy(strat_cfg.get("reversal", {})))
+    registry.register("strategies", "trend", TrendStrategy(strat_cfg.get("trend", {})))
+    registry.register("strategies", "direct", DirectEntryStrategy(strat_cfg.get("direct", {})))
     # 2026-05-28 (Brock): dbb_trend RE-ENABLED under ML router control
-    # 2026-05-28 strip-all: registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
-    # 2026-05-28 strip-all: registry.register("strategies", "box_master_theory", BoxMasterTheoryStrategy(strat_cfg.get("box_master_theory", {})))
+    registry.register("strategies", "dbb_trend", DBBTrendStrategy(strat_cfg.get("dbb_trend", {})))
+    registry.register("strategies", "box_master_theory", BoxMasterTheoryStrategy(strat_cfg.get("box_master_theory", {})))
     # --- canonical_lien_dbb class (6-variant router-reachable module) ---
     # Registers under name="canonical_lien_dbb" matching the family name the
     # strategy_router allows for NORMAL/COMPRESSION/STRETCH_UP/STRETCH_DOWN
@@ -200,11 +200,11 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # 2026-05-28 (Brock): canonical_lien_dbb RE-ENABLED — ML router pre-filters
     # via per-pair WIN rules. Variants (DBB1/DBB2/DBB3) family-map to canonical_lien_dbb.
     from scrooge_v3.strategies.canonical_lien_dbb import CanonicalLienDBBStrategy
-    # 2026-05-28 strip-all: registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
+    registry.register("strategies", "canonical_lien_dbb", CanonicalLienDBBStrategy(strat_cfg.get("canonical_lien_dbb", {})))
 
     # --- canonical_darvas class (5-variant router-reachable module) ---
     from scrooge_v3.strategies.canonical_darvas import CanonicalDarvasStrategy
-    # 2026-05-28 strip-all: registry.register("strategies", "canonical_darvas", CanonicalDarvasStrategy(strat_cfg.get("canonical_darvas", {})))
+    registry.register("strategies", "canonical_darvas", CanonicalDarvasStrategy(strat_cfg.get("canonical_darvas", {})))
 
     # --- Research strategies (6 lab-validated families, 2026-05-27 promotion) ---
     # All carry _family attribute matching the lab matrix family names. The
@@ -218,18 +218,18 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.strategies.research_strategies.chaikin_macd_atr import ChaikinMACDATRStrategy
     from scrooge_v3.strategies.research_strategies.compression_mean_reversion import CompressionMeanReversionStrategy
 
-    # 2026-05-28 strip-all: registry.register("strategies", "ifvg",
-    #     IFVGStrategy(strat_cfg.get("ifvg", {"enabled": True})))
-    # 2026-05-28 strip-all: registry.register("strategies", "session_breakout",
-    #     SessionBreakoutStrategy(strat_cfg.get("session_breakout", {"enabled": True})))
-    # 2026-05-28 strip-all: registry.register("strategies", "compression_expansion",
-    #     CompressionExpansionStrategy(strat_cfg.get("compression_expansion", {"enabled": True})))
-    # 2026-05-28 strip-all: registry.register("strategies", "trend_pullback",
-    #     IntradayTrendPullbackStrategy(strat_cfg.get("trend_pullback", {"enabled": True})))
-    # 2026-05-28 strip-all: registry.register("strategies", "chaikin_macd_atr",
-    #     ChaikinMACDATRStrategy(strat_cfg.get("chaikin_macd_atr", {"enabled": True})))
-    # 2026-05-28 strip-all: registry.register("strategies", "compression_reversion",
-    #     CompressionMeanReversionStrategy(strat_cfg.get("compression_reversion", {"enabled": True})))
+    registry.register("strategies", "ifvg",
+        IFVGStrategy(strat_cfg.get("ifvg", {"enabled": True})))
+    registry.register("strategies", "session_breakout",
+        SessionBreakoutStrategy(strat_cfg.get("session_breakout", {"enabled": True})))
+    registry.register("strategies", "compression_expansion",
+        CompressionExpansionStrategy(strat_cfg.get("compression_expansion", {"enabled": True})))
+    registry.register("strategies", "trend_pullback",
+        IntradayTrendPullbackStrategy(strat_cfg.get("trend_pullback", {"enabled": True})))
+    registry.register("strategies", "chaikin_macd_atr",
+        ChaikinMACDATRStrategy(strat_cfg.get("chaikin_macd_atr", {"enabled": True})))
+    registry.register("strategies", "compression_reversion",
+        CompressionMeanReversionStrategy(strat_cfg.get("compression_reversion", {"enabled": True})))
     log.info("[BOOT] Research strategies registered: ifvg, session_breakout, "
              "compression_expansion, trend_pullback, chaikin_macd_atr, compression_reversion")
 
