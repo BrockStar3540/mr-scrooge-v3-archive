@@ -99,3 +99,23 @@ data/v10_fast_alerts_state.json
 data/v10_fast_monitor_report.json
 data/dbb-candidate-audit.jsonl
 data/ml-observer-archive-*/
+
+# --- 2026-05-29 cleanup: rewrite-era backups, runtime logs, dupe lab artifacts ---
+# Manual pre-edit code snapshots (recoverable from git history)
+*.pre_*
+*.legacy_*
+*.lose_veto_*
+# LightGBM / ml_router live shadow logs (runtime data, EC2 only)
+data/lightgbm_shadow.jsonl
+data/ml_router_shadow.jsonl
+# Replay-lab regenerable artifacts (originals on Mini Alien Drive)
+research/replay_lab/cache/
+research/replay_lab/results/
+# Lab training per-pair corpus (archived to Alien Drive 2026-05-29, md5-verified)
+data/lab_training/per_pair/
+data/lab_training/per_pair_lab.tar.gz
+# Lab matrix dumps (matrix retired 2026-05-28; copies in Alien archived_matrix)
+data/lab_matrix/*_v3.csv
+data/lab_matrix/decision_forest.json.gz
+data/lab_matrix/winner_loser_formulas.csv
+data/lab_matrix/winner_loser_formulas.csv.gz
