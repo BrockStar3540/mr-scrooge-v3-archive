@@ -145,3 +145,46 @@ def observe(symbol: str, ctx, best, all_candidates: list | None = None) -> None:
 
 def is_loaded() -> bool:
     return _MODEL is not None
+
+
+# ---------------------------------------------------------------------
+# Live gate API (added 2026-05-28: LightGBM promoted to primary)
+# ---------------------------------------------------------------------
+import os
+
+THRESHOLD: float = float(os.environ.get("LIGHTGBM_GATE_THRESHOLD", "0.55"))
+"""p_win below this drops the candidate. 0.55 = 'top-25% lab cohort'."""
+
+
+def predict_p_win(symbol: str, ctx, candidate) -> float | None:
+    """Score a candidate. Returns p_win in [0,1] or None if model not loaded
+    or features unavailable. Caller decides whether to gate."""
+    if _MODEL is None or _META is None:
+        return None
+    try:
+        buckets = _extract_buckets(ctx)
+        if buckets is None:
+            return None
+        from scrooge_v3.strategies import ml_router
+        session = ml_router._session(ctx) or "unknown"
+        direction = (candidate.direction.value
+                     if hasattr(candidate.direction, "value")
+                     else str(candidate.direction))
+        row = {
+            "pair":           symbol,
+            "strategy_id":    candidate.strategy,
+            "direction_exec": direction,
+            "session_bucket": session,
+            **buckets,
+        }
+        import pandas as pd
+        feat_order = _META["feature_order"]
+        df = pd.DataFrame([[row.get(c, "NA") for c in feat_order]], columns=feat_order)
+        cat_levels = _META["categorical_levels"]
+        for col in feat_order:
+            df[col] = df[col].astype(str).astype("category")
+            df[col] = df[col].cat.set_categories(cat_levels.get(col, []))
+        return float(_MODEL.predict(df)[0])
+    except Exception as e:
+        log.debug("[SHADOW] predict_p_win failed: %s", e)
+        return None

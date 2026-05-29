@@ -416,7 +416,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.advisors import lightgbm_shadow as _shadow
     if _shadow.load():
         _lg.getLogger("scrooge_v3.core.bootstrap").info(
-            "[BOOT] LightGBM shadow scorer ENABLED (observe-only)"
+            "[BOOT] LightGBM PRIMARY GATE enabled (threshold=%.2f) — ml_router demoted to shadow",
+            _shadow.THRESHOLD,
         )
     else:
         _lg.getLogger("scrooge_v3.core.bootstrap").info(

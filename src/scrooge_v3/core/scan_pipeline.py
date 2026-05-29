@@ -184,7 +184,39 @@ class ScanPipeline:
         # strategy_router. Returns set of strategy names whose rules say
         # they can fire in the current (regime, session, bucket) state.
         _all_strats = {e.name for e in self.registry.get_active('strategies')}
-        allowed = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
+        # 2026-05-28: ml_router demoted to shadow — LightGBM gates instead.
+
+        _ml_router_verdict = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
+
+        allowed = _all_strats  # ml_router_shadow_logged: bypass admit filter
+
+        try:
+
+            import json as _json, time as _time
+
+            from pathlib import Path as _Path
+
+            _p = _Path('/home/ubuntu/mr-scrooge-v3/data/ml_router_shadow.jsonl')
+
+            _p.parent.mkdir(parents=True, exist_ok=True)
+
+            with _p.open('a') as _f:
+
+                _f.write(_json.dumps({
+
+                    'ts': _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime()),
+
+                    'symbol': symbol,
+
+                    'ml_router_admit': sorted(list(_ml_router_verdict)),
+
+                    'n_all_strats': len(_all_strats),
+
+                }) + '\n')
+
+        except Exception:
+
+            pass
         if not allowed:
             log.debug("[SCAN] No strategies allowed for %s", symbol)
             return None
@@ -334,7 +366,39 @@ class ScanPipeline:
         # strategy_router. Returns set of strategy names whose rules say
         # they can fire in the current (regime, session, bucket) state.
         _all_strats = {e.name for e in self.registry.get_active('strategies')}
-        allowed = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
+        # 2026-05-28: ml_router demoted to shadow — LightGBM gates instead.
+
+        _ml_router_verdict = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
+
+        allowed = _all_strats  # ml_router_shadow_logged: bypass admit filter
+
+        try:
+
+            import json as _json, time as _time
+
+            from pathlib import Path as _Path
+
+            _p = _Path('/home/ubuntu/mr-scrooge-v3/data/ml_router_shadow.jsonl')
+
+            _p.parent.mkdir(parents=True, exist_ok=True)
+
+            with _p.open('a') as _f:
+
+                _f.write(_json.dumps({
+
+                    'ts': _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime()),
+
+                    'symbol': symbol,
+
+                    'ml_router_admit': sorted(list(_ml_router_verdict)),
+
+                    'n_all_strats': len(_all_strats),
+
+                }) + '\n')
+
+        except Exception:
+
+            pass
         report["strategy_allowed"] = allowed
         if not allowed:
             report["verdict"] = "NO_STRATEGY"

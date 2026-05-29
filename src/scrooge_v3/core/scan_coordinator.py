@@ -91,6 +91,50 @@ class ScanCoordinator:
         )
         result.reports = reports
 
+        # ----- LightGBM primary gate (lightgbm_gate_live) -----
+        # Brock 2026-05-28: LightGBM scores every gate-approved candidate;
+        # drop those below p_win threshold; re-sort surviving candidates by
+        # p_win so candidates[0] is the highest-confidence pick.
+        try:
+            from scrooge_v3.advisors import lightgbm_shadow as _lgbm
+            from scrooge_v3.core.types import SymbolContext, FeatureResult
+            _scored = []
+            for _c in candidates:
+                _rep = next((r for r in reports if r.get("symbol") == _c.symbol), None)
+                if _rep is None:
+                    continue
+                _ctx = SymbolContext(
+                    symbol=_c.symbol,
+                    snapshot=snapshots.get(_c.symbol),
+                    features={
+                        k: FeatureResult(name=k, values=v if isinstance(v, dict) else {})
+                        for k, v in _rep.get("features", {}).items()
+                    },
+                    state={"session_bucket": _rep.get("classifications", {})
+                              .get("session_bucket", {}).get("label", "unknown")},
+                )
+                _pw = _lgbm.predict_p_win(_c.symbol, _ctx, _c)
+                if _pw is None:
+                    # Couldn't score — skip rather than admit blind.
+                    log.info("[LIGHTGBM] UNSCORABLE %s %s — dropped",
+                             _c.symbol, _c.strategy)
+                    continue
+                _c.metadata["lightgbm_p_win"] = round(_pw, 4)
+                _c.metadata["pre_lgbm_score"] = float(_c.score)
+                if _pw < _lgbm.THRESHOLD:
+                    log.info("[LIGHTGBM] BLOCKED %s %s p_win=%.3f<%.2f",
+                             _c.symbol, _c.strategy, _pw, _lgbm.THRESHOLD)
+                    continue
+                log.info("[LIGHTGBM] PASS    %s %s p_win=%.3f",
+                         _c.symbol, _c.strategy, _pw)
+                _c.score = float(_pw)  # rank downstream by p_win
+                _scored.append(_c)
+            # Re-rank survivors by p_win descending
+            _scored.sort(key=lambda c: c.score, reverse=True)
+            candidates = _scored
+        except Exception:
+            log.exception("[LIGHTGBM] live gate failed — falling back to score ranking")
+
         # Filter out symbols we already have a position in or pending entry for
         held_symbols = {pos.symbol for pos in ctx.tracker.all_positions()}
         pending_symbols = set(ctx.tracker.all_pending_entries().keys())
