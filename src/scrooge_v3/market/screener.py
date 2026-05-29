@@ -94,26 +94,6 @@ def get_active_sessions(utc_hour: int) -> list[dict[str, Any]]:
     return active
 
 
-def get_session_pairs(utc_hour: int, mode: str = "standard") -> list[str]:
-    """Return all pairs for currently active sessions.
-
-    V3: no probation filtering. The V3 scorer evaluates every pair
-    on 43 factors — pair quality is scored, not categorized.
-    """
-    active_sessions = get_active_sessions(utc_hour)
-    if not active_sessions:
-        return list(CANDIDATE_PAIRS)
-
-    seen: set[str] = set()
-    pairs: list[str] = []
-    for session in active_sessions:
-        for p in session["pairs"]:
-            if p not in seen:
-                seen.add(p)
-                pairs.append(p)
-
-    return pairs
-
 
 def is_weekend() -> bool:
     """Return True if forex market is closed (Saturday/Sunday UTC)."""

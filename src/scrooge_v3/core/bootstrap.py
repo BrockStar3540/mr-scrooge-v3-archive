@@ -513,9 +513,12 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     tracker = PositionTracker(persist_path=Path("data/positions.json"))
     tracker.restore()
 
-    # --- Universe screener ---
-    from scrooge_v3.market.screener import get_session_pairs
-    screener = get_session_pairs
+    # --- Universe screener disconnected 2026-05-28: see archived/screener_session_filter_2026-05-28/ ---
+    # Stub: pass-through that returns full universe so any leftover ctx.screener
+    # callers get all 26 pairs instead of None.
+    from scrooge_v3.market.screener import CANDIDATE_PAIRS as _CANDIDATE_PAIRS
+    def screener(_hour=None, _mode="standard"):
+        return list(_CANDIDATE_PAIRS)
 
     # --- Load instruments ---
     instruments = broker.get_instruments()
