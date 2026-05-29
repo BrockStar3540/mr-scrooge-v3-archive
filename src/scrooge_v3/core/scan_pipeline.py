@@ -274,13 +274,6 @@ class ScanPipeline:
             symbol, best.strategy, best.score,
             best.metadata.get("v3_tier", "?"), best.risk_reward,
         )
-        # LightGBM shadow scorer (Brock 2026-05-28): observe-only logging
-        # of P(win) for the selected candidate. Never blocks, never alters
-        # routing. Reads `data/lightgbm_shadow.jsonl` for offline eval.
-        try:
-            lightgbm_shadow.observe(symbol, ctx, best, all_candidates=approved)
-        except Exception:
-            pass
         return best
 
     def scan_symbol_full(

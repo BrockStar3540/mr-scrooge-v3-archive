@@ -54,6 +54,7 @@ class ScanCoordinator:
         # admit, not a hardcoded hour filter. Was returning a 6-pair
         # subset at Sydney-only hours, blocking EUR_USD/GBP_USD/USD_JPY.
         from scrooge_v3.market.screener import CANDIDATE_PAIRS
+        from scrooge_v3.advisors import lightgbm_shadow
         pairs = list(CANDIDATE_PAIRS)
         if not getattr(self.__class__, "_screener_disconnect_logged", False):
             log.info(
@@ -156,6 +157,30 @@ class ScanCoordinator:
         best = candidates[0]
         log.info("[SCAN] Best candidate: %s %s score=%.0f",
                  best.symbol, best.strategy, best.score)
+
+        # LightGBM shadow scorer (Brock 2026-05-28): observe-only P(win)
+        # logging for the selected candidate. Look up the pair's report
+        # to recover ctx-derived buckets via ml_router. Never blocks.
+        try:
+            best_report = next((r for r in reports if r.get("symbol") == best.symbol), None)
+            if best_report is not None:
+                # Reconstruct minimal ctx from report — ml_router._compute_buckets
+                # works off feature values which are in the report.
+                from scrooge_v3.core.types import SymbolContext, FeatureResult
+                ctx_for_shadow = SymbolContext(
+                    symbol=best.symbol,
+                    snapshot=snapshots.get(best.symbol),
+                    features={
+                        k: FeatureResult(name=k, values=v if isinstance(v, dict) else {})
+                        for k, v in best_report.get("features", {}).items()
+                    },
+                    state={"session_bucket": best_report.get("classifications", {})
+                              .get("session_bucket", {}).get("label", "unknown")},
+                )
+                lightgbm_shadow.observe(best.symbol, ctx_for_shadow, best,
+                                         all_candidates=candidates)
+        except Exception:
+            log.debug("[SHADOW] observe failed", exc_info=True)
 
         # Spread quality gate: skip entry if spread is elevated vs rolling mean
         spread_stats = ctx.spread_monitor.get_stats(best.symbol)

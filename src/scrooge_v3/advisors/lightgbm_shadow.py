@@ -75,10 +75,10 @@ def _extract_buckets(ctx) -> dict | None:
     """
     try:
         from scrooge_v3.strategies import ml_router  # type: ignore
-        row = ml_router._extract_row_for_buckets(ctx)
+        row = ml_router._extract_row_for_buckets(getattr(ctx, "symbol", ""), ctx)
         if row is None:
             return None
-        return ml_router._compute_buckets(row)
+        return ml_router._compute_buckets(getattr(ctx, "symbol", ""), row)
     except Exception as e:
         log.debug("[SHADOW] bucket extract failed: %s", e)
         return None

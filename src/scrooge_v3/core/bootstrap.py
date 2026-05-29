@@ -306,6 +306,13 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
             "[BOOT] DailyCircuitGate DISABLED via config "
             "(gates.daily_circuit.enabled=false)"
         )
+    _ntf_enabled = bool(gate_cfg.get("natural_target_floor", {}).get("enabled", True))
+    if not _ntf_enabled:
+        import logging as _lg2
+        _lg2.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] NaturalTargetFloorGate DISABLED via config "
+            "(gates.natural_target_floor.enabled=false) — ML rules carry the quality bar"
+        )
     gate_pipeline.register_many([
         *( [DailyCircuitGate(
             mode=GateMode.OBSERVE if (
@@ -321,19 +328,18 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         ExpiryBackoffGate({
             "zone_bucket_pips": risk_cfg.get("zone_bucket_pips", 20),
         }),
-        # 2026-05-27 (Brock): RegimeFloorGate retired -> MatrixRouterGate
-        # Natural-target floor (Brock 2026-05-25): reject candidates whose
-        # strategy's projected TP target is below the minimum scalp size.
-        # Reads metadata["projected_tp_pips"] — emitted by canonical_lien_dbb
-        # and box_master_theory. Strategies without the metadata pass through.
-        NaturalTargetFloorGate(
+        # natural_target_floor-enabled-honored (Brock 2026-05-28): respect
+        # enabled=false in config. ML rules now carry the quality bar; lab
+        # trades the floor was designed to filter are already encoded in
+        # the WIN/LOSE patterns. Config-flippable for revival.
+        *( [NaturalTargetFloorGate(
             (gate_cfg.get("natural_target_floor", {}) if gate_cfg else {}),
             mode=_resolve_gate_mode(
                 gate_cfg.get("natural_target_floor") if gate_cfg else None,
                 default="hard",
                 gate_name="natural_target_floor",
             ),
-        ),
+        )] if bool(gate_cfg.get("natural_target_floor", {}).get("enabled", True)) else [] ),
         # Feature-quality floor (Brock 2026-05-25): block when EMA / RSI /
         # zone_detector return degraded defaults due to insufficient bars.
         FeatureQualityFloorGate(

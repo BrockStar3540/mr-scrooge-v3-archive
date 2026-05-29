@@ -204,7 +204,8 @@
     },
     "natural_target_floor": {
       "min_pips": 5.0,
-      "mode": "hard"
+      "mode": "hard",
+      "enabled": false
     },
     "feature_quality_floor": {
       "mode": "hard",
