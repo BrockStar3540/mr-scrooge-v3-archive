@@ -1,3 +1,23 @@
+> **DEPRECATED 2026-05-30.** This doc analyzed 49 V2-practice trades
+> (March–April 2026). It is preserved here for historical interest only.
+>
+> The findings have been superseded by lab matrix mining over 838k trades
+> across 26 pairs × 13 strategies × 2 directions × 5 sessions. Every
+> "Proposed Change" in the gate-calibration tables below references gates
+> that have since been retired (see ADRs 3008, 3017).
+>
+> **For current truth:**
+> - Live admission stack — `docs/LIVE_SYSTEM_SPEC.md`
+> - Canonical theory — `docs/MASTER_THEORY.md`
+> - Architectural decision history — `docs/decisions/`
+> - LightGBM PRIMARY GATE @ 0.75 (ADR 3017) is the current edge call,
+>   not the V3.0 hybrid scorer this doc was calibrating against.
+>
+> Do NOT promote any "Proposed Change" from this doc into live config
+> without re-validation against the current 838k-trade corpus.
+
+---
+
 # Trade Recipe — What Makes a Good Trade
 
 > **NOTE:** This analysis used V2 PRACTICE data only (49 trades). A subsequent

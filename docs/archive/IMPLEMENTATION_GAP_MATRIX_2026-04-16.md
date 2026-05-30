@@ -1,3 +1,20 @@
+> **ARCHIVED 2026-05-30.** This doc tracked doctrine-vs-code gaps as of
+> 2026-04-16. Every entry below references either:
+> (a) a gate that has since been retired (see ADRs 3008, 3017),
+> (b) a strategy router architecture that no longer exists, or
+> (c) a known bug that has since been fixed (the "Dashboard candidate truth"
+>     gap was B-079, closed by Patch C / commit 64410a3 on 2026-05-27).
+>
+> The "doctrine says X vs code does Y" framing was useful when the V3.0
+> doctrine doc was authoritative. With `docs/LIVE_SYSTEM_SPEC.md` as the
+> executable truth and `docs/decisions/` as the rationale layer, this
+> matrix is redundant and would be more confusing to maintain than not.
+>
+> Not replaced. Read `LIVE_SYSTEM_SPEC.md` to know what the system does;
+> read the ADRs to know why.
+
+---
+
 # Implementation Gap Matrix
 
 > Tracks what doctrine/docs claim vs what code actually does.
