@@ -1,3 +1,15 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Consolidation
+> of factor-and-strategy findings from 99-trade corpus (V1 + V2-practice,
+> dated 2026-04-15). Recommendations target the V3.1 hybrid scorer
+> (disabled 2026-05-28).
+> 
+> Preserved for the historical reasoning trail. Per Brock's direction
+> 2026-05-30: "forget the small docs with the few trades; let's stay
+> on the matrix and pair modules." For current truth see
+> `docs/RESEARCH_METHODOLOGY.md` (V4) and `data/per_pair_modules/`.
+
+---
+
 # Master Findings — Every Metric, Every Discovery, One Place
 
 > Consolidated from ALL analyses run on 2026-04-15.

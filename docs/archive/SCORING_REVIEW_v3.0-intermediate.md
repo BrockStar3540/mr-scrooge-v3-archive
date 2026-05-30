@@ -1,3 +1,13 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Intermediate
+> analysis comparing V3.0 scoring vs the trade-recipe data. Targeted
+> the V3.0/V3.1 hybrid scorer which has been disabled (ADR 3017,
+> 2026-05-28) in favor of LightGBM v0 primary gate.
+> 
+> Preserved for the scorer-evolution lineage. For current truth see
+> `docs/LIVE_SYSTEM_SPEC.md` (V4).
+
+---
+
 # Scoring System Review — Recipe vs Current Points
 
 > **SUPERSEDED** by `docs/SCORING_V3_LIVE.md` and `docs/MASTER_FINDINGS.md`.

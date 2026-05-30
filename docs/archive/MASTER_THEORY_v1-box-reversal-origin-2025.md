@@ -1,3 +1,20 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. The Box Reversal
+> master theory was V1's guiding doctrine (Feb 2026) and remained
+> canonical through V3 (Apr 2026). At V4, Box reversal becomes ONE
+> of ~25 strategies in `STRATEGY_ENCYCLOPEDIA.md`, no longer privileged.
+> 
+> This document is preserved verbatim as the historical record of the
+> original guiding theory. Its evergreen content (zone structure, sweep
+> logic, BB exhaustion gates, sucker-move taxonomy) is being integrated
+> into the `box_master_theory` entry of the V4 Strategy Encyclopedia.
+> 
+> For current canonical truth see:
+> - `docs/LIVE_SYSTEM_SPEC.md` — what the bot actually does
+> - `docs/STRATEGY_ENCYCLOPEDIA.md` (V4) — all strategies including Box
+> - `docs/decisions/1001-box-reversal-core-philosophy.md` (ADR)
+
+---
+
 # Master Theory — V3
 
 ## Box Theory + Liquidity Behavior + Modular Execution Framework

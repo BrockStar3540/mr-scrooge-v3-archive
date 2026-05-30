@@ -1,3 +1,14 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Reconstructed
+> the foundational Bollinger Band strategy rulebook from source
+> transcripts (V2 era). Superseded by the 25-strategy framework where
+> DBB-derived logic is encoded in `dbb_trend`, `canonical_lien_dbb`,
+> and several DBB sub-variants per the V4 Strategy Encyclopedia.
+> 
+> Preserved for teaching-lineage reference. For current truth see
+> `docs/STRATEGY_ENCYCLOPEDIA.md` (V4) and `docs/decisions/`.
+
+---
+
 # Consolidated Trading Rulebook from Both Transcript Sets
 
 This document merges the two transcript sets into one structured rulebook, highlights inconsistencies, and places **all double Bollinger Band advice in one dedicated section**.

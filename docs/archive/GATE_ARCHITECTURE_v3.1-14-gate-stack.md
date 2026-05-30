@@ -1,3 +1,14 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Described
+> the V3.1 14-gate admission pipeline + V3HybridScorer. Both
+> retired 2026-05-27/28 (ADRs 3008, 3017). The V4 system runs
+> 7 physical-state gates plus MatrixRouter + LightGBM primary gate.
+> 
+> For current truth see `docs/LIVE_SYSTEM_SPEC.md` (V4) section
+> "Gate Pipeline — actual current state" and
+> `docs/ARCHITECTURE_DIAGRAM.md` admission stack diagram.
+
+---
+
 # V3 Gate Architecture — How Regime, Gates, and Scorer Work Together
 
 > Three layers, three jobs, zero overlap.

@@ -1,3 +1,16 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Source-truth
+> reconstruction of the Doug/Sylvia sweep-reversal teaching that
+> informed V2-era development. Ground truth for the reversal
+> philosophy lineage that became `box_master_theory` and
+> `reversal` family strategies.
+> 
+> Preserved for teaching-lineage reference. At V4, sweep-reversal
+> is one philosophical thread among many encoded in the
+> `STRATEGY_ENCYCLOPEDIA.md` taxonomy. For current truth see
+> the V4 encyclopedia plus `docs/decisions/1001-box-reversal-core-philosophy.md`.
+
+---
+
 # MASTER THEORY — Liquidity Sweep Reversal Framework
 
 ## Source Material

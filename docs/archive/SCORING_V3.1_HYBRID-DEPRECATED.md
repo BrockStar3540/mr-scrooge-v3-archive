@@ -1,3 +1,14 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Documented
+> the V3.1 hybrid scorer that was the live admission gate through
+> April-May 2026. Disabled 2026-05-28 (ADR 3017) when LightGBM v0
+> was promoted to PRIMARY GATE at threshold 0.75.
+> 
+> Preserved as the definitive historical record of the V3.1
+> hybrid scoring system. For current truth see
+> `docs/LIVE_SYSTEM_SPEC.md` (V4) admission stack section.
+
+---
+
 # V3 Scoring System — Live Implementation Guide
 
 > **WARNING: LEGACY SCORE SCALE.** The thresholds and magnitudes described below

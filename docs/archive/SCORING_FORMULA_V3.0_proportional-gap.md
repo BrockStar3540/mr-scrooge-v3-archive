@@ -1,3 +1,15 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. The V3.0
+> proportional-gap scoring formula. Self-flagged superseded by
+> SCORING_V3_LIVE.md (V3.1 hybrid), itself now superseded by
+> LightGBM v0 primary gate (ADR 3017, 2026-05-28). Two generations
+> out of date.
+> 
+> Preserved for the scorer-evolution lineage. For current truth see
+> `docs/LIVE_SYSTEM_SPEC.md` (V4) admission stack +
+> `data/lgbm_v0/` for the live scorer.
+
+---
+
 # Scoring Formula V3 — Complete Specification
 
 > **SUPERSEDED** by `docs/SCORING_V3_LIVE.md` which contains the WR-Lift Hybrid

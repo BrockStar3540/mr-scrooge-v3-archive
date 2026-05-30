@@ -1,3 +1,16 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Per-factor WR
+> + delta analysis from 99 trades (50 V1 + 49 V2-practice, dated
+> 2026-04-15). The scoring weights derived here informed V3.0/V3.1
+> hybrid scorer — both subsequently disabled (ADR 3017, 2026-05-28)
+> in favor of LightGBM v0 trained on the 838k-trade lab corpus.
+> 
+> Sample size is two orders of magnitude smaller than the current corpus.
+> Preserved for historical-factor-discovery reference; do NOT promote
+> its conclusions into live config. For current truth see
+> `docs/RESEARCH_METHODOLOGY.md` (V4) and `data/matrix/`.
+
+---
+
 # Factor Bible — Complete Findings for Every Metric
 
 > Source: 50 V1 LIVE trades + 49 V2 practice trades, all from raw OANDA candle data.
