@@ -496,3 +496,61 @@ When `using_alternative=True`, signal engine trades alt-box PDH/PDL but regime s
 ### Source
 
 [[scrooge-box-bugs-and-validation-targets]] — forensic detail + validation-target winning days.
+
+
+## Era 5 — Matrix integration & ML routing (May 2026)
+
+### B-075 — Stale harvest LIMITs survive parent close → fire as naked positions (2026-04-28 → 2026-04-30)
+
+Track 1 management failure audit surfaced harvest LIMITs that survived after their parent position closed, then fired as naked positions on the next price spike. Two failure modes:
+1. Harvest ledger (`harvest-order-ledger.json`) had the orphan but the cancel-on-parent-close hook didn't fire.
+2. Broker had pending harvest LIMITs that weren't in the ledger at all (placed in same scan cycle as a reconcile pass that consumed an older parent-side snapshot).
+
+- **Affected:** Trade 4146 (orphan-harvest parent_vanished diagnosis #27) plus unknown earlier extent.
+- **Fix:** Two-pass safety (ADR 3003). Pass 1 commit `4ad40b3` (2026-04-29): GTD on harvest LIMITs + ledger + cancel hooks. Pass 2 commit `143247d` (2026-04-30): orphan sweep walks broker pending orders directly. 9 regression tests.
+- **Contaminated window:** unknown earlier extent through 2026-04-30. **Conservative: any harvest-fired trade where parent isn't traceable in ledger is suspect through 2026-04-30.**
+
+### B-076 — `reconcile_pending_orders` same-cycle false `broker_side_gone` cancels (2026-04-30)
+
+When an order was placed and `reconcile_pending_orders` ran in the same scan cycle, the broker-side snapshot used for the orphan check had been captured before the placement landed. Result: legitimate just-placed orders got tagged `broker_side_gone` and cancelled.
+
+- **Affected:** ~hours of false cancels surrounding the harvest hotfix deploy 2026-04-29.
+- **Fix:** Option B (ADR 3004) commit `373085e` + merge `4008e6c`. Same-cycle placements now union-merged into `pending_on_broker` before the orphan check. 3 regression tests.
+- **Contaminated window:** 2026-04-29 evening → 2026-04-30 fix deploy. False-cancel rate confirmed dropped to 0 over next 48h.
+
+### B-077 — Ratchet 0.7 experiment cost −$245/trade (2026-04-29 → 2026-04-30)
+
+Single-line config experiment: `ratchet_lock_pct: 0.5 → 0.7`. After 27 trades the combined P&L was −$245/trade worse than the 0.5 control. Statistical floor for a real experiment hadn't been hit, but the loss magnitude warranted preemptive rollback.
+
+- **Affected:** 27 trades 2026-04-29 → 2026-04-30.
+- **Fix:** Rollback (ADR 3004) commit `73be822` — `ratchet_lock_pct` reverted to 0.5.
+- **Contaminated window:** 2026-04-29 ratchet-0.7 deploy → 2026-04-30 rollback. Approximately −$6,615 cumulative attributable to the experiment over the 27 trades.
+- **Note:** Not a bug per se — controlled experiment with early stop. Catalogued because the cohort is contaminated for backtest purposes and "ratchet 0.7" is a closed-off direction.
+
+### B-078 — Attribution lost via 800-line scan-log window (2026-04-28 → 2026-05-04)
+
+30%+ of journal events had `strategy=unknown`. Two root causes:
+1. `AuditEvent` schema was missing `strategy` field — attribution inferred at journal-write time by scanning back through scoring logs.
+2. Scan-lookup window was only the last 800 log lines (~60 seconds of activity), so any candidate scored more than ~60s before order fill lost its attribution.
+
+Downstream impact: broker-truth audits, ML observer training, and per-strategy WR breakdowns all unreliable.
+
+- **Affected:** ~30%+ of all live trades pre-2026-05-04 fix; specifically masked the per-strategy WR breakdown for the 48h losing-streak diagnosis.
+- **Fix:** Two-patch architecture (ADR 3006). Patch A commit `492a999` — add `strategy` field to AuditEvent. Patch B.right commit `73f1e41` — `OrderAttributionWriter` + `lookup_attribution(order_id)` + `attribution_source` field tracking.
+- **Contaminated window:** all live trades pre-2026-05-04. **Backtest filter: pre-2026-05-04 strategy attribution is unreliable; broker-truth audits before that date should treat `strategy=unknown` rows as un-attributable.**
+
+### B-079 — Scan-dashboard JSON stripping blinded ML observer + broker attribution (2026-05-27)
+
+After Patches A + B.right (ADR 3006), a subtle leak remained: the scan dashboard endpoint was stripping the `candidate` field from its JSON output. ML observer + broker attribution both relied on reading this field from the dashboard JSON. Result: post-Patch-B.right attribution still showed gaps that looked like Patch B.right was incomplete.
+
+Diagnosis took weeks because Patches A + B.right *were* working correctly; the missing data was at a different layer.
+
+- **Affected:** ML observer + broker attribution 2026-05-04 → 2026-05-27.
+- **Fix:** B-1 Patch C commit `64410a3` (2026-05-27) — dashboard JSON includes candidate field.
+- **Contaminated window:** 2026-05-04 (Patch B.right deploy) → 2026-05-27 (Patch C deploy). **Backtest filter: ML observer training set from this window has missing-attribution holes that aren't reflected in attribution_source = field_native counts.**
+
+## Source
+
+[[scrooge-v3-attribution-brokertruth-factors]] — full B-1 arc.
+[[scrooge-v3-harvest-same-cycle-race]] — B-076 + B-077 detail.
+[[scrooge-v3-stale-harvest-hotfix]] — B-075 detail.

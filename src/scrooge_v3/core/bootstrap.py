@@ -423,6 +423,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         _lg.getLogger("scrooge_v3.core.bootstrap").info(
             "[BOOT] LightGBM shadow scorer not loaded (no model file)"
         )
+    # Matrix shadow advisor (Brock 2026-05-29): parallel cross-validation
+    # against LightGBM. Loads optimized_matrix + factor_lift_table. Observe-only.
+    from scrooge_v3.advisors import matrix_shadow as _matrix
+    if _matrix.load():
+        _lg.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] Matrix shadow advisor ENABLED — logging to data/matrix_shadow.jsonl"
+        )
+    else:
+        _lg.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] Matrix shadow advisor not loaded (no matrix files)"
+        )
 
     # --- ML strategy filter (post-scorer, per-strategy XGBoost) ---
     # Off by default. Enable via config.scoring.ml_filter = {mode: "observe" | "hard"}

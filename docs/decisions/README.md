@@ -109,4 +109,22 @@ Don't write one for:
 | [2002](2002-dual-loop-architecture.md) | Dual-loop architecture (5min + 3sec) | Accepted | 2026-04-03 |
 | [2003](2003-v3-scoring-system.md) | V3 Scoring System (WR-Lift Hybrid) | Accepted (superseded primary role by 3001) | 2026-04-15 |
 | [3001](3001-regime-aware-not-global-score.md) | Regime-aware not global score | Accepted | 2026-04-15 |
+| [3002](3002-branch-scorer-research-arc.md) | Branch scorer research arc — direct-only shadow scorer prototype | Accepted | 2026-04-29 |
+| [3003](3003-harvest-orphan-two-pass-safety.md) | Stale-harvest LIMIT two-pass orphan safety | Accepted | 2026-04-29 |
+| [3004](3004-harvest-same-cycle-race-and-ratchet-rollback.md) | Harvest same-cycle race fix + ratchet 0.7 → 0.5 rollback | Accepted | 2026-04-30 |
+| [3005](3005-track-a-threshold-held-at-055.md) | LightGBM threshold held at 0.55 (Track A) | Superseded by 3017 | 2026-05-04 |
+| [3006](3006-b1-attribution-architecture.md) | B-1 attribution architecture — OrderAttributionWriter + lookup | Accepted | 2026-05-04 |
+| [3007](3007-drawdown-alerting-telegram-timer.md) | Telegram drawdown alerting via 5-min systemd timer | Accepted | 2026-05-04 |
+| [3008](3008-matrix-router-replaces-regime-and-routing-stack.md) | MatrixRouter replaces regime + routing-table gate stack | Superseded by 3017 + 3019 | 2026-05-14 |
+| [3009](3009-ml-observer-learns-cluster-serials.md) | ML observer learns cluster serials, not regime labels | Accepted | 2026-05-18 |
+| [3010](3010-factor-buckets-v3-expansion.md) | factor_buckets v3 — expand RSI / BBP / ZS / ADR resolution | Accepted | 2026-05-22 |
+| [3011](3011-decision-forest-per-combo-and-global.md) | Decision forest — per-combo + global trees | Accepted | 2026-05-23 |
+| [3012](3012-matrix-router-loser-veto.md) | MatrixRouter loser-veto policy | Superseded by 3019 | 2026-05-25 |
+| [3013](3013-natural-target-floor-and-feature-quality-floor.md) | NaturalTargetFloorGate + FeatureQualityFloorGate | Partially deprecated (NaturalTargetFloor disabled 2026-05-28) | 2026-05-25 |
+| [3014](3014-entry-filter-family-loose-override-off.md) | EntryFilter.enable_family_loose_override default OFF | Accepted (gate retired with 3008) | 2026-05-25 |
+| [3015](3015-htf-trend-filter-observe-to-hard.md) | HTF trend filter — observe → HARD | Superseded by 3008 (MatrixRouter) | 2026-05-27 |
+| [3016](3016-six-strategy-promotion-and-routing-v1-14b.md) | 6-strategy promotion + routing_table v1.14b | Accepted | 2026-05-27 |
+| [3017](3017-v3-hybrid-scorer-disabled-lightgbm-primary.md) | V3HybridScorer DISABLED + LightGBM v0 PRIMARY GATE @ 0.75 | Accepted | 2026-05-28 |
+| [3018](3018-daily-circuit-gate-config-disabled.md) | DailyCircuitGate config-disabled — alerting carries the safety | Accepted | 2026-05-28 |
+| [3019](3019-matrix-wiring-as-shadow-advisor.md) | Matrix wired as shadow advisor (not gate) alongside LightGBM | Accepted | 2026-05-29 |
 

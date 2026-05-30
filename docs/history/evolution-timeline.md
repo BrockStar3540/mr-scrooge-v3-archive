@@ -300,3 +300,139 @@ For a future evolution video, these are the highest-narrative pivots:
 - GitHub: `BrockStar3540/mr-scrooge-v3` — V3 active development
 - Dropbox: `/Users/brock-mini-mac/Dropbox/SCROOGE V3/archives/mr-scrooge-v1/` — local working copy
 - mr-scrooge-v3 repo: `docs/decisions/` — ADRs (1001+ V1, 2001+ V2, 3001+ V3)
+
+---
+
+# Era 5 — Matrix integration & ML routing (2026-05-11 → 2026-05-30)
+
+The arc that took V3 from a 14-gate hand-tuned admission stack to a
+lab-mined ML-routed system. Three months of mining produced an 838k-trade
+corpus; the May 11 → May 30 window is when that mining finally became
+the live admission signal instead of an offline reference.
+
+## Why this era happened
+
+By early May the gate pipeline had accumulated 14 gates encoding overlapping
+slices of the same per-(pair × family × direction × session) decision. Each
+gate had its own bucketing, its own log format, its own audit trail. A
+single candidate could be evaluated against the same factual question 4× under
+4 different rule sets, with diverging verdicts.
+
+Meanwhile the matrix-mined optimized cells + factor lift tables encoded all
+of that decision-making in one place, learned from the corpus, with per-cell
+explainability. The matrix was sitting offline being correct; the gates were
+in production being approximately correct in seven different ways.
+
+The May 11 → May 30 arc is the collapse of that duplication into a single
+routing-table + LightGBM gate, with the raw matrix wired in alongside as a
+shadow advisor for cross-validation.
+
+## Chapter 1 — The losing streak and the diagnostic arc (April 28 → May 4)
+
+A 48h losing streak (16 trades, 6.2% WR, 11/11 long disasters into JPY
+downtrend, −$5,350 total) forced a stop-the-bleeding investigation. The
+arc:
+
+- **2026-04-28** — Initial diagnosis (#17). Found per-strategy ML observer
+  edge varied wildly — `dbb_trend` had AUC 0.774 / 71.8% WR at p≥0.5, but
+  `direct` was near-noise.
+- **2026-04-29 → 04-30** — Two infrastructure hotfixes shipped in
+  parallel: stale-harvest LIMIT two-pass orphan safety (ADR 3003), harvest
+  same-cycle race fix + ratchet 0.7 → 0.5 rollback (ADR 3004). Neither
+  addressed the streak directly; both removed compounding failure modes
+  that had been masking the upstream signal issue.
+- **2026-05-04** — Three-front coordinated work: branch-scorer research
+  arc opened (ADR 3002), B-1 attribution architecture diagnosed and
+  Patches A + B.right shipped (ADR 3006), Telegram drawdown alerter went
+  live (ADR 3007). 60d broker-truth pull surfaced 152 trades / 39.6% WR /
+  −$30,958. 47-factor audit found 15 factor sign-flips between DBB and
+  Direct — concrete evidence that branched scoring was the right
+  direction.
+- **Decision:** Hold LightGBM at threshold 0.55 (Track A; ADR 3005)
+  pending matrix integration. Don't tighten until we can measure properly.
+
+## Chapter 2 — MatrixRouter and the cell-level architecture (May 11 → May 25)
+
+By May 11 the matrix was mature enough to replace the gate stack. The
+two-week arc:
+
+- **2026-05-14** — MatrixRouter architecture decision (ADR 3008): one gate
+  reads one parquet table, encoding what 7 gates had encoded separately.
+- **2026-05-18** — ML observer retrained on cluster serials, not regime
+  labels (ADR 3009). Cluster serials are the matrix's primary key;
+  regime labels were a derived view.
+- **2026-05-22** — `factor_buckets v3` (ADR 3010): RSI 4→8, BBP 4→7,
+  ZS 4→7, ADR 4→6 buckets, driven by neighbor-WR validation.
+- **2026-05-23** — Decision forest built (ADR 3011): per-combo + global
+  trees on top of factor_lift, capturing pairwise interactions.
+- **2026-05-25** — Three same-day cleanups: loser-veto policy upgrade for
+  MatrixRouter (ADR 3012), two new quality gates (ADR 3013), and
+  EntryFilter.enable_family_loose_override default flipped OFF (ADR 3014).
+
+## Chapter 3 — The collapse to ML routing (May 27 → May 29)
+
+Three days of structural work that effectively redefined the system:
+
+- **2026-05-27** — Strategy promotion day (ADR 3016):
+  - HTF gate promoted observe → HARD (ADR 3015), then retired same day in
+    favor of MatrixRouter cell-level enforcement.
+  - 6 research strategies promoted to live (ifvg, session_breakout,
+    compression_expansion, trend_pullback, chaikin_macd_atr,
+    compression_reversion).
+  - New routing table `v10_fast_v1_14b_full_matrix.parquet`: 1737 rows,
+    250 leaves.
+  - B-1 Patch C (commit 64410a3) fixed scan-dashboard JSON-stripping
+    that was blinding the ML observer + broker attribution — the third
+    attribution patch in a month.
+- **2026-05-28** — V3HybridScorer disabled (ADR 3017). LightGBM v0
+  promoted to PRIMARY GATE at threshold 0.75. ml_router demoted to
+  shadow. DailyCircuitGate config-disabled (ADR 3018). 4-layer matrix
+  cascade and monolith MatrixRouterGate commented out — "ML router
+  supersedes — strategies pre-filtered by per-pair rules."
+- **2026-05-29** — Matrix wired as shadow advisor (ADR 3019). Raw matrix
+  CSVs (`optimized_matrix_by_session.csv`, `factor_lift_table.csv`)
+  loaded at boot; `matrix_shadow.observe()` fires alongside
+  `lightgbm_shadow.observe()` on every picked candidate. Three parallel
+  observers: LightGBM (gate), matrix shadow, ml_router shadow.
+
+## What the system looks like at end of era
+
+See `LIVE_SYSTEM_SPEC.md` (2026-05-30 rev) for the executable truth.
+Headline shifts from the V3.1 doctrine:
+
+| V3.1 (April spec) | V3 May 30 |
+|---|---|
+| 14 gates | 7 active gates (5 retired, 6 commented out) |
+| V3HybridScorer = primary edge call | V3HybridScorer DISABLED |
+| Session × family threshold tiering | LightGBM v0 @ 0.75 = primary gate |
+| BB-state → strategy routing | routing_table_v10_fast_v1_14b parquet (1737 rows) |
+| 3 active strategies | 13 registered, 7+ actively routed |
+| 1 audit JSONL (execution-audit) | 7 JSONLs incl. 3 parallel ML observer streams |
+
+## Pivots worth video-series treatment (additions to the Era 4 list)
+
+8. **The $5,350 losing streak (April 28 → May 4)** — 48h, 16 trades, 6.2%
+   WR, 11/11 long disasters into JPY downtrend; the diagnostic arc that
+   pulled out B-1 attribution, harvest race, ratchet rollback, drawdown
+   alerter, and the matrix integration thesis in a single coordinated
+   response.
+9. **MatrixRouter collapse (May 14 → May 28)** — 14 gates to 7, the
+   moment the matrix mining became the live admission decision instead
+   of an offline reference. Two weeks; 7 retirements, 4 commented out,
+   the V3 scorer disabled at the end.
+10. **LightGBM PRIMARY GATE (May 28)** — single config commit ending a
+    year of hand-tuned scoring. Threshold 0.75 = top ~3% of lab cohort
+    = ~75% sim WR.
+
+## Cross-references
+
+- ADRs 3002 through 3019 — full decision trail for this era
+- `LIVE_SYSTEM_SPEC.md` — current executable truth (2026-05-30 rev)
+- `matrix-integration-era-may-2026.md` (this directory) — focused arc retrospective
+- Vault project pages:
+  - `wiki/projects/scrooge-v3-attribution-brokertruth-factors.md`
+  - `wiki/projects/scrooge-v3-branch-scorer-research.md`
+  - `wiki/projects/scrooge-v3-dbb-loser-audit.md`
+  - `wiki/projects/scrooge-v3-harvest-same-cycle-race.md`
+  - `wiki/projects/scrooge-v3-stale-harvest-hotfix.md`
+  - `wiki/postmortems/fixes/scrooge-v3-strategy-promotion-2026-05-27.md`

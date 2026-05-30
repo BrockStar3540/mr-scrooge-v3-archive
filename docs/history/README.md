@@ -23,6 +23,7 @@ This directory is re-mirrored on demand, not auto-synced.
 | `backtest-sampling-proposal.md` | How to slice the v2 corpus output by era / regime / config. Priorities 1-7 (6-7 added 2026-05-11). |
 | `box-bugs-and-validation-targets.md` | 7 box-drawing bugs forensic + 3 validation-target winning days for any backtest. |
 | `v1-exec-summary-feb-2026.md` | Verbatim Feb 26 2026 doctrine document (recovered from Desktop trash) |
+| `matrix-integration-era-may-2026.md` | Focused retrospective on the May 2026 collapse to ML routing — companion to `evolution-timeline.md` Era 5. |
 
 ## Source files in the Claude-sessions archive
 
