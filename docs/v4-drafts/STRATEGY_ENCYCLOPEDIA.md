@@ -407,6 +407,18 @@ the breakout-flavored `dbb_trend`.
 
 **Probe code reference.** `src/scrooge/strategies/canonical_lien_dbb.py`
 
+**Entry conditions — long (all must hold):**
+- Prior 3 bars (excluding current) had a high above the upper Bollinger band (`upper_a`, 2σ) — i.e., the 2σ band was tagged or broken
+- Current `bb_position` is in `(0.5, 1.0)` — price has pulled back from upper extreme but holds above the midline
+- Current bar is a **bullish bar** (continuation candle)
+- `RSI14 < 68` — not overbought
+
+**Entry conditions — short (mirror):**
+- Prior 3 bars had a low below the lower Bollinger band (`lower_a`, 2σ)
+- `bb_position` in `(0.0, 0.5)` — pulled back from lower extreme, still below midline
+- Current bar is **bearish**
+- `RSI14 > 32` — not oversold
+
 **Stop / TP geometry + management profile.**
 - Stop: prior swing low (long) / high (short) + small buffer
 - TP: variable; matrix-cell driven
@@ -453,6 +465,19 @@ direction is breakout (not reversal).
 
 **Probe code reference.** `src/scrooge/strategies/canonical_darvas.py`
 
+**Entry conditions (all must hold):**
+- 40+ M5 bars available; ATR(14) + EMA50 features present
+- A Darvas box exists for the configured `hold` window (e.g., 7-bar, 12-bar)
+  - Long: box `top` = local high; box `bottom` = matching low established later
+  - Short: mirror (box bottom established first)
+- Box is fresh: `(current_bar_idx − box_set_idx) ≤ max_stale_bars`
+- Box height ≥ `max(min_box_pips × pip, min_box_atr × ATR14)` — meaningful range, not micro-noise
+- Trend filter (if enabled per variant): long requires `close > EMA50`, short requires `close < EMA50`
+- **Breakout trigger:**
+  - Long: `current_close > box_top + (entry_buffer_atr × ATR14)` AND `prev_close ≤ box_top + buffer` (just-now break)
+  - Short: mirror with box_bottom
+- `risk_reward ≥ min_rr` (typically 1.2)
+
 **Stop / TP geometry + management profile.**
 - Stop: opposite edge of the box
 - TP: box-height projection beyond the breakout
@@ -487,6 +512,18 @@ same way" version of trend-follow — sacrifices entry frequency for
 confluence-driven WR.
 
 **Probe code reference.** `src/scrooge/strategies/chaikin_macd_atr.py`
+
+**Entry conditions (all must hold):**
+- 27+ M5 bars (MACD's binding requirement); plus volume column present
+- **Chaikin Money Flow bias (CMF):** computed over `cmf_window` (default 20)
+  - Long requires `CMF > 0` (accumulation)
+  - Short requires `CMF < 0` (distribution)
+  - `CMF == 0` → no signal
+- **MACD trigger (12/26/9):** cross of MACD line over signal line
+  - Long requires bullish cross: `(MACD − Signal)` flipped from `≤ 0` to `> 0` on the current bar
+  - Short requires bearish cross: flipped from `≥ 0` to `< 0`
+- Signal alignment: long needs `CMF > 0 AND bullish_cross`; short needs `CMF < 0 AND bearish_cross`
+- ATR(14) computable and positive (used for stop/TP geometry)
 
 **Stop / TP geometry + management profile.**
 - Stop: ATR-based (1.5 × ATR_5m typical)
@@ -531,6 +568,17 @@ downward expansion. The "squeeze + release" classic, refined with
 ATR-relative thresholds for compression detection.
 
 **Probe code reference.** `src/scrooge/strategies/compression_expansion.py`
+
+**Entry conditions (all must hold):**
+- Sufficient bars for `bb_period + compression_window` (default 20 + ~20)
+- **Compression detection** — per bar in the rolling window, compute composite compression score:
+  - `score = mean(1 − percentile_rank(bb_width), 1 − percentile_rank(ATR_proxy), 1 − percentile_rank(bar_range))` — higher = more compressed
+  - Require ≥ **60%** of the prior `compression_lookback` bars (excluding current) to score ≥ `compression_percentile` threshold
+- **Expansion trigger:** current bar's range ≥ `expansion_mult × median(prior expansion_lookback ranges)` (typical mult ≈ 1.5)
+- **Directional alignment:**
+  - Long requires `cur_close > cur_open AND cur_close > prev_close` (bullish body + above prior close)
+  - Short requires mirror
+- Compression envelope (high/low of compressed bars) is well-defined (height > 0)
 
 **Stop / TP geometry + management profile.**
 - Stop: BB midline (target-side stop — gives room for the expansion)
@@ -578,6 +626,33 @@ in the trend's direction on resumption signal. The "buy the dip
 in an uptrend" textbook trade, formalized.
 
 **Probe code reference.** `src/scrooge/strategies/trend_pullback.py`
+
+**Entry conditions (all must hold):**
+- M5 + Daily candles available; M5 needs `swing_lookback + 2` bars
+- **HTF bias from daily closes:** `bias_delta_pips = (d_now − d_then) / pip` over `bias_lookback_d` days; require `|bias_delta_pips| ≥ bias_min_pips` (flat = no trade)
+- Direction set by bias sign (long if positive, short if negative)
+- **Retest level** chosen as the nearest of:
+  - H1 EMA20 (from `ctx.features['ema'].values['ema20']` or computed from H1 closes)
+  - Recent swing extreme (`min` of last N M5 lows for long, `max` of N highs for short)
+  - M5 EMA20 (fallback)
+- `|current_close − retest_level| / pip ≤ retest_tolerance_pips` — price IS at the retest level
+- **Rejection-candle trigger:**
+  - Long: `lower_wick / bar_range > wick_frac_min` AND bullish body (`close > open`)
+  - Short: `upper_wick / bar_range > wick_frac_min` AND bearish body
+- `reward / risk ≥ min_rr` (typical 1.5+)
+
+**Entry conditions (all must hold):**
+- `bb_state ∈ {STRETCH_UP, STRETCH_DOWN}` — the BB classifier sees the band stretched (precondition; class is filtered out otherwise)
+- 22+ M5 bars available
+- **Direction:** `STRETCH_UP → LONG`, `STRETCH_DOWN → SHORT`
+- **Proximity to SMA20:**
+  - `proximity_pct = |close − SMA20| / SMA20 ≤ sma_proximity_pct` (default 0.0015) — OR
+  - `proximity_atr = |close − SMA20| / ATR_5m ≤ 0.3`
+- **Bounce confirmation:**
+  - Long: `close > open` (bullish body) AND `close ≤ SMA20 × (1 + max_pct × 2)` (not extended)
+  - Short: mirror
+- **2-candle confirmation:** prior bar also passes the same proximity + body-alignment checks
+- **Spread sanity:** if session range half-box is known, `spread / range_half ≤ 0.30`
 
 **Stop / TP geometry + management profile.**
 - Stop: prior swing extreme (last pullback low/high)
@@ -627,6 +702,28 @@ a more sophisticated framework eventually.
 
 **Probe code reference.** `src/scrooge/strategies/ifvg.py`
 
+**Entry conditions (all must hold) — 4-pass detection logic:**
+
+**Pass 1 — Detect Fair Value Gaps** in the lookback window (default 40 bars):
+- Bullish FVG at bar `i`: `high[i−2] < low[i]` AND `gap = low[i] − high[i−2] ≥ min_gap_pips × pip`
+- Bearish FVG at bar `i`: `low[i−2] > high[i]` AND gap meets minimum
+
+**Pass 2 — Flip FVG → IFVG** when invalidated:
+- A bullish FVG becomes a **short IFVG** when a later bar's close prints below the gap's lower edge
+- A bearish FVG becomes a **long IFVG** when a later bar's close prints above the gap's upper edge
+- The inverting bar is the "inversion candle"
+
+**Pass 3 — Filter to still-active IFVGs:**
+- A short IFVG dies if a later close prints above its upper edge (re-violation)
+- A long IFVG dies if a later close prints below its lower edge
+- Only zones that survived re-violation are admissible
+
+**Pass 4 — Recent retest:**
+- A bar in the last `retest_bars` window has touched a still-active zone (i.e., its `[low, high]` intersects the zone)
+- Most recently inverted zone is preferred (freshest signal)
+
+Direction comes from the active zone's IFVG direction (the flipped side of the original gap).
+
 **Stop / TP geometry + management profile.**
 - Stop: opposite side of the gap
 - TP: mean of the gap (filling) + extension to next swing
@@ -672,6 +769,22 @@ range, SHORT on close below. Session-anchored timing is the key
 ingredient.
 
 **Probe code reference.** `src/scrooge/strategies/session_breakout.py`
+
+**Entry conditions (all must hold):**
+- Current `session_bucket` ∈ `_ELIGIBLE_SESSIONS` (Tokyo open / London open / NY open — configurable)
+- Opening Range (OR) is COMPLETE: `now ≥ or_end` (default ~30min into session)
+- Still inside entry window: `now ≤ sess_end`
+- `≥ min_or_bars` bars in the OR window + ≥ 2 post-OR bars
+- OR `high = max(or_window_highs)`, `low = min(or_window_lows)`, range > 0
+- **Direction trigger** (one-sided break + retest):
+
+  **LONG:**
+  - `max(post_OR_highs) > OR_high` AND `min(post_OR_lows) ≥ OR_low` (clean upward break)
+  - Either: current bar low touched OR_high (±retest buffer) AND current close > OR_low — direct retest
+  - OR: recent pullback in last 4 post-OR bars touched OR_high AND current close > OR_high — pullback-and-reclaim
+
+  **SHORT (mirror):**
+  - Clean downward break + retest of OR_low (or pullback-and-reclaim below)
 
 **Stop / TP geometry + management profile.**
 - Stop: opposite side of opening range
@@ -767,6 +880,26 @@ The HTF-aligned subset of breakouts — sacrifices fire rate for
 WR + directional confidence.
 
 **Probe code reference.** `src/scrooge/strategies/trend_aligned_breakout.py`
+
+**Entry conditions (rules NOT in scrooge_v3/strategies/*.py):**
+
+`trend_aligned_breakout` is **not a standalone strategy module** in the
+codebase — it's a matrix-mined category surfaced via the
+`optimized_matrix_by_session.csv` `strategy` column. Cells in this
+category are admitted via the routing table when a breakout-flavored
+candidate happens to fire AND its 14-bucket signature falls into a
+historically-validated HTF-aligned cell.
+
+In other words: the "trigger rules" here are **emergent** from the
+combination of (any breakout probe firing) + (HTF-alignment cell match
+in the routing table). The 20/27 pair coverage + 60-cell short-side
+asymmetry noted in this entry come from matrix mining, not from
+explicit probe code.
+
+To make this a first-class strategy in V4, a `trend_aligned_breakout.py`
+probe module would need to be authored that pre-checks the HTF
+alignment internally rather than relying on the routing table to catch
+it post-hoc.
 
 **Stop / TP geometry + management profile.**
 - Stop: structural breakout-base
@@ -1093,6 +1226,338 @@ enabling.
 
 ---
 
+---
+
+# textbook_scalper family entries (20 variants)
+
+These probes live in `src/scrooge/strategies/textbook_scalper.py` —
+parametric scalping probes derived from common technical-analysis
+patterns. All default DISABLED via `config.strategies.textbook_scalper.*`.
+Phase 3 sweep tested all 22 variants (including TF4_sar_long + RG2_range_support_bounce_long
+documented above) — Phase 3 numbers fill in the "Lab-measured behavior" once Task #41
+module rebuild lands.
+
+---
+
+## TF2_pullback_EMA20_long
+
+**Family routing:** direct (trend-follow pullback to EMA20, long-only)
+
+**Entry conditions (all must hold):**
+- `close > EMA20` (price above EMA20 — long side of trend)
+- `(close − EMA20) / pip ≤ 0.4 × ATR_pips` (within 0.4 ATR of EMA20 — pullback proximity)
+- `40 ≤ RSI14 ≤ 65` (moderate, not extreme)
+- Current bar is **bullish** (resumption signal)
+
+**Stop / TP geometry:**
+- Stop: `min(last 5 lows)`
+- TP: 1.5 R
+
+**Notable behavior.** Phase 3 sweep: 80,061 trades, 61% raw WR (cross-calibrated
+against TraderDale 48% raw / 60% +VWAP article and TradePro 60-63% YouTube setup).
+Forensic 2026-05-30 confirmed real edge — the lab's $126M compound-growth PnL is
+$50k seed × 6mo compounding at ~70% WR (not artifact). **Wrong-direction probe** in
+the bearish 6mo corpus regime: reversed direction (short same signals) wins
+70-74% WR with +3-4pp lift from 200 EMA filter. Reframed correctly as
+"trade in direction of regime trend," not as "flip the probe."
+
+---
+
+## TF2_pullback_EMA20_short
+
+**Family routing:** direct (mirror of TF2_long)
+
+**Entry conditions (all must hold):**
+- `close < EMA20`
+- `(EMA20 − close) / pip ≤ 0.4 × ATR_pips`
+- `40 ≤ RSI14 ≤ 65` (same mid-range)
+- Current bar is **bearish**
+
+**Stop / TP geometry:** stop at `max(last 5 highs)`, TP 1.5 R.
+
+---
+
+## BR2_vcb_long
+
+**Family routing:** direct (Volume Compression Breakout, long)
+
+**Entry conditions (all must hold):**
+- `bb_position ≥ 0.80` (price pushing into upper half — expansion phase)
+- `50 ≤ RSI14 ≤ 78` (momentum present, not extreme)
+- `close > max(prior 5 closes)` (breakout bar — close above prior 5-bar high close)
+- Current bar is **bullish**
+
+**Stop / TP geometry:** stop at `min(last 5 lows)`, TP 1.5 R.
+
+**Phase 3:** $4.9M PnL, ~62% WR, 27/27 pair coverage. Strong winner.
+
+---
+
+## BR2_vcb_short
+
+**Family routing:** direct (mirror of BR2_long)
+
+**Entry conditions:** `bb_position ≤ 0.20`, `22 ≤ RSI14 ≤ 50`, `close < min(prior 5 closes)`, bearish bar.
+
+**Stop / TP geometry:** stop at `max(last 5 highs)`, TP 1.5 R.
+
+**Phase 3:** ~62% WR, 27/27 pair coverage.
+
+---
+
+## BR3_inside_bar_long
+
+**Family routing:** direct (3-bar inside-bar breakout, long)
+
+**Entry conditions (all must hold):**
+- 3-bar inside-bar pattern: `inside_hi ≤ mother_hi AND inside_lo ≥ mother_lo` (bar −2 is contained inside bar −3)
+- `close > mother_hi` (current closes above the inside-bar mother's high)
+- `close > EMA20` (trend filter)
+- `RSI14 ≥ 52` (momentum)
+- Current bar is **bullish**
+
+**Stop / TP geometry:** stop at `min(mother_lo, inside_lo)`, TP 1.5 R.
+
+**Phase 3:** Net-negative variant — flagged as drop candidate. Inside-bar break
++ trend filter combo didn't show edge in the 6mo corpus.
+
+---
+
+## BR3_inside_bar_short
+
+**Family routing:** direct (mirror of BR3_long)
+
+**Entry conditions:** same inside-bar pattern, but `close < mother_lo`, `close < EMA20`, `RSI14 ≤ 48`, bearish bar.
+
+**Stop / TP geometry:** stop at `max(mother_hi, inside_hi)`, TP 1.5 R.
+
+**Phase 3:** Net-negative. Drop candidate alongside BR3_long.
+
+---
+
+## BR5_opening_range_breakout_long
+
+**Family routing:** direct (20-bar high break, long)
+
+**Entry conditions (all must hold):**
+- `high > max(prior 20 highs, excluding current + previous)` — true breakout above the rolling 20-bar window
+- Current bar is **bullish**
+- `RSI14 ≥ 50` (above neutral)
+
+**Stop / TP geometry:** stop at `min(last 5 lows)`, TP 1.5 R.
+
+**Phase 3:** Strong winner alongside BR2_vcb_short, ~$4.5M PnL.
+
+---
+
+## BR5_opening_range_breakout_short
+
+**Family routing:** direct (mirror)
+
+**Entry conditions:** `low < min(prior 20 lows excl current+prev)`, bearish bar, `RSI14 ≤ 50`.
+
+**Stop / TP geometry:** stop at `max(last 5 highs)`, TP 1.5 R.
+
+---
+
+## CP1_coil_breakout_long
+
+**Family routing:** direct (coil breakout, long)
+
+**Entry conditions (all must hold):**
+- `BB_compress` (if present) `≤ 0.95` — compressed BB state
+- Coil window: 5-bar `coil_hi = max(prior 5 highs)`, `coil_lo = min(prior 5 lows)`
+- Coil range in ATR units: `(coil_hi − coil_lo) / (ATR_pips × pip) ≤ 1.25` (tight coil, not just any range)
+- `close > coil_hi` (breakout above coil)
+- `close > EMA20` (trend filter)
+- `RSI14 ≥ 53` (momentum)
+- Current bar is **bullish**
+
+**Stop / TP geometry:** stop at `coil_lo`, TP 1.5 R.
+
+**Phase 3:** Top winner — $7.3M PnL, 67% pair breadth (18/27 positive).
+
+---
+
+## CP1_coil_breakout_short
+
+**Family routing:** direct (mirror)
+
+**Entry conditions:** `BB_compress ≤ 0.95`, coil range tight, `close < coil_lo`, `close < EMA20`, `RSI14 ≤ 47`, bearish bar.
+
+**Stop / TP geometry:** stop at `coil_hi`, TP 1.5 R.
+
+---
+
+## CP2_squeeze_momentum_long
+
+**Family routing:** direct (squeeze-then-momentum continuation, long-only)
+
+**Entry conditions (all must hold):**
+- `BB_compress ≤ 0.92` (real squeeze, tighter than CP1's 0.95)
+- `ADX14 ≥ 18` if available (broader tape carrying)
+- `close_pos ≥ 0.58` if available (closed in upper portion of bar)
+- 8-bar coil range in pips ≤ `max(ATR_pips × 1.05, 6.0)` — meaningfully tight
+- `close > coil_hi` (break above)
+- `close > EMA20` (trend filter)
+- `56 ≤ RSI14 ≤ 78` (momentum, not exhausted)
+- **3-bar expanding closes:** `close > close[-2] AND close[-2] > close[-3]` (not a one-bar poke)
+- Current bar is **bullish**
+
+**Stop / TP geometry:** stop at `coil_lo`, TP 1.5 R.
+
+**Phase 3:** Strong winner — $3.8M PnL, ~62% WR, 16/27 pair breadth.
+
+---
+
+## CP3_vol_coil_fade_long
+
+**Family routing:** reversal (fade the extension at lower band after compression)
+
+**Entry conditions (all must hold):**
+- `bb_position ≤ 0.12` (extreme lower band tag — oversold spike)
+- `RSI14 ≤ 35` (oversold confirmation)
+- `close > close[-2]` (current closes higher than previous — turn-off-lows)
+- Current bar is **bullish** (reversal confirmation)
+
+**Stop / TP geometry:** stop at `min(last 3 lows)`, TP 2.0 R.
+
+**Notable.** **Wrong-direction probe** in 6mo corpus (Phase 3 finding):
+reversed (= short same signals) wins 24-26/27 pairs. The fade thesis is
+correct as a setup detector but the regime continued the extension rather
+than reverting in this window.
+
+---
+
+## CP3_vol_coil_fade_short
+
+**Family routing:** reversal (mirror)
+
+**Entry conditions:** `bb_position ≥ 0.88`, `RSI14 ≥ 65`, `close < close[-2]`, bearish bar.
+
+**Stop / TP geometry:** stop at `max(last 3 highs)`, TP 2.0 R.
+
+**Notable.** Same wrong-direction pattern as CP3_long.
+
+---
+
+## MR2_bb_reversion_short
+
+**Family routing:** reversal (Bollinger mean-reversion, short-only)
+
+**Entry conditions (all must hold):**
+- `z_score ≥ 1.2` if available (statistical stretch — fallback to `bb_position ≥ 0.82`)
+- `bb_position ≥ 0.78` (upper rail)
+- `RSI14 ≥ 58`
+- `BB_compress ≤ 1.15` if available (not in extreme expansion)
+- `close < close[-2]` (turn-off-highs)
+- Current bar is **bearish**
+
+**Stop / TP geometry:** stop at `max(last 4 highs)`, TP 2.0 R.
+
+**Notable.** **Wrong-direction probe** (Phase 3): reversed (long) wins
+22-27/27 pairs. Bearish corpus continued the upper-band push rather than
+reverting.
+
+---
+
+## MR4_zscore_extreme_long
+
+**Family routing:** reversal (z-score extreme reversion, long)
+
+**Entry conditions (all must hold):**
+- `z_score ≤ −1.8` (statistical stretch downward)
+- `bb_position ≤ 0.12` (lower band)
+- `RSI14 ≤ 36`
+- `close > close[-2]` (turn-off-lows)
+- Current bar is **bullish**
+
+**Stop / TP geometry:** stop at `min(last 4 lows)`, TP 2.0 R.
+
+**Notable.** **Wrong-direction probe** in 6mo corpus.
+
+---
+
+## MR4_zscore_extreme_short
+
+**Family routing:** reversal (mirror)
+
+**Entry conditions:** `z_score ≥ 1.8`, `bb_position ≥ 0.88`, `RSI14 ≥ 64`, `close < close[-2]`, bearish bar.
+
+**Stop / TP geometry:** stop at `max(last 4 highs)`, TP 2.0 R.
+
+**Notable.** Phase 3 weakest wrong-direction case — only 21/27 pairs prefer
+reversed (vs 23-27/27 for the others in the family). 5 dissenting pairs
+suggest the z-score-extreme thesis is closer to neutral than the BB-position
+or Williams %R variants.
+
+---
+
+## MR5_williams_extreme_long
+
+**Family routing:** reversal (Williams %R extreme — RSI14 proxy)
+
+**Entry conditions (all must hold):**
+- `RSI14 ≤ 22` (extreme low — Williams %R equivalent)
+- `close > close[-2]` (turn-off-lows)
+- Current bar is **bullish**
+
+**Stop / TP geometry:** stop at `min(last 3 lows)`, TP 2.0 R.
+
+**Notable.** **Wrong-direction probe** in 6mo corpus (100% week-by-week
+agreement, 26/26 weeks). Lowest-volume variant in the textbook_scalper
+family — only ~2,875 trades over 6mo per direction. Temporally
+narrow firing (only 25/26 weeks active vs 26/26 for most other variants),
+flagged as the riskiest promotion target in the family.
+
+---
+
+## MR5_williams_extreme_short
+
+**Family routing:** reversal (mirror)
+
+**Entry conditions:** `RSI14 ≥ 78`, `close < close[-2]`, bearish bar.
+
+**Stop / TP geometry:** stop at `max(last 3 highs)`, TP 2.0 R.
+
+**Notable.** Same temporal-narrow + wrong-direction pattern as MR5_long.
+
+---
+
+## RG1_range_bound_scalp_long
+
+**Family routing:** reversal (rail fade in range/compression regime)
+
+**Entry conditions (all must hold):**
+- `bb_position ≤ 0.22` (near lower rail)
+- `20 ≤ RSI14 ≤ 38` (mild oversold zone — NOT extreme; that's MR5's territory)
+- Current bar is **bullish**
+
+**Stop / TP geometry:** stop at `min(last 3 lows)`, TP 1.5 R.
+
+**Notable.** **Wrong-direction probe** in 6mo corpus — Phase 3 lab:
+27/27 pairs prefer reversed, 25/26 weeks consistent. Tighter probe
+conditions than MR5/MR4 (RSI 20-38 vs RSI ≤22 for MR5) — more frequent
+firing (~19k trades over 6mo).
+
+---
+
+## RG1_range_bound_scalp_short
+
+**Family routing:** reversal (mirror)
+
+**Entry conditions:** `bb_position ≥ 0.78`, `62 ≤ RSI14 ≤ 80`, bearish bar.
+
+**Stop / TP geometry:** stop at `max(last 3 highs)`, TP 1.5 R.
+
+**Notable.** Same wrong-direction pattern as RG1_long. The Phase 3 forensic
+on EUR_USD showed native takes a short at 1.15434, stopped at 1.15534
+(−$2,166); reversed-trade (long same setup) hit TPs for $801-$1,299. Same
+probe, same moment, opposite outcomes — direction is the question, not the
+setup detection.
+
+---
+
 # Pending entries (Phase 3 module rebuild needed)
 
 The following strategy entries are queued for fill-in once the Phase 3
@@ -1129,21 +1594,13 @@ matrix yet** — they enter for the first time via Task #41 module rebuild after
 | [`echo_box_fade_v2`](#echo_box_fade_v2) | reversal | rail fade | pending Phase 3 + entry written |
 | [`echo_failed_breakout_v2`](#echo_failed_breakout_v2) | reversal | failed-break fade | pending Phase 3 + entry written |
 
-Pending textbook_scalper family — 22 variants from `src/scrooge/strategies/textbook_scalper.py`,
-**none in matrix yet** (matrix re-mine via Task #41 brings them in):
+**textbook_scalper family — all 22 entries WRITTEN** (with trigger rules
+extracted from probe source). Still pending Phase 3 lab numbers + matrix
+mining (Task #41) to fill the "Lab-measured behavior" sections per variant.
 
-- **BR family (breakouts):** BR2_vcb_long, BR2_vcb_short,
-  BR3_inside_bar_long, BR3_inside_bar_short, BR5_opening_range_breakout_long,
-  BR5_opening_range_breakout_short
-- **CP family (coils):** CP1_coil_breakout_long, CP1_coil_breakout_short,
-  CP2_squeeze_momentum_long, CP3_vol_coil_fade_long, CP3_vol_coil_fade_short
-- **MR family (mean-reversion):** MR2_bb_reversion_short,
-  MR4_zscore_extreme_long, MR4_zscore_extreme_short,
-  MR5_williams_extreme_long, MR5_williams_extreme_short
-- **RG family (range scalps):** RG1_range_bound_scalp_long,
-  RG1_range_bound_scalp_short, ~~RG2_range_support_bounce_long~~ **(entry written; 0 Phase 3 trades flagged as broken-probe candidate)**
-- **TF family (trend-follow pullbacks):** TF2_pullback_EMA20_long,
-  TF2_pullback_EMA20_short, ~~TF4_sar_long~~ **(entry written; Parabolic SAR trend-follow)**
+The only V4-pending entry is `compression_reversion` (data-thin even
+in current matrix; needs Phase 3 confirmation of whether the regime
+shift made it tradable).
 
 **Notable Phase 3 findings already known** (each gets its own entry
 when filled):
