@@ -1,0 +1,62 @@
+====================================================================================================
+V4 CODE ARCHAEOLOGY SCOPE — legacy references in V3 codebase
+====================================================================================================
+
+Total files scanned with at least one hit: 175
+Total scope: src/ + tests/ Python files
+
+PATTERN TOTALS:
+  scrooge_v3 import           472 hits
+  v3 mention                  115 hits
+  old_ / _old                  44 hits
+  legacy comment               39 hits
+  v2 mention                   18 hits
+  v1 mention                    9 hits
+  archived ref                  5 hits
+  DEPRECATED                    1 hits
+  mr_burns                      0 hits
+  mr_sprite                     0 hits
+  mr_wonderful                  0 hits
+
+TOP 20 FILES BY TOTAL LEGACY-REFERENCE COUNT:
+file                                                                          hits
+------------------------------------------------------------------------------------------
+  src/scrooge_v3/core/bootstrap.py                                              61
+  tests/unit/test_gates.py                                                      24
+  tests/unit/test_v3_scorer.py                                                  22
+  tests/unit/test_features.py                                                   19
+  tests/smoke/test_boot.py                                                      18
+  src/scrooge_v3/__main__.py                                                    17
+  src/scrooge_v3/advisors/ml_observer/observer.py                               14
+  tests/unit/test_clock.py                                                      14
+  src/scrooge_v3/features/__init__.py                                           13
+  src/scrooge_v3/core/config.py                                                 13
+  src/scrooge_v3/gates/matrix_router_gate.py                                    12
+  src/scrooge_v3/core/position_coordinator.py                                   12
+  tests/integration/test_scan_pipeline.py                                       12
+  tests/unit/test_signal_discipline.py                                          11
+  src/scrooge_v3/features/zone_detector.py                                      10
+  src/scrooge_v3/core/clock.py                                                  10
+  src/scrooge_v3/strategies/probes_v2.py                                         9
+  src/scrooge_v3/core/runtime.py                                                 9
+  src/scrooge_v3/core/scan_pipeline.py                                           9
+  src/scrooge_v3/core/state_controller.py                                        8
+
+
+FILES NEEDING ONLY 'scrooge_v3 → scrooge' rename: 105
+FILES WITH V1/V2/V3 mentions (need comment/string review): 55
+FILES WITH OLD PROJECT NAMES (mr.burns/sprite/wonderful): 0
+
+FILES WITH 'DEPRECATED' MARKERS (candidates for DELETE): 1
+  → src/scrooge_v3/management/be_manager.py
+
+====================================================================================================
+EFFORT ESTIMATE
+====================================================================================================
+  Total reference hits: 703
+  Files needing touch:  175
+  Rename-only files:    105 (~5 min total — sed pass)
+  Content-review files: 70 (~2-5 min each, manual)
+  Estimated time: 145-355 min (2.4-5.9 hours)
+  Plus: full test-suite run after rename (~30 min)
+  Total: 175-385 min (2.9-6.4 hours)
