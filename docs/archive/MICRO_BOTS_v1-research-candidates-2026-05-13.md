@@ -1,3 +1,27 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. Four
+> hand-tuned research candidates from 2026-05-13 (TF6_short / USD_JPY,
+> MR4_long / CHF_JPY, MR4_long / EUR_JPY, plus one more) with
+> discovery samples n=60-520 each. Status at time of writing:
+> "Approved for V3 observe-mode shadow logging. Not approved for
+> live order placement."
+> 
+> Superseded by the Phase 3 lab sweep (34 variants × 27 pairs ×
+> 2 directions on the full 6mo / 838k-trade corpus) and the
+> matrix mining + LightGBM v0 training arc that followed. The
+> specific candidates here are not in the V4 live roster; their
+> underlying probe ideas (Williams %R extreme reversal, Z-score
+> mean-reversion) are tested at industrial scale in the
+> `MR5_williams_extreme` and `MR4_zscore_extreme` Phase 3 variants
+> with samples 100-1000x larger.
+> 
+> The regime-gate discoveries documented here (vol_ratio threshold,
+> ema50_dist threshold, etc.) may be useful inputs for future probe
+> refinement but are not the basis for current admission decisions.
+> For current truth see `docs/STRATEGY_ENCYCLOPEDIA.md` (V4) +
+> `data/per_pair_modules/` + `data/matrix/factor_lift_table.csv`.
+
+---
+
 # Raw-M5 Micro-Bot Candidates v1
 
 **Status:** Research candidates. Approved for V3 observe-mode shadow logging. **Not approved for live order placement.**

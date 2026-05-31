@@ -1,3 +1,23 @@
+> **ARCHIVED 2026-05-30** as part of V4 cutover prep. This doc
+> mapped the V1 MASTER_THEORY section numbers to V3 code modules. With
+> MASTER_THEORY itself archived at V4 (Box reversal becomes 1 of ~25
+> strategies in the encyclopedia, no longer the canonical guide), the
+> section-to-code mapping concept loses its anchor.
+> 
+> The mapping function is absorbed by three V4 docs:
+> - `docs/LIVE_SYSTEM_SPEC.md` — current architecture (textual)
+> - `docs/ARCHITECTURE_DIAGRAM.md` — current architecture (visual, Mermaid)
+> - `docs/STRATEGY_ENCYCLOPEDIA.md` — per-strategy probe code references
+> 
+> The "V2 problems → V3 solutions" section here is era-specific history;
+> the equivalent narrative for V4 lives in `HISTORY.md` and `docs/history/`.
+> 
+> Preserved as the historical record of how the V3 architecture was
+> catalogued during its build phase. For current truth see the three
+> V4 docs above.
+
+---
+
 # Theory-to-Code Mapping
 
 > Every theory concept maps to a module, contract, or config path.
