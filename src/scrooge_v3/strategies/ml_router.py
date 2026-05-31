@@ -145,69 +145,71 @@ def get_allowed(symbol: str, ctx: Any) -> set[str]:
       5. Return union across both directions (strategies emit per-direction
          themselves; bot iterates allowed set then strategy decides direction).
     """
-    mod = ppm.get(symbol)
-    if mod is None:
-        log.debug("[ML_ROUTER] no per-pair module for %s -> empty allowed", symbol)
+    mods = ppm.get_all(symbol)
+    if not mods:
+        log.debug("[ML_ROUTER] no per-pair modules for %s -> empty allowed", symbol)
         return set()
 
     row = _extract_row_for_buckets(symbol, ctx)
     buckets = _compute_buckets(symbol, row)
     session = _session(ctx)
 
-    if not mod.rules.empty:
-        regime = mod.assign_regime(buckets)
-    else:
-        regime = "R00"
-
-    # Filter to this regime's rules
-    sub = mod.rules[mod.rules["regime"] == regime]
-    if sub.empty:
-        log.debug("[ML_ROUTER] %s regime %s session %s -> no rules", symbol, regime, session)
-        return set()
-
     allowed_strategies: set[str] = set()
-    # Track every strategy referenced in the regime's rules — even strategy-
+    # Track every strategy referenced in any cohort's rules — even strategy-
     # agnostic WIN rules (which don't pin strategy_id) imply "any strategy
     # that emits a candidate matching this rule may fire."
     has_unpinned_win = False
 
-    for _, r in sub.iterrows():
-        if str(r.get("rule_type", "")) != "WIN":
+    # Walk every cohort's module. Each has its OWN regime space (legacy R00-R19,
+    # phase3 R20-R39, etc.) — assign regime WITHIN each, then filter that
+    # cohort's rules. Union the allowed strategies across cohorts.
+    for mod in mods:
+        if mod.rules.empty:
             continue
-        raw = str(r.get("raw_rule", "") or "")
-        if not raw:
-            continue
-
-        # Quick condition check (session, direction, bucket constraints)
-        conds = [c.strip() for c in raw.split("AND") if "=" in c]
-        cand_map = {"session_bucket": session, **buckets}
-        ok = True
-        rule_strategy = None
-        for c in conds:
-            ax, _, bv = c.partition("=")
-            ax, bv = ax.strip(), bv.strip()
-            if ax == "strategy_id":
-                rule_strategy = bv
-            elif ax == "direction_exec":
-                continue  # direction handled per-strategy at evaluate time
-            elif cand_map.get(ax) != bv:
-                ok = False
-                break
-        if not ok:
+        regime = mod.assign_regime(buckets)
+        sub = mod.rules[mod.rules["regime"] == regime]
+        if sub.empty:
+            log.debug("[ML_ROUTER] %s cohort=%s regime=%s -> no rules",
+                      symbol, mod.cohort, regime)
             continue
 
-        # Refinement check
-        ref_op = str(r.get("refine_op", "") or "")
-        ref_ax = str(r.get("refine_axis", "") or "")
-        ref_b = str(r.get("refine_bucket", "") or "")
-        if ref_op == "exclude" and ref_ax and ref_ax != "strategy_id" and ref_ax != "direction_exec":
-            if cand_map.get(ref_ax) == ref_b:
+        for _, r in sub.iterrows():
+            if str(r.get("rule_type", "")) != "WIN":
+                continue
+            raw = str(r.get("raw_rule", "") or "")
+            if not raw:
                 continue
 
-        if rule_strategy:
-            allowed_strategies.add(rule_strategy)
-        else:
-            has_unpinned_win = True
+            # Quick condition check (session, direction, bucket constraints)
+            conds = [c.strip() for c in raw.split("AND") if "=" in c]
+            cand_map = {"session_bucket": session, **buckets}
+            ok = True
+            rule_strategy = None
+            for c in conds:
+                ax, _, bv = c.partition("=")
+                ax, bv = ax.strip(), bv.strip()
+                if ax == "strategy_id":
+                    rule_strategy = bv
+                elif ax == "direction_exec":
+                    continue  # direction handled per-strategy at evaluate time
+                elif cand_map.get(ax) != bv:
+                    ok = False
+                    break
+            if not ok:
+                continue
+
+            # Refinement check
+            ref_op = str(r.get("refine_op", "") or "")
+            ref_ax = str(r.get("refine_axis", "") or "")
+            ref_b = str(r.get("refine_bucket", "") or "")
+            if ref_op == "exclude" and ref_ax and ref_ax != "strategy_id" and ref_ax != "direction_exec":
+                if cand_map.get(ref_ax) == ref_b:
+                    continue
+
+            if rule_strategy:
+                allowed_strategies.add(rule_strategy)
+            else:
+                has_unpinned_win = True
 
     if has_unpinned_win and not allowed_strategies:
         # An un-pinned WIN rule matches the state -> any registered strategy

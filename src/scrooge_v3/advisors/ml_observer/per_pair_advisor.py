@@ -99,7 +99,7 @@ class PerPairAdvisor:
         strategy = scan.get("strategy") or ""
         direction = (scan.get("direction") or "").lower().replace("tradedirection.", "")
 
-        module = ppm.get(pair)
+        module = ppm.get(pair, strategy)
         if module is None:
             verdict = {
                 "pair": pair, "regime": None,

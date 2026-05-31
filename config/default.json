@@ -119,9 +119,6 @@
       "RG1_range_bound_scalp_short": {
         "enabled": true
       },
-      "RG2_range_support_bounce_long": {
-        "enabled": true
-      },
       "MR4_zscore_extreme_long": {
         "enabled": true
       },
@@ -144,6 +141,48 @@
         "enabled": true
       },
       "TF4_sar_long": {
+        "enabled": true
+      },
+      "BR5_opening_range_breakout_long": {
+        "enabled": true
+      },
+      "BR5_opening_range_breakout_short": {
+        "enabled": true
+      },
+      "RG1_range_bound_scalp_long": {
+        "enabled": true
+      },
+      "TF2_pullback_EMA20_long": {
+        "enabled": true
+      },
+      "TF2_pullback_EMA20_short": {
+        "enabled": true
+      },
+      "alpha_breakout_retest_v2": {
+        "enabled": true
+      },
+      "alpha_extended_fade_v2": {
+        "enabled": true
+      },
+      "alpha_pullback_v2": {
+        "enabled": true
+      },
+      "bravo_expansion_continuation": {
+        "enabled": true
+      },
+      "bravo_failed_momentum": {
+        "enabled": true
+      },
+      "charlie_compression_breakout": {
+        "enabled": true
+      },
+      "charlie_pullback_continuation_v2": {
+        "enabled": true
+      },
+      "delta_tag_and_go_v2": {
+        "enabled": true
+      },
+      "echo_box_fade_v2": {
         "enabled": true
       }
     },
@@ -224,6 +263,16 @@
     "daily_circuit": {
       "enabled": false,
       "mode": "observe"
+    },
+    "pip_eater": {
+      "enabled": true,
+      "mode": "hard",
+      "floor_pips": 4.0,
+      "min_n": 30
+    },
+    "matrix_router_gate": {
+      "enabled": true,
+      "mode": "observe"
     }
   },
   "execution": {
@@ -290,7 +339,7 @@
   "scoring": {
     "ml_filter": {
       "enabled": true,
-      "mode": "hard",
+      "mode": "observe",
       "_note": "Per-strategy XGBoost filter. observe = log only, hard = drop below threshold. dbb_trend p>=0.5 calibrated."
     },
     "branch_router": {

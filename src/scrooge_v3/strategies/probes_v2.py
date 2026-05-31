@@ -333,7 +333,7 @@ PROBE_REGISTRY: dict[str, dict[str, Any]] = {
     "alpha_breakout_retest_v2":        {"fn": probe_alpha_breakout_retest_v2,    "family": "direct",    "sentinel": "Alpha-fresh",     "target": 1.5},
     "alpha_extended_fade_v2":          {"fn": probe_alpha_extended_fade_v2,      "family": "reversal",  "sentinel": "Alpha-extended",  "target": 2.0},
     "echo_box_fade_v2":                {"fn": probe_echo_box_fade_v2,            "family": "reversal",  "sentinel": "Echo-tight",      "target": 2.0},
-    "echo_failed_breakout_v2":         {"fn": probe_echo_failed_breakout_v2,     "family": "reversal",  "sentinel": "Echo-explosive",  "target": 2.0},
+    # echo_failed_breakout_v2 REMOVED 2026-05-31 (0 lab trades — broken probe)
     "charlie_pullback_continuation_v2":{"fn": probe_charlie_pullback_continuation_v2,"family":"dbb_trend","sentinel":"Charlie",         "target": 2.0},
     "charlie_compression_breakout":    {"fn": probe_charlie_compression_breakout,"family": "direct",    "sentinel": "Charlie",         "target": 1.5},
     "bravo_failed_momentum":           {"fn": probe_bravo_failed_momentum,       "family": "reversal",  "sentinel": "Bravo",           "target": 2.0},

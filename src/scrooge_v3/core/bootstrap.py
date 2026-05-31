@@ -234,14 +234,19 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
              "compression_expansion, trend_pullback, chaikin_macd_atr, compression_reversion")
 
 
-    # 2026-05-28 (Brock): probes_v2 variants DISABLED — not in lab data, no ML rules.
-    # Re-enable after Phase 3 lab run mines rules for each variant.
+    # 2026-05-31 (Brock): probes_v2 + textbook_scalper RE-ENABLED.
+    # Phase 3 lab rules now in /data/per_pair_modules_phase3 (R20-R39 cohort).
     probes_cfg = strat_cfg.get("probes_v2", {}) or {}
-    # from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
-    # probe_strategies = build_all_probe_strategies(probes_cfg)
-    # for ps in probe_strategies:
-    #     registry.register("strategies", ps.name, ps)
-    log.info("[BOOT] probes_v2: DISABLED 2026-05-28 (no lab rules — pending Phase 3)")
+    from scrooge_v3.strategies.probes_v2 import build_all_probe_strategies
+    # textbook_scalper imports populate PROBE_REGISTRY via side effect:
+    import scrooge_v3.strategies.textbook_scalper  # noqa: F401
+    probe_strategies = build_all_probe_strategies(probes_cfg)
+    for ps in probe_strategies:
+        registry.register("strategies", ps.name, ps)
+    _probes_enabled = [ps.name for ps in probe_strategies if ps.enabled]
+    log.info("[BOOT] probes_v2 + textbook_scalper: registered=%d enabled=%d (%s)",
+             len(probe_strategies), len(_probes_enabled),
+             ",".join(_probes_enabled) if _probes_enabled else "none (config-gated)")
 
     # --- Register canonical_lien_dbb probes (DISABLED 2026-05-28) ---
     # See note above: family lost $3,882 across 12 trades.
@@ -255,13 +260,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     #          ",".join(lien_dbb_enabled) if lien_dbb_enabled else "none")
     log.info("[BOOT] canonical_lien_dbb probes: DISABLED 2026-05-28 (live edge negative)")
 
-    # 2026-05-28 (Brock): textbook_scalper probes DISABLED — never in lab data,
-    # no ML rules for BR2/BR3/CP/MR/RG/TF variants. Pending Phase 3 lab run.
-    # from scrooge_v3.strategies.textbook_scalper import build_all_textbook_probes
-    # textbook_strategies = build_all_textbook_probes(probes_cfg)
-    # for ps in textbook_strategies:
-    #     registry.register("strategies", ps.name, ps)
-    log.info("[BOOT] textbook_scalper probes: DISABLED 2026-05-28 (no lab rules — pending Phase 3)")
+    # textbook_scalper handled inside the probes_v2 block above
+    # (its PROBE_REGISTRY entries are picked up by build_all_probe_strategies)
 
     # --- Build cooldown tracker (Phase 4 Signal Discipline) ---
     from scrooge_v3.risk.cooldown_tracker import CooldownTracker
@@ -281,6 +281,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         ExpiryBackoffGate, ZoneEntryCapGate, MatrixRouterGate,
         SessionFilterGate, PairFilterGate,
         MatrixComboFilterGate, MatrixSignatureFilterGate,
+        PipEaterGate,  # Brock 2026-05-31 pip-eater primary
     )
     from scrooge_v3.core.types import GateMode
     from scrooge_v3.gates.pipeline import GatePipeline
@@ -355,6 +356,17 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         # Promote to HARD via config after lab + live observe-match confirmed.
         # 2026-05-27 (Brock): HTFTrendFilterGate retired -> MatrixRouterGate
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
+        # PIP EATER — Brock 2026-05-31 primary quality gate.
+        # Replaces WR/WL thinking with expected-pip lookup per (pair, strategy,
+        # regime, direction, session) cell. Floor=4.0p (good plate).
+        PipEaterGate(
+            (gate_cfg.get("pip_eater") if gate_cfg else {}) or {},
+            mode=_resolve_gate_mode(
+                gate_cfg.get("pip_eater") if gate_cfg else None,
+                default="hard",
+                gate_name="pip_eater",
+            ),
+        ),
         # Observe-only regime compatibility classifier. Never blocks; emits
         # (regime × family × dir_vs_hint) recommendation for audit-trail
         # analysis. Promote to HARD only after held-out validation.

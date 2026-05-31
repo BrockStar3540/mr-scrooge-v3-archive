@@ -152,7 +152,7 @@ def is_loaded() -> bool:
 # ---------------------------------------------------------------------
 import os
 
-THRESHOLD: float = float(os.environ.get("LIGHTGBM_GATE_THRESHOLD", "0.55"))
+THRESHOLD: float = float(os.environ.get("LIGHTGBM_GATE_THRESHOLD", "0.0"))  # Brock 2026-05-31 demoted
 """p_win below this drops the candidate. 0.55 = 'top-25% lab cohort'."""
 
 

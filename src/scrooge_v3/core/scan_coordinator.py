@@ -223,6 +223,13 @@ class ScanCoordinator:
                 )
                 lightgbm_shadow.observe(best.symbol, ctx_for_shadow, best,
                                          all_candidates=candidates)
+                # Matrix shadow advisor: cross-validate LightGBM's pick against matrix data
+                try:
+                    from scrooge_v3.advisors import matrix_shadow
+                    matrix_shadow.observe(best.symbol, ctx_for_shadow, best,
+                                          all_candidates=candidates)
+                except Exception:
+                    log.debug("[MATRIX_SHADOW] observe failed", exc_info=True)
         except Exception:
             log.debug("[SHADOW] observe failed", exc_info=True)
 

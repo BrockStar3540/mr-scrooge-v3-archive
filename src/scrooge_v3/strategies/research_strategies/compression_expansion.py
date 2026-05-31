@@ -39,7 +39,11 @@ DEFAULTS = {
     "compression_lookback": 15,
     # A bar is "compressed" when its composite score is at/above this percentile
     # rank within the rolling compression_window.
-    "compression_percentile": 0.80,
+    # NOTE: setting this to 0.80 + compressed_frac>=0.60 is mathematically
+    # impossible (at most 20% of bars can be >= 80th percentile within their
+    # own window). Use 0.50 so half the window can qualify; gate logic still
+    # requires 60% of prior 15 bars to score "more compressed than median".
+    "compression_percentile": 0.50,
     # Expansion trigger: current bar range >= expansion_mult * median(range, N).
     "expansion_lookback": 10,
     "expansion_mult": 1.5,

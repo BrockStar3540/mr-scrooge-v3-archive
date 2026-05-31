@@ -718,7 +718,7 @@ _TEXTBOOK_ENTRIES: dict = {
     "MR2_bb_reversion_short":           {"fn": probe_MR2_bb_reversion_short,           "family": "reversal", "sentinel": "Echo-explosive", "target": 2.0},
     "RG1_range_bound_scalp_long":       {"fn": probe_RG1_range_bound_scalp_long,       "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
     "RG1_range_bound_scalp_short":      {"fn": probe_RG1_range_bound_scalp_short,      "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
-    "RG2_range_support_bounce_long":    {"fn": probe_RG2_range_support_bounce_long,    "family": "reversal", "sentinel": "Echo-tight",    "target": 1.5},
+    # RG2_range_support_bounce_long REMOVED 2026-05-31 (0 lab trades — broken probe)
     "BR3_inside_bar_long":              {"fn": probe_BR3_inside_bar_long,              "family": "direct",   "sentinel": "Delta",         "target": 1.5},
     "BR3_inside_bar_short":             {"fn": probe_BR3_inside_bar_short,             "family": "direct",   "sentinel": "Delta",         "target": 1.5},
     "BR5_opening_range_breakout_long":  {"fn": probe_BR5_opening_range_breakout_long,  "family": "direct",   "sentinel": "Delta",         "target": 1.5},

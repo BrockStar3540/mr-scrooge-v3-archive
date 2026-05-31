@@ -119,3 +119,8 @@ data/lab_matrix/*_v3.csv
 data/lab_matrix/decision_forest.json.gz
 data/lab_matrix/winner_loser_formulas.csv
 data/lab_matrix/winner_loser_formulas.csv.gz
+
+# 2026-05-31 pip-eater migration backups
+*.bak_2026-05-31_*
+.env.bak_*
+crontab.bak_*
