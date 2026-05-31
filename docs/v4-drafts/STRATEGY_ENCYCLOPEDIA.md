@@ -809,6 +809,290 @@ fire rate by design.
 
 ---
 
+---
+
+# probes_v2 family entries (10 NATO-phonetic probes)
+
+These probes live in `src/scrooge/strategies/probes_v2.py` (ported from
+the Oanda-Bot-Trainer playbook). All default DISABLED; enable per-probe
+via `config.strategies.probes_v2.<name>.enabled = true`. Regime gating
+is handled by the router based on the `family` mapping below — the
+probe itself does not gate on regime.
+
+**None of these are in the current matrix.** They enter via Task #41
+module rebuild after Phase 3.
+
+---
+
+## alpha_pullback_v2
+
+**Family routing:** dbb_trend (continuation pullback)
+
+**Direction:** auto — `long` if `close > EMA20`, `short` if `close < EMA20`
+
+**Entry conditions (all must hold):**
+- `|close − EMA20| ≤ 0.3 × ATR_pips` — price within 0.3 ATR of EMA20 (the pullback proximity)
+- Current bar is the resumption shape:
+  - For long: bullish bar AND `close − low ≥ 0.5 × bar_range` (closed in upper half)
+  - For short: bearish bar AND `high − close ≥ 0.5 × bar_range` (closed in lower half)
+- `30 < RSI14 < 70` — not in extreme zones (avoid fading exhaustion at extremes)
+
+**Stop / TP geometry:**
+- Stop: `min(last 5 lows)` for long / `max(last 5 highs)` for short
+- TP: 2.0 R (per probe registry `target: 2.0`)
+
+**Live behavior.** Default DISABLED. Phase 3 lab data available (in sweep results).
+
+**Related.** `charlie_pullback_continuation_v2` — same family, tighter pullback (3-bar declining lows required)
+
+---
+
+## alpha_breakout_retest_v2
+
+**Family routing:** direct (breakout retest)
+
+**Direction:** auto — `long` if `close > EMA20`, `short` if `close < EMA20`
+
+**Entry conditions (all must hold):**
+- Prior 12-bar window (bars −16 to −4) defines `broken_level`:
+  - For long: `broken_level = max(prior_window_highs)`, AND `max(last 4 highs) > broken_level` (level was broken)
+  - For short: `broken_level = min(prior_window_lows)`, AND `min(last 4 lows) < broken_level`
+- Retest proximity: `|close − broken_level| ≤ 0.2 × ATR_pips`
+- Current bar direction matches: bullish for long, bearish for short
+
+**Stop / TP geometry:**
+- Stop: `broken_level` (the level we retested)
+- TP: 1.5 R
+
+**Live behavior.** Default DISABLED.
+
+---
+
+## alpha_extended_fade_v2
+
+**Family routing:** reversal (extension fade)
+
+**Direction:** auto — `short` if `RSI ≥ 65 AND close > EMA20`, `long` if `RSI ≤ 35 AND close < EMA20`
+
+**Entry conditions:**
+- RSI in extreme zone (above 65 or below 35) AND price on aligned side of EMA20
+- Current bar wick confirms exhaustion:
+  - For short: upper wick ≥ body length
+  - For long: lower wick ≥ body length
+
+**Stop / TP geometry:**
+- Stop: `max(last 5 highs)` for short / `min(last 5 lows)` for long
+- TP: 2.0 R
+
+**Live behavior.** Default DISABLED. **Family is `reversal`** — same reversion family that the wrong-direction Phase 3 finding hit; verify direction-asymmetry before promotion.
+
+---
+
+## bravo_failed_momentum
+
+**Family routing:** reversal (failed-momentum fade)
+
+**Direction:** auto — opposite of prior bar's direction (fading the momentum failure)
+
+**Entry conditions (all must hold):**
+- Prior bar's range ≥ 1.5 × mean(20-bar ranges) — prior bar was a strong momentum push
+- Current close is INSIDE prior bar's range (`prev_low < cur_close < prev_high`) — momentum failed to follow through
+- Current bar direction is OPPOSITE prior bar's direction (the fade)
+
+**Stop / TP geometry:**
+- Stop: `prev_low` for long-fade / `prev_high` for short-fade
+- TP: 2.0 R
+
+**Live behavior.** Default DISABLED.
+
+---
+
+## bravo_expansion_continuation
+
+**Family routing:** dbb_trend (range expansion)
+
+**Direction:** auto — `long` if bullish bar, `short` if bearish bar
+
+**Entry conditions (all must hold):**
+- Current bar range ≥ 1.3 × mean(20-bar ranges) — current bar is a strong expansion
+- Close is in the trade direction's third of the bar:
+  - For long: `close − low ≥ 0.67 × bar_range` (closed in top third)
+  - For short: `high − close ≥ 0.67 × bar_range` (closed in bottom third)
+
+**Stop / TP geometry:**
+- Stop: current bar's `low` (long) or `high` (short)
+- TP: 2.0 R
+
+**Live behavior.** Default DISABLED.
+
+---
+
+## charlie_pullback_continuation_v2
+
+**Family routing:** dbb_trend (continuation, tighter than alpha_pullback)
+
+**Direction:** auto — `long` if `close > EMA20`, `short` if `close < EMA20`
+
+**Entry conditions (all must hold):**
+- 3-bar declining-lows pattern (long) or rising-highs (short):
+  - For long: `m5_low[-2] < m5_low[-3] < m5_low[-4]` (three lower lows)
+  - For short: `m5_high[-2] > m5_high[-3] > m5_high[-4]`
+- Current bar reverses the pullback: `close > m5_close[-2]` (long) or `<` (short)
+- `|close − EMA20| ≤ 0.5 × ATR_pips`
+- `35 < RSI14 < 65` (mid-zone)
+
+**Stop / TP geometry:**
+- Stop: `min(last 5 lows)` (long) / `max(last 5 highs)` (short)
+- TP: 2.0 R
+
+**Live behavior.** Default DISABLED. **🚨 Phase 3 outlier — $297M PnL on
+86k trades.** Same compound-growth signature as TF2_pullback_EMA20_long.
+Forensic needed (200 EMA filter test, same as TF2) before any promotion
+decision — verify it's real edge in regime-aligned direction, not artifact.
+
+---
+
+## charlie_compression_breakout
+
+**Family routing:** direct (compression breakout)
+
+**Direction:** auto — long on upward break + bullish bar, short on downward break + bearish bar
+
+**Entry conditions (all must hold):**
+- Volatility compression: `mean(last 6 TRs) < 0.85 × mean(prior 19 TRs)` — last 6 bars meaningfully tighter than baseline
+- Current bar breaks the prior-6-bar range:
+  - For long: `current_high > max(prior 6 highs)` AND current bar is bullish
+  - For short: `current_low < min(prior 6 lows)` AND current bar is bearish
+
+**Stop / TP geometry:**
+- Stop: opposite side of prior 6-bar range (long stops at `min(prior 6 lows)`, short at `max(prior 6 highs)`)
+- TP: 1.5 R
+
+**Live behavior.** Default DISABLED. Phase 3 sweep: n=62k, pnl=$1.7M.
+
+---
+
+## delta_tag_and_go_v2
+
+**Family routing:** direct (tag-and-go continuation)
+
+**Direction:** auto — long on prior-bar break above 12-bar high, short on break below 12-bar low
+
+**Entry conditions (all must hold):**
+- Prior bar broke the 12-bar window range (bars −14 to −2):
+  - For long: `prev_high > max(window_highs)` AND `prev_close > max(window_highs)`
+  - For short: `prev_low < min(window_lows)` AND `prev_close < min(window_lows)`
+- Current bar continues in break direction (bullish for long, bearish for short)
+
+**Stop / TP geometry:**
+- Stop: 12-bar window boundary (the level that was broken)
+- TP: 1.5 R
+
+**Live behavior.** Default DISABLED. Phase 3 sweep: n=86k, pnl=$2M.
+
+---
+
+## echo_box_fade_v2
+
+**Family routing:** reversal (rail fade)
+
+**Direction:** auto — `long` if `bb_position ≤ 0.03`, `short` if `bb_position ≥ 0.87`
+
+**Entry conditions (all must hold):**
+- Price at Bollinger extreme (using `bb_position` feature)
+- Wick exhaustion confirms:
+  - For long: lower wick ≥ body length
+  - For short: upper wick ≥ body length
+
+**Stop / TP geometry:**
+- Stop: `min(last 3 lows)` (long) / `max(last 3 highs)` (short)
+- TP: 2.0 R
+
+**Live behavior.** Default DISABLED. Phase 3 sweep status: pending (variant 33 or 34 of 34).
+
+---
+
+## echo_failed_breakout_v2
+
+**Family routing:** reversal (failed-break fade)
+
+**Direction:** auto — based on which BB was pierced + closed-back-inside
+
+**Entry conditions (all must hold):**
+- Prior bar pierced a Bollinger band by ≥ 1.0 × ATR_pips but closed BACK inside:
+  - For long: `prev_low < bb_lower AND prev_close > bb_lower AND (bb_lower − prev_low) ≥ 1.0 × ATR_pips`
+  - For short: mirror with `bb_upper`
+- Current bar continues the fade direction (bullish for long-fade, bearish for short-fade)
+
+**Stop / TP geometry:**
+- Stop: prior bar's extreme (`prev_low` for long, `prev_high` for short)
+- TP: 2.0 R
+- Extra payload: `pierce_size_atr_x` (how far past BB the prior bar went, in ATR units)
+
+**Live behavior.** Default DISABLED. Phase 3 sweep status: pending (variant 33 or 34 of 34).
+
+---
+
+# Missed textbook_scalper variants
+
+These 2 entries from `src/scrooge/strategies/textbook_scalper.py` were
+missed in the prior taxonomy. Added now for completeness.
+
+---
+
+## TF4_sar_long
+
+**Family routing:** direct (Parabolic SAR trend-follow, long-only)
+
+**Direction:** long-only (no short variant defined)
+
+**Entry conditions (all must hold):**
+- Parabolic SAR(0.02, 0.2) computed over last 12 M5 bars indicates uptrend (`bull = True`)
+- `close > SAR` AND `close > EMA20` (price aligned with both)
+- `54 ≤ RSI14 ≤ 76` (momentum present but not exhausted)
+- ADX14 ≥ 17 if available (trend strength)
+- `close_pos ≥ 0.55` if available (closed in upper half of bar)
+- `bars_since_SAR_flip ≤ 8` (fresh trend, not stale)
+- `close > max(prior 5 highs)` (breakout confirmation)
+
+**Stop / TP geometry:**
+- Stop: structural reference (per `_build_candidate_multi`)
+- TP: 1.5 R (per probe registry)
+
+**Live behavior.** Default DISABLED. Phase 3 sweep complete — check
+per_variant_TF4_sar_long.csv for results.
+
+---
+
+## RG2_range_support_bounce_long
+
+**Family routing:** reversal (PDL support bounce, long-only)
+
+**Direction:** long-only
+
+**Entry conditions (all must hold):**
+- `bb_state ∈ {REJECTION_LONG, EXTREME_DOWN}` (BB classifier confirms reversal context)
+- PDH and PDL both available
+- `pdl < current_price < pdh` (inside the daily box)
+- `current_close ≤ pdl + 0.25% × box_range` (very close to PDL, the proximity tolerance)
+- Prior bar shows hammer/pin shape:
+  - `lower_wick ≥ 1.5 × body` (long lower wick — rejection from PDL)
+  - `lower_wick > upper_wick` (asymmetric in long direction)
+- `current_close > prior_high` (resumption confirmation)
+
+**Stop / TP geometry:**
+- Stop: per `_build_candidate_multi` defaults
+- TP: per probe registry
+
+**⚠️ Phase 3 sweep: 0 trades.** Either the conditions never aligned in the
+6mo corpus (very strict — requires REJECTION_LONG or EXTREME_DOWN BB state
+AND PDL proximity AND prior-bar pin AND resumption all simultaneously) or
+the probe code has a bug. Verify before encyclopedia promotion / live
+enabling.
+
+
+---
+
 # Pending entries (Phase 3 module rebuild needed)
 
 The following strategy entries are queued for fill-in once the Phase 3
@@ -834,16 +1118,16 @@ matrix yet** — they enter for the first time via Task #41 module rebuild after
 
 | Probe | Live family | Description | Phase 3 sweep |
 |---|---|---|---|
-| `alpha_pullback_v2` | dbb_trend | continuation pullback | ✓ |
-| `alpha_breakout_retest_v2` | direct | breakout retest | ✓ |
-| `alpha_extended_fade_v2` | reversal | extension fade | ✓ |
-| `bravo_failed_momentum` | reversal | failed-momentum fade | ✓ |
-| `bravo_expansion_continuation` | dbb_trend | range expansion | ✓ |
-| `charlie_pullback_continuation_v2` | dbb_trend | continuation (**$297M Phase 3 compounder** — needs forensic) | ✓ |
-| `charlie_compression_breakout` | direct | compression breakout | ✓ |
-| `delta_tag_and_go_v2` | direct | tag-and-go continuation | ✓ |
-| `echo_box_fade_v2` | reversal | rail fade | pending Phase 3 33/34 |
-| `echo_failed_breakout_v2` | reversal | failed-break fade | pending Phase 3 34/34 |
+| [`alpha_pullback_v2`](#alpha_pullback_v2) | dbb_trend | continuation pullback | ✓ + entry written |
+| [`alpha_breakout_retest_v2`](#alpha_breakout_retest_v2) | direct | breakout retest | ✓ + entry written |
+| [`alpha_extended_fade_v2`](#alpha_extended_fade_v2) | reversal | extension fade | ✓ + entry written |
+| [`bravo_failed_momentum`](#bravo_failed_momentum) | reversal | failed-momentum fade | ✓ + entry written |
+| [`bravo_expansion_continuation`](#bravo_expansion_continuation) | dbb_trend | range expansion | ✓ + entry written |
+| [`charlie_pullback_continuation_v2`](#charlie_pullback_continuation_v2) | dbb_trend | continuation (**$297M Phase 3 compounder** — needs forensic) | ✓ + entry written |
+| [`charlie_compression_breakout`](#charlie_compression_breakout) | direct | compression breakout | ✓ + entry written |
+| [`delta_tag_and_go_v2`](#delta_tag_and_go_v2) | direct | tag-and-go continuation | ✓ + entry written |
+| [`echo_box_fade_v2`](#echo_box_fade_v2) | reversal | rail fade | pending Phase 3 + entry written |
+| [`echo_failed_breakout_v2`](#echo_failed_breakout_v2) | reversal | failed-break fade | pending Phase 3 + entry written |
 
 Pending textbook_scalper family — 22 variants from `src/scrooge/strategies/textbook_scalper.py`,
 **none in matrix yet** (matrix re-mine via Task #41 brings them in):
@@ -857,11 +1141,9 @@ Pending textbook_scalper family — 22 variants from `src/scrooge/strategies/tex
   MR4_zscore_extreme_long, MR4_zscore_extreme_short,
   MR5_williams_extreme_long, MR5_williams_extreme_short
 - **RG family (range scalps):** RG1_range_bound_scalp_long,
-  RG1_range_bound_scalp_short, **RG2_range_support_bounce_long** (0 trades in
-  Phase 3 sweep — probe may be broken, verify before encyclopedia entry)
+  RG1_range_bound_scalp_short, ~~RG2_range_support_bounce_long~~ **(entry written; 0 Phase 3 trades flagged as broken-probe candidate)**
 - **TF family (trend-follow pullbacks):** TF2_pullback_EMA20_long,
-  TF2_pullback_EMA20_short, **TF4_sar_long** (Parabolic SAR trend-follow,
-  promoted in Phase 3 sweep)
+  TF2_pullback_EMA20_short, ~~TF4_sar_long~~ **(entry written; Parabolic SAR trend-follow)**
 
 **Notable Phase 3 findings already known** (each gets its own entry
 when filled):
