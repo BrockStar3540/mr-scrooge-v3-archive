@@ -62,15 +62,16 @@ see per-entry detail for breakdowns.
 | [dbb_trend](#dbb_trend) | continuation | ✓ | 77% | 27/27 | Current — V3 family workhorse |
 | [direct](#direct) | other | ✓ (fallback) | 82% | 27/27 | Current — fallback admission path |
 | [reversal](#reversal) | reversion | registered (rarely routes) | n/a | **0/27 in matrix** | **Coverage gap** — see entry |
-| [trend](#trend) | continuation | sidelined | n/a | n/a | Legacy V3 family, kept registered |
-| [canonical_lien_dbb](#canonical_lien_dbb) | continuation | ✓ | 78% | 27/27 | Current — DBB derivative |
-| [canonical_darvas](#canonical_darvas) | box | conditional | TBD | TBD | Entry pending Phase 3 |
-| [trend_pullback](#trend_pullback) | continuation | ✓ (promoted 2026-05-27) | TBD | TBD | Entry pending Phase 3 |
-| [chaikin_macd_atr](#chaikin_macd_atr) | continuation | ✓ (promoted 2026-05-27) | TBD | TBD | Entry pending Phase 3 |
-| [compression_expansion](#compression_expansion) | breakout | ✓ (promoted 2026-05-27) | TBD | TBD | Entry pending Phase 3 |
+| [trend](#trend) | continuation | sidelined | 80% | 27/27 | Legacy V3 family — V4 deletion candidate (see entry) |
+| [trend_aligned_breakout](#trend_aligned_breakout) | breakout | conditional | 72% | 20/27 | HTF-confluence breakout, narrow coverage |
+| [canonical_lien_dbb](#canonical_lien_dbb) | continuation | ✓ | 78% | 25/27 | Current — DBB derivative |
+| [canonical_darvas](#canonical_darvas) | box | conditional | **n/a** | **0/27 in matrix** | **Coverage gap** — see entry |
+| [trend_pullback](#trend_pullback) | continuation | ✓ (promoted 2026-05-27) | 81% | 27/27 | Current |
+| [chaikin_macd_atr](#chaikin_macd_atr) | continuation | ✓ (promoted 2026-05-27) | 81% | 27/27 | Current |
+| [compression_expansion](#compression_expansion) | breakout | ✓ (promoted 2026-05-27) | 80% | 27/27 | Current |
 | [compression_reversion](#compression_reversion) | reversion | ✓ (promoted 2026-05-27, **regime-mismatched**) | tiny n | n/a | Entry pending Phase 3 |
-| [ifvg](#ifvg) | other (inverse FVG) | ✓ (promoted 2026-05-27) | TBD | TBD | Entry pending Phase 3 |
-| [session_breakout](#session_breakout) | breakout | ✓ (promoted 2026-05-27) | TBD | TBD | Entry pending Phase 3 |
+| [ifvg](#ifvg) | other (inverse FVG) | ✓ (promoted 2026-05-27) | 81% | 27/27 | Current |
+| [session_breakout](#session_breakout) | breakout | ✓ (promoted 2026-05-27) | 80% | **8/27** | Current — narrow pair coverage |
 | BR2_vcb (long + short) | breakout | sidelined | ~62% lab | 27/27 | Phase 3 lab winner, **promotion pending** |
 | BR3_inside_bar | breakout | sidelined | 63% lab / loser | 27/27 | Phase 3 lab loser — drop candidate |
 | BR5_opening_range_breakout (long + short) | breakout | sidelined | ~61% lab | 27/27 | Phase 3 lab winner, promotion pending |
@@ -391,6 +392,423 @@ cells in the routing table for `reversal`).
 
 ---
 
+## canonical_lien_dbb
+
+**Family:** continuation (DBB-derived; simpler variant of `dbb_trend`
+focused on the structural-stop side of the entry rather than the
+breakout/pullback mode distinction).
+
+**Signal philosophy.** A leaner DBB strategy. Where `dbb_trend`
+branches on breakout vs pullback modes, `canonical_lien_dbb` uses a
+single entry condition: price tags an outer Bollinger band and
+the prior swing-low/high provides the structural stop (the "lien"
+the trade is filed against). Routes shorter pullback geometries than
+the breakout-flavored `dbb_trend`.
+
+**Probe code reference.** `src/scrooge/strategies/canonical_lien_dbb.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: prior swing low (long) / high (short) + small buffer
+- TP: variable; matrix-cell driven
+- Management: `default` (`early_hold_r=0.5, min_sl_step_pips=3.0`)
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 4,177 | 79.7% | 6.16 | 3.41 |
+| short | 4,197 | 76.4% | 5.60 | 3.42 |
+
+- **25/27 pair coverage** (two pairs missing — likely thin lab data)
+- 123 long + 125 short cells in the matrix
+- Direction-symmetric — slight long-side advantage on exp_pips
+
+**Known limitations / failure modes.**
+- 2 pairs without matrix data — admission for those pairs will be
+  abstained until next module rebuild (Task #41) fills coverage
+- Same regime sensitivity as `dbb_trend` — counter-trend bets on
+  strong directional days bleed unless HTF gate catches misalignment
+
+**Related strategies.**
+- `dbb_trend` — same DBB family, different entry-mode logic
+- `trend_pullback` — non-DBB pullback equivalent
+
+---
+
+## canonical_darvas
+
+**Family:** box (Darvas-style rolling-N-day box construction)
+
+**⚠️ Coverage gap.** No matrix data, no factor_lift_table data as of
+2026-05-30. Strategy is registered in `bootstrap.py` but absent from
+the lab corpus mining. Same gap pattern as `reversal` — queued for
+Task #41 (Phase 3 module rebuild).
+
+**Signal philosophy.** Nicolas Darvas's box theory adapted for forex.
+Rolling N-day highs / lows form a "box" the price action stays inside
+until a breakout. Long when price closes above the box top; short on
+box-bottom breakdown. Differs from `box_master_theory` in that the
+box construction is rolling-N (not previous-day-only) and the trade
+direction is breakout (not reversal).
+
+**Probe code reference.** `src/scrooge/strategies/canonical_darvas.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: opposite edge of the box
+- TP: box-height projection beyond the breakout
+- Management: `default`
+
+**Lab-measured behavior.** **n/a — strategy not in lab corpus.**
+
+**Live behavior.** Routed conditionally when matrix has no cells.
+Effectively dormant in current live deployment.
+
+**Known limitations / failure modes.**
+- Coverage gap is the primary limitation; cannot make confident
+  admission decisions without lab-mined factor lift
+- Like `box_master_theory`, sensitive to noisy box geometry on
+  range-bound days
+
+**Related strategies.**
+- `box_master_theory` — different box construction (PDH/PDL)
+- `compression_expansion` — different breakout shape (vol-coil)
+
+---
+
+## chaikin_macd_atr
+
+**Family:** continuation (momentum-confluence trend-follow)
+
+**Signal philosophy.** Triple-confluence trend continuation. The
+strategy fires when Chaikin Money Flow (volume-weighted accumulation/
+distribution) AND MACD histogram AND ATR-normalized momentum all
+align in the same direction. Conceptually the "everything points the
+same way" version of trend-follow — sacrifices entry frequency for
+confluence-driven WR.
+
+**Probe code reference.** `src/scrooge/strategies/chaikin_macd_atr.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: ATR-based (1.5 × ATR_5m typical)
+- TP: matrix-cell driven, 2R typical
+- Management: `default`
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 5,578 | 81.3% | 6.53 | 3.99 |
+| short | 5,310 | 79.9% | 6.43 | 4.08 |
+
+- 27/27 pair coverage
+- 168 long + 166 short cells in the matrix
+- Direction-symmetric, high WR — confluence requirement filters cleanly
+
+**Live behavior.** Promoted to live 2026-05-27 (ADR 3016). Limited
+live trade volume in the first days post-promotion; per-strategy
+audit pending Phase 3 module rebuild.
+
+**Known limitations / failure modes.**
+- Confluence requirement = low fire rate; misses trends that only
+  one of the three signals catches
+- Chaikin Money Flow on OANDA is approximate (no true order-book
+  depth) — relies on tick-volume proxy
+
+**Related strategies.**
+- `trend_pullback` — looser confluence (no volume requirement)
+- `dbb_trend` — DBB-based trend version
+
+---
+
+## compression_expansion
+
+**Family:** breakout (volatility-compression → expansion shape)
+
+**Signal philosophy.** Bollinger Band width compressing below
+historical norm signals stored energy; subsequent expansion is the
+release. Fires LONG on upward expansion from compression, SHORT on
+downward expansion. The "squeeze + release" classic, refined with
+ATR-relative thresholds for compression detection.
+
+**Probe code reference.** `src/scrooge/strategies/compression_expansion.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: BB midline (target-side stop — gives room for the expansion)
+- TP: opposite Bollinger band on the expansion side
+- Management: `trend_runner` (the expansion can run; let it)
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 4,916 | 81.4% | 6.33 | 3.76 |
+| short | 5,124 | 79.2% | 6.12 | 3.78 |
+
+- 27/27 pair coverage
+- 152 long + 156 short cells in the matrix
+- Direction-symmetric
+
+**Live behavior.** Promoted to live 2026-05-27 (ADR 3016). Sub-variant
+naming (CE_*) appears in attribution logs.
+
+**Known limitations / failure modes.**
+- Compression detection is threshold-sensitive; choppy markets with
+  brief compressions produce false signals
+- BE config A/B sweep deferred to v1.14c per ADR 3016 — current BE
+  geometry may not be optimal for this strategy
+
+**Related strategies.**
+- `CP1_coil_breakout` (Phase 3 sidelined) — same family, different
+  thresholds
+- `CP2_squeeze_momentum_long` (Phase 3 sidelined) — adds momentum
+  filter
+- `compression_reversion` — same compression detector, opposite
+  direction (mean-revert thesis)
+
+---
+
+## trend_pullback
+
+**Family:** continuation (intraday trend + pullback to mean)
+
+**Signal philosophy.** Identify an established intraday trend (slope
+of EMA + ADX threshold) and wait for a shallow pullback to a
+designated mean (EMA20 or fib retracement). Fire continuation
+in the trend's direction on resumption signal. The "buy the dip
+in an uptrend" textbook trade, formalized.
+
+**Probe code reference.** `src/scrooge/strategies/trend_pullback.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: prior swing extreme (last pullback low/high)
+- TP: prior trend leg height projection
+- Management: `default`
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 5,125 | 81.3% | 6.27 | 3.74 |
+| short | 5,289 | 80.8% | 6.42 | 3.96 |
+
+- 27/27 pair coverage
+- 156 long + 165 short cells in the matrix
+- Direction-symmetric — slight short-side edge in pips
+
+**Live behavior.** Promoted to live 2026-05-27 (ADR 3016). Sub-variant
+`ITP_pullback_long` appears in broker truth — small sample (n=2, both
+losses in the 27d window).
+
+**Known limitations / failure modes.**
+- Pullback definition is loose; can fire on noise that retraces to
+  EMA20 without being a real countertrend wave
+- The TF2_pullback_EMA20 Phase 3 finding (wrong-direction in this
+  corpus regime) is a cousin pattern — worth cross-referencing once
+  Phase 3 numbers land for `trend_pullback` specifically
+
+**Related strategies.**
+- `TF2_pullback_EMA20_long/short` (Phase 3) — same shape, different probe
+- `dbb_trend` PULLBACK mode — DBB-version
+- `chaikin_macd_atr` — confluence-version
+
+---
+
+## ifvg
+
+**Family:** other (Inverse Fair Value Gap — ICT concept)
+
+**Signal philosophy.** A Fair Value Gap (FVG) is a 3-candle pattern
+where candle[1].high < candle[3].low (bullish gap) or candle[1].low >
+candle[3].high (bearish gap). The "inverse" version trades into the
+unfilled gap — long into bullish gaps expecting return-to-mean,
+short into bearish gaps. ICT lineage; this is the strategy that the
+broader ICT-derived strategy spec (HTF_PO3_SMT) was hoping to add as
+a more sophisticated framework eventually.
+
+**Probe code reference.** `src/scrooge/strategies/ifvg.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: opposite side of the gap
+- TP: mean of the gap (filling) + extension to next swing
+- Management: `default`
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 5,866 | 81.4% | 6.54 | 4.08 |
+| short | 5,808 | 80.2% | 6.66 | 4.45 |
+
+- 27/27 pair coverage
+- 169 long + 167 short cells in the matrix
+- Direction-symmetric
+
+**Live behavior.** Promoted to live 2026-05-27 (ADR 3016). Sub-variants
+`IFVG_v1_long`, `IFVG_v1_short` appear in broker truth. Small live
+sample so far; IFVG_v1_short showed 0/2 W in the post-promotion
+window, IFVG_v1_long 1/1 W.
+
+**Known limitations / failure modes.**
+- FVG detection requires reliable candle data — broker-side gap
+  artifacts (e.g., weekend gaps) can produce false signals
+- "Mean reversion into gap" thesis is regime-dependent; in strong
+  directional regimes the gap continues to be ignored rather than
+  filled
+
+**Related strategies.**
+- The HTF_PO3_SMT_Strategy_Spec (Phase 4 backlog candidate) would
+  build on IFVG by adding the broader Power-of-Three context
+
+---
+
+## session_breakout
+
+**Family:** breakout (session-anchored opening range)
+
+**Signal philosophy.** Each trading session (Tokyo, London, NY) opens
+with an opening range. After ~30 minutes, the high and low of that
+opening range become breakout levels. Fire LONG on close above the
+range, SHORT on close below. Session-anchored timing is the key
+ingredient.
+
+**Probe code reference.** `src/scrooge/strategies/session_breakout.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: opposite side of opening range
+- TP: 1× or 2× opening-range height projection
+- Management: `default`
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 782 | 82.2% | 6.54 | 4.02 |
+| short | 774 | 77.4% | 5.43 | 3.36 |
+
+- **8/27 pair coverage** (much lower than other promoted strategies)
+- 25 long + 25 short cells in the matrix
+- Long-direction advantage (~5pp WR + better exp_pips and lift)
+
+**Live behavior.** Promoted to live 2026-05-27 (ADR 3016). Limited
+fire rate by design — only 8 pair-coverage means it's silent for ~70%
+of the pair universe.
+
+**Known limitations / failure modes.**
+- Low pair coverage (8/27) — most pairs don't have meaningful
+  session-anchored breakout edge in the lab data
+- Session boundary definitions assume canonical Tokyo/London/NY hours;
+  daylight savings shifts and broker session quirks can confuse the
+  opening-range computation
+- Asymmetric direction edge (long > short) suggests the lab regime
+  favored upward breakouts; may invert in other regimes
+
+**Related strategies.**
+- `BR5_opening_range_breakout` (Phase 3 sidelined) — same shape,
+  different threshold defaults; Phase 3 lab showed it as a strong
+  variant (~$4.5M PnL, 6/27 pair concentration warning)
+- `compression_expansion` — different breakout trigger (BB squeeze)
+
+---
+
+## trend
+
+**Family:** continuation (legacy V3 trend strategy — sidelined)
+
+**Signal philosophy.** The V3-era "trend" strategy: identify a
+prevailing trend via EMA/ADX, enter on confirmation. Predates the
+DBB-specific variants. Effectively superseded by `dbb_trend`,
+`canonical_lien_dbb`, and `trend_pullback` — those are sharper-edged
+versions of the same idea.
+
+**Sidelined status.** Registered in `bootstrap.py` but explicitly
+sidelined in routing — the routing table doesn't admit `trend` cells.
+The strategy code is preserved for backward compatibility and as a
+fallback if all newer trend variants are disabled simultaneously.
+
+**Probe code reference.** `src/scrooge/strategies/trend.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: ATR-based (default)
+- TP: 2R typical
+- Management: `trend_runner`
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 5,250 | 80.2% | 6.24 | 3.87 |
+| short | 5,332 | 79.3% | 6.42 | 3.93 |
+
+- 27/27 pair coverage in matrix (was mined when strategy was active)
+- 162 long + 164 short cells
+
+**Live behavior.** Zero live trades since sidelined. Lab data only.
+
+**Known limitations / failure modes.**
+- Superseded — its admission space is fully covered by sharper-edged
+  successors
+- At V4 cutover (Task #57 code archaeology), `trend` is a deletion
+  candidate. Decision deferred until Phase 3 confirms the newer
+  trend variants are robust enough to fully replace it
+
+**Related strategies.**
+- All other continuation-family strategies are direct successors
+
+---
+
+## trend_aligned_breakout
+
+**Family:** breakout (HTF-trend-aligned breakout)
+
+**Signal philosophy.** Breakout trade with explicit HTF (1H/4H)
+trend-alignment requirement. Fires LONG only when both M5 breakout
+condition AND HTF1 trend is up AND HTF4 trend is up (or aligned-with).
+The HTF-aligned subset of breakouts — sacrifices fire rate for
+WR + directional confidence.
+
+**Probe code reference.** `src/scrooge/strategies/trend_aligned_breakout.py`
+
+**Stop / TP geometry + management profile.**
+- Stop: structural breakout-base
+- TP: variable
+- Management: `default`
+
+**Lab-measured behavior (6mo corpus, matrix-mined):**
+
+| Direction | n_optimized | weighted WR | weighted exp_pips | weighted lift_pips |
+|---|---|---|---|---|
+| long | 931 | 72.4% | 5.92 | 3.25 |
+| short | 1,871 | 72.5% | 5.96 | 3.49 |
+
+- **20/27 pair coverage** (7 pairs missing — likely thin breakout-aligned data)
+- 30 long + **60 short** cells (2× short-side cells — bearish-regime
+  artifact in the corpus)
+- Direction-symmetric WR despite the cell-count asymmetry
+- Lower WR than the matrix average (~80%) — confluence requirements
+  produce a tighter cohort but at lower per-cell quality
+
+**Live behavior.** Routed conditionally where cells exist. Limited
+fire rate by design.
+
+**Known limitations / failure modes.**
+- Asymmetric cell count (60 short vs 30 long) reflects the bearish
+  corpus regime — short-direction had more confluence-aligned setups
+  during the lab window. Will likely rebalance in different regimes
+- 7-pair coverage gap means it's silent on some major pairs
+- The "confluence sacrifice" trade-off (fewer fires for higher
+  directional confidence) means it underperforms volume-greedy
+  variants like `BR2_vcb` in raw PnL
+
+**Related strategies.**
+- `compression_expansion`, `session_breakout` — different breakout triggers
+- `chaikin_macd_atr` — different confluence framework
+- The HTF gate ([ADR 3015](decisions/3015-htf-trend-filter-observe-to-hard.md))
+  applies a similar filter at the system level — `trend_aligned_breakout`
+  is the strategy-internal version of that filter
+
+
+---
+
 # Pending entries (Phase 3 module rebuild needed)
 
 The following strategy entries are queued for fill-in once the Phase 3
@@ -401,14 +819,14 @@ regime × strategy × direction); together they fill the encyclopedia's
 "Lab-measured behavior" + "Live behavior" sections.
 
 Pending V3-promoted families:
-- `canonical_lien_dbb` — partial matrix data; needs Phase 3 confirmation
-- `canonical_darvas`
-- `trend_pullback`
-- `chaikin_macd_atr`
-- `compression_expansion`
-- `compression_reversion` (regime-mismatched, very low n)
-- `ifvg`
-- `session_breakout`
+- ~~`canonical_lien_dbb`~~ — **entry written** (matrix data, 25/27 pairs)
+- ~~`canonical_darvas`~~ — **entry written** (coverage gap noted)
+- ~~`trend_pullback`~~ — **entry written** (matrix data, 27/27 pairs)
+- ~~`chaikin_macd_atr`~~ — **entry written** (matrix data, 27/27 pairs)
+- ~~`compression_expansion`~~ — **entry written** (matrix data, 27/27 pairs)
+- `compression_reversion` — regime-mismatched, very low n; entry pending Phase 3 confirmation
+- ~~`ifvg`~~ — **entry written** (matrix data, 27/27 pairs)
+- ~~`session_breakout`~~ — **entry written** (matrix data, 8/27 pairs — narrow coverage)
 
 Pending Phase 3 sidelined-probe candidates (22 textbook_scalper +
 related variants):
