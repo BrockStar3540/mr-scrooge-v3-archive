@@ -435,6 +435,19 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         _lg.getLogger("scrooge_v3.core.bootstrap").info(
             "[BOOT] LightGBM shadow scorer not loaded (no model file)"
         )
+    # LightGBM v1 pip-prediction shadow (Brock 2026-05-31 — pip-eater retrain).
+    # Regressor on pnl_pips. Observe-only — logs predicted pips per scan.
+    # MAE 8.01p, 15.5% better than naive-mean baseline. Eventually may promote
+    # to a third source in pip_eater_gate alongside pair-module + matrix.
+    from scrooge_v3.advisors import lightgbm_pip_shadow as _pip_shadow
+    if _pip_shadow.load():
+        _lg.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] LightGBM v1 pip-prediction shadow ENABLED — logging to data/lightgbm_pip_shadow.jsonl"
+        )
+    else:
+        _lg.getLogger("scrooge_v3.core.bootstrap").info(
+            "[BOOT] LightGBM v1 pip-shadow not loaded (no v1 model file)"
+        )
     # Matrix shadow advisor (Brock 2026-05-29): parallel cross-validation
     # against LightGBM. Loads optimized_matrix + factor_lift_table. Observe-only.
     from scrooge_v3.advisors import matrix_shadow as _matrix

@@ -199,17 +199,21 @@ class PipEaterGate(BaseGate):
                 "matrix_n": mat_cell["n_optimized"] if mat_cell else 0,
                 "cohort": pair_cell["cohort"] if pair_cell else "n/a",
             }
+            # Safe-None formatters for log lines
+            pe_s = f"{pair_ev:+.2f}p" if pair_ev is not None else "n/a"
+            me_s = f"{matrix_ev:+.2f}p" if matrix_ev is not None else "n/a"
+            pn = pair_cell["n"] if pair_cell else 0
+            mn = mat_cell["n_optimized"] if mat_cell else 0
             if passed:
                 reason = (f"HARVEST {tag} exp_pips={final_ev:+.2f}p "
-                          f"(pair={pair_ev:+.2f}p[n={pair_cell['n'] if pair_cell else 0}] "
-                          f"matrix={matrix_ev:+.2f}p[n={mat_cell['n_optimized'] if mat_cell else 0}] "
+                          f"(pair={pe_s}[n={pn}] matrix={me_s}[n={mn}] "
                           f"chose={chose} regime={regime})")
             elif tag == "pip_trick":
                 reason = (f"PIP TRICK detected exp_pips={final_ev:+.2f}p — danger "
-                          f"(pair={pair_ev} matrix={matrix_ev} regime={regime})")
+                          f"(pair={pe_s} matrix={me_s} regime={regime})")
             else:
                 reason = (f"empty plate exp_pips={final_ev:+.2f}p < floor={self.floor_pips}p "
-                          f"(pair={pair_ev} matrix={matrix_ev} regime={regime})")
+                          f"(pair={pe_s} matrix={me_s} regime={regime})")
             return GateResult(
                 gate_name=self.name, passed=passed, mode=self.mode,
                 reason=reason, metrics=metrics,

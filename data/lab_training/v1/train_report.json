@@ -1,0 +1,88 @@
+{
+  "version": "v1_2026-05-31",
+  "trained_at": "2026-05-31T23:30:13.508437Z",
+  "holdout_mae": 8.011646434225106,
+  "holdout_rmse": 10.372709096143783,
+  "naive_mean_mae": 9.48027836201528,
+  "mae_improvement_vs_naive_pct": 15.49144309595966,
+  "best_iteration": 500,
+  "n_train": 1914203,
+  "n_test": 478551,
+  "y_train_mean": 2.2819827813457403,
+  "y_train_std": 10.169467816084039,
+  "y_test_mean": 2.2879846223288403,
+  "feature_importance": [
+    {
+      "feature": "pair",
+      "importance": 372316.3016281128
+    },
+    {
+      "feature": "session_bucket",
+      "importance": 170446.12851977348
+    },
+    {
+      "feature": "RSI",
+      "importance": 156543.67415475845
+    },
+    {
+      "feature": "strategy_id",
+      "importance": 147848.54466342926
+    },
+    {
+      "feature": "ADR",
+      "importance": 125589.5756187439
+    },
+    {
+      "feature": "E50",
+      "importance": 122336.61963176727
+    },
+    {
+      "feature": "E20",
+      "importance": 92042.20994234085
+    },
+    {
+      "feature": "BBP",
+      "importance": 80203.41034030914
+    },
+    {
+      "feature": "ZS",
+      "importance": 65168.97127056122
+    },
+    {
+      "feature": "H20",
+      "importance": 63606.5137424469
+    },
+    {
+      "feature": "A5",
+      "importance": 55624.5057656765
+    },
+    {
+      "feature": "H60",
+      "importance": 53973.88054847717
+    },
+    {
+      "feature": "BB",
+      "importance": 40166.63360571861
+    },
+    {
+      "feature": "T1",
+      "importance": 36419.36960077286
+    },
+    {
+      "feature": "A1",
+      "importance": 34626.41758751869
+    },
+    {
+      "feature": "direction_exec",
+      "importance": 30862.47587442398
+    },
+    {
+      "feature": "T4",
+      "importance": 25051.835045337677
+    },
+    {
+      "feature": "SPR",
+      "importance": 9167.455901622772
+    }
+  ]
+}
