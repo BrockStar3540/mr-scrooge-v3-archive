@@ -818,7 +818,7 @@ lab metrics; the rebuild produces routing-table cells per (pair ×
 regime × strategy × direction); together they fill the encyclopedia's
 "Lab-measured behavior" + "Live behavior" sections.
 
-Pending V3-promoted families:
+Pending V3-promoted families (only `compression_reversion` left from this group):
 - ~~`canonical_lien_dbb`~~ — **entry written** (matrix data, 25/27 pairs)
 - ~~`canonical_darvas`~~ — **entry written** (coverage gap noted)
 - ~~`trend_pullback`~~ — **entry written** (matrix data, 27/27 pairs)
@@ -828,8 +828,26 @@ Pending V3-promoted families:
 - ~~`ifvg`~~ — **entry written** (matrix data, 27/27 pairs)
 - ~~`session_breakout`~~ — **entry written** (matrix data, 8/27 pairs — narrow coverage)
 
-Pending Phase 3 sidelined-probe candidates (22 textbook_scalper +
-related variants):
+**Pending probes_v2 family** (10 NATO-phonetic probes from `src/scrooge/strategies/probes_v2.py`,
+all default-DISABLED — fan in one at a time per Phase 3 evidence). **None of these are in the
+matrix yet** — they enter for the first time via Task #41 module rebuild after Phase 3.
+
+| Probe | Live family | Description | Phase 3 sweep |
+|---|---|---|---|
+| `alpha_pullback_v2` | dbb_trend | continuation pullback | ✓ |
+| `alpha_breakout_retest_v2` | direct | breakout retest | ✓ |
+| `alpha_extended_fade_v2` | reversal | extension fade | ✓ |
+| `bravo_failed_momentum` | reversal | failed-momentum fade | ✓ |
+| `bravo_expansion_continuation` | dbb_trend | range expansion | ✓ |
+| `charlie_pullback_continuation_v2` | dbb_trend | continuation (**$297M Phase 3 compounder** — needs forensic) | ✓ |
+| `charlie_compression_breakout` | direct | compression breakout | ✓ |
+| `delta_tag_and_go_v2` | direct | tag-and-go continuation | ✓ |
+| `echo_box_fade_v2` | reversal | rail fade | pending Phase 3 33/34 |
+| `echo_failed_breakout_v2` | reversal | failed-break fade | pending Phase 3 34/34 |
+
+Pending textbook_scalper family — 22 variants from `src/scrooge/strategies/textbook_scalper.py`,
+**none in matrix yet** (matrix re-mine via Task #41 brings them in):
+
 - **BR family (breakouts):** BR2_vcb_long, BR2_vcb_short,
   BR3_inside_bar_long, BR3_inside_bar_short, BR5_opening_range_breakout_long,
   BR5_opening_range_breakout_short
@@ -839,9 +857,11 @@ related variants):
   MR4_zscore_extreme_long, MR4_zscore_extreme_short,
   MR5_williams_extreme_long, MR5_williams_extreme_short
 - **RG family (range scalps):** RG1_range_bound_scalp_long,
-  RG1_range_bound_scalp_short
+  RG1_range_bound_scalp_short, **RG2_range_support_bounce_long** (0 trades in
+  Phase 3 sweep — probe may be broken, verify before encyclopedia entry)
 - **TF family (trend-follow pullbacks):** TF2_pullback_EMA20_long,
-  TF2_pullback_EMA20_short
+  TF2_pullback_EMA20_short, **TF4_sar_long** (Parabolic SAR trend-follow,
+  promoted in Phase 3 sweep)
 
 **Notable Phase 3 findings already known** (each gets its own entry
 when filled):
