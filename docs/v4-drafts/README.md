@@ -78,7 +78,7 @@ freezes the architecture for publication.
 The bot trades on a small OANDA practice account. It is not
 recommended for live capital you cannot afford to lose. Forward
 performance is not guaranteed by lab results — see the
-[honest limitations](docs/RESEARCH_METHODOLOGY.md#known-limitations)
+[honest limitations](RESEARCH_METHODOLOGY.md#known-limitations)
 section of the methodology doc.
 
 ---
