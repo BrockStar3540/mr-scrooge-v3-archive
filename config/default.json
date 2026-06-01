@@ -10,7 +10,7 @@
     "account_id": ""
   },
   "risk": {
-    "max_open_positions": 2,
+    "max_open_positions": 4,
     "max_daily_loss_pct": 3.0,
     "margin_utilization": 0.4,
     "cooldown_after_stop_minutes": 60,
