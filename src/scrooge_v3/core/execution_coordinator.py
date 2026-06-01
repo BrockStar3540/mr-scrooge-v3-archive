@@ -202,9 +202,15 @@ class ExecutionCoordinator:
             "%Y-%m-%dT%H:%M:%S.000000000Z"
         )
 
-        log.info("[EXEC] Placing LIMIT order: %s %s %d units @ %.5f signal=%.5f SL=%.5f TP=%.5f GTD=%s",
+        # Brock 2026-06-01: MARKET order, not a resting limit. The old resting
+        # limit-at-signal-price rested on the non-marketable side ~100% of the
+        # time (0 immediate fills observed) and only filled when the market ran
+        # INTO the level with adverse momentum -> "5 pips away, waits, fills red"
+        # (adverse selection). Intent was always "take this trade now", so fill
+        # now at market and re-anchor SL/TP to the ACTUAL fill below.
+        log.info("[EXEC] Placing MARKET order: %s %s %d units (signal=%.5f provisional_SL=%.5f TP=%.5f)",
                  best.symbol, best.direction.value, signed_units,
-                 limit_price, signal_entry_price, validated_sl, best.take_profit or 0, gtd_time)
+                 signal_entry_price, validated_sl, best.take_profit or 0)
 
         # Phase 4: direction flip resets opposite-direction expiry counters.
         tracker_obj = getattr(ctx, "cooldown_tracker", None)
@@ -214,11 +220,9 @@ class ExecutionCoordinator:
             except Exception:
                 log.exception("[EXEC] direction-flip hook failed")
 
-        result = ctx.broker.place_limit_order(
+        result = ctx.broker.place_market_order(
             symbol=best.symbol, units=signed_units,
-            price=limit_price,
             stop_loss=validated_sl, take_profit=best.take_profit,
-            gtd_time=gtd_time,
         )
 
         # Patch B.right: capture (order_id → strategy) at placement so
@@ -229,7 +233,26 @@ class ExecutionCoordinator:
         tier = best.metadata.get("v3_tier", "") if best.metadata else ""
 
         if result.success and result.trade_id:
-            # Immediate fill
+            # Immediate fill (MARKET). Re-anchor SL/TP to the ACTUAL fill price,
+            # not the stale signal (which sits ~5p away) — keeps the fixed
+            # SCALPER risk/reward geometry honest from the real entry.
+            _prec = 3 if any(j in best.symbol for j in ("JPY", "MXN")) else 5
+            fill_px = result.fill_price or signal_entry_price
+            if best.direction.value == "long":
+                anchored_sl = round(fill_px - SCALPER_SL_PIPS * pip_size, _prec)
+                anchored_tp = round(fill_px + SCALPER_TP_PIPS * pip_size, _prec)
+            else:
+                anchored_sl = round(fill_px + SCALPER_SL_PIPS * pip_size, _prec)
+                anchored_tp = round(fill_px - SCALPER_TP_PIPS * pip_size, _prec)
+            try:
+                ctx.broker.modify_stop_loss(result.trade_id, anchored_sl)
+                ctx.broker.modify_take_profit(result.trade_id, anchored_tp)
+                validated_sl = anchored_sl
+                best.take_profit = anchored_tp
+                log.info("[EXEC] SL/TP re-anchored to fill %.5f -> SL=%.5f TP=%.5f",
+                         fill_px, anchored_sl, anchored_tp)
+            except Exception:
+                log.exception("[EXEC] SL/TP re-anchor failed; keeping provisional signal-based SL/TP")
             ctx.state.position_count += 1
             ctx.tracker.register_entry(
                 trade_id=result.trade_id,
@@ -246,7 +269,7 @@ class ExecutionCoordinator:
                 metadata=best.metadata,
             )
             ctx.state.record_zone_entry(best.symbol, f"{validated_sl:.5f}")
-            log.info("[EXEC] LIMIT FILLED IMMEDIATELY: %s %s %d units @ %.5f",
+            log.info("[EXEC] MARKET FILLED: %s %s %d units @ %.5f",
                      result.trade_id, best.symbol, signed_units, result.fill_price)
 
             # Phase 2 RL exits — Brock 2026-05-31. SHADOW bootstrap: pick an
