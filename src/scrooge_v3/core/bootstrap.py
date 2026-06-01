@@ -278,7 +278,8 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # regime_floor and the rest.
     from scrooge_v3.gates import (
         BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate,
-        ExpiryBackoffGate, ZoneEntryCapGate, MatrixRouterGate,
+        ExpiryBackoffGate, ZoneEntryCapGate,
+        # MatrixRouterGate retired 2026-05-31 — pip_eater_gate dual-source replaces it
         SessionFilterGate, PairFilterGate,
         MatrixComboFilterGate, MatrixSignatureFilterGate,
         PipEaterGate,  # Brock 2026-05-31 pip-eater primary

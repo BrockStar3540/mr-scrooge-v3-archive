@@ -186,7 +186,7 @@ class ScanPipeline:
         _all_strats = {e.name for e in self.registry.get_active('strategies')}
         # 2026-05-28: ml_router demoted to shadow — LightGBM gates instead.
 
-        _ml_router_verdict = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
+        _ml_router_verdict = set()  # 2026-05-31: ml_router retired, was shadow only
 
         allowed = _all_strats  # ml_router_shadow_logged: bypass admit filter
 
@@ -368,7 +368,7 @@ class ScanPipeline:
         _all_strats = {e.name for e in self.registry.get_active('strategies')}
         # 2026-05-28: ml_router demoted to shadow — LightGBM gates instead.
 
-        _ml_router_verdict = ml_router.get_allowed_or_all(symbol, ctx, _all_strats)
+        _ml_router_verdict = set()  # 2026-05-31: ml_router retired, was shadow only
 
         allowed = _all_strats  # ml_router_shadow_logged: bypass admit filter
 

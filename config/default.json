@@ -271,7 +271,7 @@
       "min_n": 30
     },
     "matrix_router_gate": {
-      "enabled": true,
+      "enabled": false,
       "mode": "observe"
     }
   },
@@ -338,7 +338,7 @@
   },
   "scoring": {
     "ml_filter": {
-      "enabled": true,
+      "enabled": false,
       "mode": "observe",
       "_note": "Per-strategy XGBoost filter. observe = log only, hard = drop below threshold. dbb_trend p>=0.5 calibrated."
     },
