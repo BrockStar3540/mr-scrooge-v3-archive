@@ -69,6 +69,7 @@ class PipEaterGate(BaseGate):
         self._pair_lookup: dict[tuple, dict] = {}
         self._coarse_pair_lookup: dict[tuple, dict] = {}  # regime-agnostic fallback
         self._matrix_lookup: dict[tuple, dict] = {}
+        self._known_strategies: set[str] = set()  # any strategy present in lab data
         self._missing_logged: set[tuple] = set()
         self._load()
 
@@ -108,6 +109,7 @@ class PipEaterGate(BaseGate):
                     }
                     for _, r in grp.iterrows()
                 }
+                self._known_strategies.update(full["strategy_id"].astype(str).unique())
             except Exception as e:
                 self._log.warning("[PIP_EATER] coarse fallback build failed: %s", e)
         # Matrix-refined lookup
@@ -123,6 +125,7 @@ class PipEaterGate(BaseGate):
                 }
                 for _, r in mf.iterrows()
             }
+            self._known_strategies.update(mf["strategy"].astype(str).unique())
         pair_n = len(self._pair_lookup)
         mat_n = len(self._matrix_lookup)
         self._log.info(
@@ -213,6 +216,30 @@ class PipEaterGate(BaseGate):
                     nocell_fallback = True
 
             if final_ev is None:
+                # Brock 2026-06-01: UNCOVERED-STRATEGY BYPASS. If the strategy is
+                # entirely absent from the lab (never backtested -> no EV cell at
+                # any granularity), pass pip_eater and rely on the HTF-hard
+                # alignment gate + other gates for quality. STAMPED as unvalidated
+                # so realized PnL is separable at close. NOTE: a *known* strategy
+                # that merely lacks this specific cell still rejects below — a
+                # missing slice for a tested strategy is meaningful.
+                if strategy and strategy not in self._known_strategies:
+                    try:
+                        if candidate.metadata is None:
+                            candidate.metadata = {}
+                        candidate.metadata["pip_evidence"] = "uncovered_bypass"
+                        candidate.metadata["pip_nocell"] = True
+                    except Exception:
+                        pass
+                    return GateResult(
+                        gate_name=self.name, passed=True, mode=self.mode,
+                        reason=(f"BYPASS uncovered strategy={strategy} — no lab evidence; "
+                                f"passing on HTF-alignment/other gates (pair={pair} reg={regime})"),
+                        metrics={"verdict": "uncovered_bypass", "evidence": "uncovered_bypass",
+                                 "nocell_fallback": False, "uncovered": True, "regime": regime,
+                                 "pair": pair, "strategy": strategy,
+                                 "direction": direction, "session": session},
+                    )
                 if pair_key not in self._missing_logged:
                     self._missing_logged.add(pair_key)
                 return GateResult(
