@@ -115,7 +115,7 @@ class ExecutionCoordinator:
         # fixed pip distances. Strategies emit wide zone-to-zone targets,
         # but the bot's intent is scalping. We keep a fixed risk unit and
         # fixed TP1 anchor off the original signal price.
-        SCALPER_SL_PIPS = 7.0   # Brock 2026-05-27: cheese-slicer — 7p entry stop
+        SCALPER_SL_PIPS = 10.0  # Brock 2026-06-01: widened 7->10p to match lab-validated stop (7p was tighter than the backtest and cutting winners)
         SCALPER_TP_PIPS = 12.0  # TP1 anchor unchanged
         try:
             if best.entry_price and pip_size > 0:
