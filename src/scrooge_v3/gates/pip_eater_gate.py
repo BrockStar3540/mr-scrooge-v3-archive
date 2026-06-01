@@ -67,6 +67,7 @@ class PipEaterGate(BaseGate):
         self.min_n = int(self.config.get("min_n", 30))
         self.blend_mode = str(self.config.get("blend_mode", "max")).lower()  # max | min | avg
         self._pair_lookup: dict[tuple, dict] = {}
+        self._coarse_pair_lookup: dict[tuple, dict] = {}  # regime-agnostic fallback
         self._matrix_lookup: dict[tuple, dict] = {}
         self._missing_logged: set[tuple] = set()
         self._load()
@@ -75,6 +76,7 @@ class PipEaterGate(BaseGate):
         # Pair-module baseline lookup
         if PAIR_LOOKUP_CSV.exists():
             df = pd.read_csv(PAIR_LOOKUP_CSV)
+            full = df.copy()  # unfiltered, for the regime-agnostic aggregate
             df = df[df["n"] >= self.min_n].copy()
             self._pair_lookup = {
                 (r["pair"], r["strategy_id"], r["direction_exec"],
@@ -84,6 +86,30 @@ class PipEaterGate(BaseGate):
                 }
                 for _, r in df.iterrows()
             }
+            # Regime-agnostic fallback (Brock 2026-06-01): when neither the
+            # regime-specific pair cell NOR the matrix cell exists, collapse the
+            # pair-module across ALL regimes (sample-weighted) so we trade on the
+            # broader average instead of rejecting. Built from the UNFILTERED rows
+            # (thin regime cells combine) but kept only if the combined n>=min_n.
+            try:
+                full["_wp"] = full["n"] * full["mean_pip"]
+                grp = full.groupby(
+                    ["pair", "strategy_id", "direction_exec", "session_bucket"],
+                    as_index=False,
+                ).agg(n=("n", "sum"), _wp=("_wp", "sum"),
+                      cohort=("cohort", "first"))
+                grp = grp[grp["n"] >= self.min_n]
+                self._coarse_pair_lookup = {
+                    (r["pair"], r["strategy_id"], r["direction_exec"],
+                     r["session_bucket"]): {
+                        "n": int(r["n"]),
+                        "mean_pip": float(r["_wp"] / r["n"]) if r["n"] else 0.0,
+                        "cohort": str(r["cohort"]),
+                    }
+                    for _, r in grp.iterrows()
+                }
+            except Exception as e:
+                self._log.warning("[PIP_EATER] coarse fallback build failed: %s", e)
         # Matrix-refined lookup
         if MATRIX_LOOKUP_CSV.exists():
             mf = pd.read_csv(MATRIX_LOOKUP_CSV)
@@ -100,8 +126,8 @@ class PipEaterGate(BaseGate):
         pair_n = len(self._pair_lookup)
         mat_n = len(self._matrix_lookup)
         self._log.info(
-            "[PIP_EATER] loaded %d pair cells + %d matrix cells. Floor=%.1fp blend=%s",
-            pair_n, mat_n, self.floor_pips, self.blend_mode,
+            "[PIP_EATER] loaded %d pair cells + %d matrix cells + %d coarse(regime-agnostic) cells. Floor=%.1fp blend=%s",
+            pair_n, mat_n, len(self._coarse_pair_lookup), self.floor_pips, self.blend_mode,
         )
 
     def _compute_buckets(self, candidate: TradeCandidate, ctx: SymbolContext) -> dict[str, str]:
@@ -173,6 +199,19 @@ class PipEaterGate(BaseGate):
             matrix_ev = mat_cell["exp_baseline_pips"] if mat_cell else None
             final_ev = self._blend(pair_ev, matrix_ev)
 
+            # Brock 2026-06-01: regime-agnostic fallback. If neither the
+            # regime-specific pair cell nor the matrix cell has evidence, fall
+            # back to the pair-module collapsed across regimes. Trades taken on
+            # this fallback are STAMPED (metadata + reason + verdict) so their
+            # realized PnL can be compared against full-evidence trades.
+            nocell_fallback = False
+            coarse_cell = None
+            if final_ev is None:
+                coarse_cell = self._coarse_pair_lookup.get(mat_key)
+                if coarse_cell is not None:
+                    final_ev = coarse_cell["mean_pip"]
+                    nocell_fallback = True
+
             if final_ev is None:
                 if pair_key not in self._missing_logged:
                     self._missing_logged.add(pair_key)
@@ -195,11 +234,24 @@ class PipEaterGate(BaseGate):
             tag = _tag(net_ev, floor=self.floor_pips)
             passed = tag in ("good_plate", "tasty", "optimized_meal")
             chose = (
-                "max" if (pair_ev is not None and matrix_ev is not None and self.blend_mode == "max")
+                "regime_agnostic_fallback" if nocell_fallback
+                else "max" if (pair_ev is not None and matrix_ev is not None and self.blend_mode == "max")
                 else "pair_only" if matrix_ev is None
                 else "matrix_only" if pair_ev is None
                 else self.blend_mode
             )
+            # STAMP (Brock 2026-06-01): mark the trade's evidence source so the
+            # regime-agnostic fallback ("No Cell") trades are identifiable at
+            # close. Rides into the position via candidate.metadata.
+            evidence = "regime_agnostic_fallback" if nocell_fallback else chose
+            try:
+                if candidate.metadata is None:
+                    candidate.metadata = {}
+                candidate.metadata["pip_evidence"] = evidence
+                candidate.metadata["pip_net_ev"] = round(net_ev, 2)
+                candidate.metadata["pip_nocell"] = bool(nocell_fallback)
+            except Exception:
+                pass
             metrics = {
                 "verdict": tag,
                 "final_exp_pips": round(final_ev, 2),
@@ -208,17 +260,24 @@ class PipEaterGate(BaseGate):
                 "pair_exp_pips": round(pair_ev, 2) if pair_ev is not None else None,
                 "matrix_exp_pips": round(matrix_ev, 2) if matrix_ev is not None else None,
                 "blend": chose,
+                "evidence": evidence,
+                "nocell_fallback": bool(nocell_fallback),
                 "regime": regime,
                 "pair_n": pair_cell["n"] if pair_cell else 0,
                 "matrix_n": mat_cell["n_optimized"] if mat_cell else 0,
-                "cohort": pair_cell["cohort"] if pair_cell else "n/a",
+                "coarse_n": coarse_cell["n"] if coarse_cell else 0,
+                "cohort": pair_cell["cohort"] if pair_cell else (coarse_cell["cohort"] if coarse_cell else "n/a"),
             }
             # Safe-None formatters for log lines
             pe_s = f"{pair_ev:+.2f}p" if pair_ev is not None else "n/a"
             me_s = f"{matrix_ev:+.2f}p" if matrix_ev is not None else "n/a"
             pn = pair_cell["n"] if pair_cell else 0
             mn = mat_cell["n_optimized"] if mat_cell else 0
-            if passed:
+            if passed and nocell_fallback:
+                reason = (f"HARVEST {tag} [NOCELL-FALLBACK] net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) "
+                          f"(regime-agnostic coarse={final_ev:+.2f}p[n={coarse_cell['n']}] "
+                          f"regime={regime} — no pair/matrix cell)")
+            elif passed:
                 reason = (f"HARVEST {tag} net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) "
                           f"(pair={pe_s}[n={pn}] matrix={me_s}[n={mn}] "
                           f"chose={chose} regime={regime})")
