@@ -61,12 +61,24 @@ class RatchetManager:
         initial_risk_distance: float = 0.0,  # unused; kept for interface compat
         peak_price: float = 0.0,
         stamped_sl: float = 0.0,  # Brock 2026-06-01 Fix A: persistent step-stamp
+        spread: float = 0.0,  # Brock 2026-06-01: NET-green adjustment (price units)
     ) -> StopPlan | None:
         """Stepwise scalper ratchet. Anchors on MFE (peak_price).
 
         Returns a StopPlan if the ratchet would tighten the stop, else None.
         """
-        # Compute MFE in pips (peak gain since entry)
+        # Compute MFE in pips (peak gain since entry).
+        # NET-GREEN (Brock 2026-06-01): entry_price is the FILL (ask for long /
+        # bid for short, since entries are now market orders) while peak/current
+        # come from the MID. The TRUE net unrealized you'd realize on close is
+        # measured at the close side (bid for long, ask for short), which sits a
+        # half-spread away from the mid. Subtract spread/2 so a step trigger of
+        # "5.5p" means the position is genuinely +5.5p net (spread fully paid) —
+        # only THEN do we lock. The lock target (entry+sl_pips) already realizes
+        # net sl_pips because a long stop fills at the bid / a short at the ask.
+        half_spread_pips = (spread / pip_size) / 2.0 if (spread and pip_size) else 0.0
+        if half_spread_pips > 15.0:  # implausible -> spread passed in wrong units; fail safe
+            half_spread_pips = 0.0
         if peak_price and peak_price > 0:
             if direction == TradeDirection.LONG:
                 mfe_pips = (peak_price - entry_price) / pip_size
@@ -77,6 +89,7 @@ class RatchetManager:
                 mfe_pips = (current_price - entry_price) / pip_size
             else:
                 mfe_pips = (entry_price - current_price) / pip_size
+        mfe_pips -= half_spread_pips  # mid-peak -> net (close-side) green
 
         # Find highest step triggered THIS cycle (based on current MFE)
         triggered_sl_pips = None

@@ -304,6 +304,7 @@ class PositionPipeline:
                 initial_risk_distance=risk_distance,
                 peak_price=peak_price,
                 stamped_sl=_prior_stamp,
+                spread=spread,
             )
             # Persist the (possibly new) stamp value back onto the position
             # so subsequent cycles can enforce it. Mutation is safe because
