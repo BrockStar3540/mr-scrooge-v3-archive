@@ -207,3 +207,61 @@ def get_bandit() -> ExitProfileBandit:
         if _BANDIT is None:
             _BANDIT = ExitProfileBandit()
         return _BANDIT
+
+
+def choose_and_record_entry(tracker, symbol: str, strategy: str,
+                            regime: str, trade_id: str):
+    """Pick an exit profile for a freshly-filled trade, stamp the choice onto
+    the tracked position (so the close path can credit the right arm), and log
+    it to the shadow ledger. SHADOW bootstrap — live exits still use global
+    config; this only records which arm to attribute realized pips to at close.
+    Returns the chosen ExitProfile, or None on failure.
+    """
+    try:
+        bandit = get_bandit()
+        regime = regime or "?"
+        profile, debug = bandit.choose_profile(symbol, strategy, regime)
+        pos = tracker.get(trade_id) if tracker is not None else None
+        if pos is not None:
+            pos.metadata["bandit_profile"] = profile.name
+            pos.metadata["bandit_regime"] = regime
+            tracker.persist()
+        log.info("[BANDIT] entry %s %s tid=%s -> profile=%s reason=%s",
+                 symbol, strategy, trade_id, profile.name, debug["reason"])
+        entry = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "event": "entry_choice", "trade_id": trade_id,
+            "symbol": symbol, "strategy": strategy, "regime": regime,
+            "profile_chosen": profile.name, "reason": debug["reason"],
+            "stats": debug["stats"],
+        }
+        with SHADOW_LOG.open("a") as f:
+            f.write(json.dumps(entry) + "\n")
+        return profile
+    except Exception as e:
+        log.debug("[BANDIT] choose_and_record_entry failed: %s", e)
+        return None
+
+
+def observe_from_close(tracked, pnl_pips: float, extra: dict | None = None) -> None:
+    """Feed a closed trade's realized pnl_pips back to the bandit arm chosen at
+    entry. No-op when no profile was recorded (positions opened before this
+    hook, or non-bandit fills). SHADOW bootstrap: the chosen profile was not
+    actually applied to exits, so this attribution is biased — accepted as a
+    structural warm-up until Stage B promotes the bandit to live exits.
+    """
+    try:
+        meta = getattr(tracked, "metadata", None) or {}
+        profile_name = meta.get("bandit_profile")
+        if not profile_name:
+            return
+        get_bandit().observe(
+            profile_name=profile_name,
+            pair=getattr(tracked, "symbol", "?"),
+            strategy=getattr(tracked, "strategy", "?"),
+            regime=meta.get("bandit_regime", "?"),
+            pnl_pips=pnl_pips,
+            extra=extra,
+        )
+    except Exception as e:
+        log.debug("[BANDIT] observe_from_close failed: %s", e)

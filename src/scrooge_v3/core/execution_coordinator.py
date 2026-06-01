@@ -249,31 +249,14 @@ class ExecutionCoordinator:
             log.info("[EXEC] LIMIT FILLED IMMEDIATELY: %s %s %d units @ %.5f",
                      result.trade_id, best.symbol, signed_units, result.fill_price)
 
-            # Phase 2 RL exits — Brock 2026-05-31. SHADOW only: bandit picks
-            # an exit profile + logs choice. Live exit managers still use
-            # global config. Stage B (later) will apply chosen profile.
-            try:
-                from scrooge_v3.management.exit_profile_bandit import get_bandit as _get_bandit
-                _bandit = _get_bandit()
-                _regime = (best.metadata.get("regime") if best.metadata else None) or "?"
-                _profile, _debug = _bandit.choose_profile(best.symbol, best.strategy, _regime)
-                log.info("[BANDIT] entry %s %s tid=%s -> profile=%s reason=%s",
-                         best.symbol, best.strategy, result.trade_id, _profile.name, _debug["reason"])
-                import json as _json, time as _time
-                with open("/home/ubuntu/mr-scrooge-v3/data/exit_profile_shadow.jsonl", "a") as _f:
-                    _f.write(_json.dumps({
-                        "ts": _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime()),
-                        "event": "entry_choice",
-                        "trade_id": result.trade_id,
-                        "symbol": best.symbol,
-                        "strategy": best.strategy,
-                        "regime": _regime,
-                        "profile_chosen": _profile.name,
-                        "reason": _debug["reason"],
-                        "stats": _debug["stats"],
-                    }) + "\n")
-            except Exception as _e:
-                log.debug("[BANDIT] entry choose hook failed: %s", _e)
+            # Phase 2 RL exits — Brock 2026-05-31. SHADOW bootstrap: pick an
+            # exit profile, stamp the choice on the position, log it. Live exits
+            # still use global config; observe() credits the chosen arm with
+            # realized pips at close (state_recovery vanish path).
+            _regime = (best.metadata.get("regime") if best.metadata else None) or "?"
+            from scrooge_v3.management.exit_profile_bandit import choose_and_record_entry
+            choose_and_record_entry(ctx.tracker, best.symbol, best.strategy,
+                                    _regime, result.trade_id)
 
             if attrib is not None:
                 # Immediate fills come back with trade_id (no separate order_id);
