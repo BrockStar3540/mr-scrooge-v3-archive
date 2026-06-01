@@ -327,8 +327,12 @@ class PositionPipeline:
                         )
 
                 # Min-step filter — prevent thrashing
+                # Brock 2026-06-01 Option 1: bypass min-step when ratchet is
+                # enforcing a previously-stamped target. Stamps are deliberate
+                # checkpoint locks, not routine adjustments — trust them through.
                 step_pips = abs(new_stop - current_stop) / pip_size
-                if step_pips < effective_min_sl_step:
+                _is_stamp = bool(getattr(ratchet_plan, "reason_tag", "").startswith("stamp_"))
+                if step_pips < effective_min_sl_step and not _is_stamp:
                     return ManagementAction(
                         position_id=pos_id,
                         action="hold",
