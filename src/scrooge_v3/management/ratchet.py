@@ -60,6 +60,7 @@ class RatchetManager:
         pip_size: float = 0.0001,
         initial_risk_distance: float = 0.0,  # unused; kept for interface compat
         peak_price: float = 0.0,
+        stamped_sl: float = 0.0,  # Brock 2026-06-01 Fix A: persistent step-stamp
     ) -> StopPlan | None:
         """Stepwise scalper ratchet. Anchors on MFE (peak_price).
 
@@ -77,33 +78,64 @@ class RatchetManager:
             else:
                 mfe_pips = (entry_price - current_price) / pip_size
 
-        # Find highest step triggered
+        # Find highest step triggered THIS cycle (based on current MFE)
         triggered_sl_pips = None
         for trigger_mfe, sl_pips_from_entry in self.steps:
             if mfe_pips >= trigger_mfe:
                 triggered_sl_pips = sl_pips_from_entry
 
-        if triggered_sl_pips is None:
-            return None  # haven't reached first trigger yet
+        # Brock 2026-06-01 Fix A: STAMP semantics.
+        # 1) If a step is triggered this cycle, compute its target SL.
+        # 2) If a prior stamp exists, only UPDATE the stamp if the new step
+        #    is TIGHTER (closer to/past entry) than the previous stamp.
+        # 3) If NO step is triggered this cycle but a prior stamp exists,
+        #    enforce the prior stamp — don't unstamp.
+        # 4) Reason includes whether this was a fresh stamp, an upgrade,
+        #    or persistent enforcement of an older stamp.
 
-        # Compute absolute new stop price
-        # sl_pips_from_entry is signed in the convention "negative = on loss side for long"
-        if direction == TradeDirection.LONG:
-            # SL on loss side = below entry for long; so new_stop = entry + sl_pips (sl_pips negative)
-            new_stop = entry_price + (triggered_sl_pips * pip_size)
-            if new_stop <= current_stop:
-                return None  # already tighter; don't loosen
+        target_sl = 0.0
+        reason_tag = ""
+
+        if triggered_sl_pips is not None:
+            # A step triggered this cycle — compute its target SL
+            if direction == TradeDirection.LONG:
+                step_target = entry_price + (triggered_sl_pips * pip_size)
+            else:
+                step_target = entry_price - (triggered_sl_pips * pip_size)
+
+            # Is this tighter than any prior stamp?
+            if stamped_sl > 0:
+                tighter = (
+                    (direction == TradeDirection.LONG and step_target > stamped_sl) or
+                    (direction == TradeDirection.SHORT and step_target < stamped_sl)
+                )
+                if tighter:
+                    target_sl = step_target
+                    reason_tag = f"stamp_upgrade mfe={mfe_pips:.1f}p step={triggered_sl_pips:+.1f}p"
+                else:
+                    target_sl = stamped_sl
+                    reason_tag = f"stamp_persist mfe={mfe_pips:.1f}p stamp@{stamped_sl:.5f}"
+            else:
+                target_sl = step_target
+                reason_tag = f"stamp_new mfe={mfe_pips:.1f}p step={triggered_sl_pips:+.1f}p"
+        elif stamped_sl > 0:
+            # No new step but stamp exists — enforce
+            target_sl = stamped_sl
+            reason_tag = f"stamp_persist mfe={mfe_pips:.1f}p stamp@{stamped_sl:.5f}"
         else:
-            # For short, "loss side" = above entry; flip sign
-            new_stop = entry_price - (triggered_sl_pips * pip_size)
-            if new_stop >= current_stop:
+            # No step triggered, no prior stamp
+            return None
+
+        # Tightening check vs current SL
+        if direction == TradeDirection.LONG:
+            if target_sl <= current_stop:
+                return None
+        else:
+            if target_sl >= current_stop:
                 return None
 
         return StopPlan(
             position_id="",
-            new_stop=new_stop,
-            reason=(
-                f"scalper_ratchet mfe={mfe_pips:.1f}pips "
-                f"-> SL @ entry{triggered_sl_pips:+.1f}pips ({new_stop:.5f})"
-            ),
+            new_stop=target_sl,
+            reason=f"scalper_ratchet {reason_tag} -> SL @ {target_sl:.5f}",
         )

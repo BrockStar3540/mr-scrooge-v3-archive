@@ -47,6 +47,11 @@ class TrackedPosition:
     # retracement can't unlock already-protected gains.
     peak_price: float = 0.0
     peak_profit_distance: float = 0.0
+    # Brock 2026-06-01 Fix A: ratchet step-stamp. Once MFE crosses a ratchet
+    # trigger, the target SL is STAMPED here. Each subsequent cycle the
+    # ratchet enforces this stamp instead of recomputing — so retracements
+    # don't unstamp, and the lock can be applied as soon as price allows.
+    ratchet_stamped_sl: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
 
 

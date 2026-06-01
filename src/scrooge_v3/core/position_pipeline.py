@@ -297,11 +297,19 @@ class PositionPipeline:
 
         # 4. Ratchet check (with spread guard + min-step filter)
         if self.ratchet:
+            # Brock 2026-06-01 Fix A: pass position's prior ratchet stamp + read updated stamp from plan
+            _prior_stamp = getattr(position, "ratchet_stamped_sl", 0.0) if position else 0.0
             ratchet_plan = self.ratchet.compute_ratchet_stop(
                 direction, entry_price, current_price, current_stop, pip_size,
                 initial_risk_distance=risk_distance,
                 peak_price=peak_price,
+                stamped_sl=_prior_stamp,
             )
+            # Persist the (possibly new) stamp value back onto the position
+            # so subsequent cycles can enforce it. Mutation is safe because
+            # tracker.persist() is called every cycle.
+            if ratchet_plan and position is not None:
+                position.ratchet_stamped_sl = ratchet_plan.new_stop
             if ratchet_plan:
                 new_stop = ratchet_plan.new_stop
 
