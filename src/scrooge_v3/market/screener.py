@@ -67,7 +67,7 @@ SESSION_WINDOWS = [
 CANDIDATE_PAIRS = [
     # Dollar majors
     "EUR_USD", "GBP_USD", "USD_JPY", "AUD_USD",
-    "USD_CHF", "USD_CAD", "NZD_USD", "USD_MXN",
+    "USD_CHF", "USD_CAD", "NZD_USD",  # USD_MXN excised 2026-06-01
     # JPY crosses
     "EUR_JPY", "GBP_JPY", "AUD_JPY", "CAD_JPY", "CHF_JPY", "NZD_JPY",
     # EUR crosses

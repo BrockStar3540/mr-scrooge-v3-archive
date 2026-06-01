@@ -125,3 +125,4 @@ data/lab_matrix/winner_loser_formulas.csv.gz
 .env.bak_*
 crontab.bak_*
 *.bak_2026-05-31
+*.bak_2026-*

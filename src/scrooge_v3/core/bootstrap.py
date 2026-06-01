@@ -131,7 +131,6 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         OverheadRatioCalculator, RSICalculator, TechnicalContextCalculator,
         TechnicalRegime53Calculator,
         TF6ShortUSDJPYObserver,
-        TF6LongUSDMXNObserver,
         VolumeCalculator, ZoneDetector,
     )
     feat_cfg = config.section("features")
@@ -159,11 +158,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         "tf6_short_usdjpy_observer",
         TF6ShortUSDJPYObserver(feat_cfg.get("tf6_short_usdjpy_observer", {})),
     )
-    registry.register(
-        "features",
-        "tf6_long_usdmxn_observer",
-        TF6LongUSDMXNObserver(feat_cfg.get("tf6_long_usdmxn_observer", {})),
-    )
+    # tf6_long_usdmxn_observer retired 2026-06-01 (USD_MXN excision)
 
     # --- Register classifiers ---
     from scrooge_v3.classifiers.bb_state import BollingerStateClassifier
