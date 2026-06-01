@@ -255,7 +255,7 @@
       ]
     },
     "htf_trend_filter": {
-      "mode": "observe",
+      "mode": "hard",
       "lookback_periods": 20,
       "htf": "D",
       "neutral_pct": 0.0
@@ -310,6 +310,10 @@
     "ratchet": {
       "_comment": "Brock 2026-06-01 Option A \u2014 6-step scalper schedule, constant 0.5p buffer between trigger and lock",
       "scalper_steps": [
+        [
+          3.5,
+          2.5
+        ],
         [
           5.5,
           5.0

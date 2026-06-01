@@ -184,7 +184,15 @@ class PipEaterGate(BaseGate):
                              "direction": direction, "session": session},
                 )
 
-            tag = _tag(final_ev, floor=self.floor_pips)
+            # Brock 2026-06-01: NET-of-spread EV. Lab pnl_pips is GROSS; live we
+            # pay ~1x round-trip spread (1.8p avg, up to 2.6p on crosses). Gate on
+            # the cost-adjusted number so a +4p gross edge on a wide-spread cross
+            # does not pass as net-marginal/negative.
+            _sp = getattr(getattr(ctx, "snapshot", None), "spread", 0.0) or 0.0
+            _pip = 0.01 if any(j in pair for j in ("JPY", "MXN")) else 0.0001
+            spread_pips = (_sp / _pip) if _pip else 0.0
+            net_ev = final_ev - spread_pips
+            tag = _tag(net_ev, floor=self.floor_pips)
             passed = tag in ("good_plate", "tasty", "optimized_meal")
             chose = (
                 "max" if (pair_ev is not None and matrix_ev is not None and self.blend_mode == "max")
@@ -195,6 +203,8 @@ class PipEaterGate(BaseGate):
             metrics = {
                 "verdict": tag,
                 "final_exp_pips": round(final_ev, 2),
+                "net_exp_pips": round(net_ev, 2),
+                "spread_pips": round(spread_pips, 2),
                 "pair_exp_pips": round(pair_ev, 2) if pair_ev is not None else None,
                 "matrix_exp_pips": round(matrix_ev, 2) if matrix_ev is not None else None,
                 "blend": chose,
@@ -209,14 +219,14 @@ class PipEaterGate(BaseGate):
             pn = pair_cell["n"] if pair_cell else 0
             mn = mat_cell["n_optimized"] if mat_cell else 0
             if passed:
-                reason = (f"HARVEST {tag} exp_pips={final_ev:+.2f}p "
+                reason = (f"HARVEST {tag} net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) "
                           f"(pair={pe_s}[n={pn}] matrix={me_s}[n={mn}] "
                           f"chose={chose} regime={regime})")
             elif tag == "pip_trick":
                 reason = (f"PIP TRICK detected exp_pips={final_ev:+.2f}p — danger "
                           f"(pair={pe_s} matrix={me_s} regime={regime})")
             else:
-                reason = (f"empty plate exp_pips={final_ev:+.2f}p < floor={self.floor_pips}p "
+                reason = (f"empty plate net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) < floor={self.floor_pips}p "
                           f"(pair={pe_s} matrix={me_s} regime={regime})")
             return GateResult(
                 gate_name=self.name, passed=passed, mode=self.mode,
