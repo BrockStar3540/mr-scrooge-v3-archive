@@ -65,17 +65,12 @@ SESSION_WINDOWS = [
 ]
 
 CANDIDATE_PAIRS = [
-    # Dollar majors
+    # Per-pair redesign 2026-06-01: net-positive aligned universe (OOS-validated).
+    # Dropped wide-spread crosses (GBP_NZD/EUR_NZD/GBP_AUD/... net-negative even aligned).
+    # 7 USD majors + 3 net-positive mid crosses (EUR_GBP/EUR_CHF/EUR_JPY).
     "EUR_USD", "GBP_USD", "USD_JPY", "AUD_USD",
-    "USD_CHF", "USD_CAD", "NZD_USD",  # USD_MXN excised 2026-06-01
-    # JPY crosses
-    "EUR_JPY", "GBP_JPY", "AUD_JPY", "CAD_JPY", "CHF_JPY", "NZD_JPY",
-    # EUR crosses
-    "EUR_GBP", "EUR_CAD", "EUR_AUD", "EUR_NZD", "EUR_CHF",
-    # GBP crosses
-    "GBP_CAD", "GBP_AUD", "GBP_NZD", "GBP_CHF",
-    # Commodity crosses
-    "AUD_CAD", "AUD_NZD", "AUD_CHF",
+    "USD_CHF", "USD_CAD", "NZD_USD",
+    "EUR_JPY", "EUR_GBP", "EUR_CHF",
 ]
 
 
