@@ -351,6 +351,19 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         # Default OBSERVE — logs what it would have blocked, doesn'\''t block.
         # Promote to HARD via config after lab + live observe-match confirmed.
         # 2026-05-27 (Brock): HTFTrendFilterGate retired -> MatrixRouterGate
+        # 2026-06-01 (Brock): RE-ARMED in OBSERVE. Matrix lookup is keyed only by
+        # (pair, strategy, direction, session) -> HTF-blind. HTF alignment is a
+        # validated edge (+37..57% vs -17..24% over 6mo, lab). Observe first to
+        # measure live veto rate vs the current losers, then promote to hard via
+        # gates.htf_trend_filter.mode=hard.
+        HTFTrendFilterGate(
+            (gate_cfg.get("htf_trend_filter", {}) if gate_cfg else {}),
+            mode=_resolve_gate_mode(
+                gate_cfg.get("htf_trend_filter") if gate_cfg else None,
+                default="observe",
+                gate_name="htf_trend_filter",
+            ),
+        ),
         ZoneEntryCapGate(gate_cfg.get("zone_entry_cap", {})),
         # PIP EATER — Brock 2026-05-31 primary quality gate.
         # Replaces WR/WL thinking with expected-pip lookup per (pair, strategy,

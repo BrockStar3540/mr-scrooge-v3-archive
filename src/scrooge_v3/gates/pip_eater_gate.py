@@ -166,7 +166,11 @@ class PipEaterGate(BaseGate):
             mat_cell = self._matrix_lookup.get(mat_key)
 
             pair_ev = pair_cell["mean_pip"] if pair_cell else None
-            matrix_ev = mat_cell["exp_optimized_pips"] if mat_cell else None
+            # Brock 2026-06-01: HONEST EV. Was exp_optimized_pips (mean of the
+            # cherry-picked winning-signature subset, kept ~8-16%, NOT achievable
+            # live since the signature filter is not enforced -> systemic +6-8p
+            # over-promise). exp_baseline_pips is the honest full-sample mean.
+            matrix_ev = mat_cell["exp_baseline_pips"] if mat_cell else None
             final_ev = self._blend(pair_ev, matrix_ev)
 
             if final_ev is None:
