@@ -267,7 +267,7 @@
     "pip_eater": {
       "enabled": true,
       "mode": "hard",
-      "floor_pips": 0.5,
+      "floor_pips": 0.0,
       "min_n": 30
     },
     "matrix_router_gate": {
