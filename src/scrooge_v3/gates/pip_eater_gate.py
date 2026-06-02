@@ -65,6 +65,10 @@ class PipEaterGate(BaseGate):
         super().__init__(config or {}, mode)
         self.floor_pips = float(self.config.get("floor_pips", 4.0))
         self.min_n = int(self.config.get("min_n", 30))
+        # Brock 2026-06-02: momentum filter. Require align_score (# of H20/H60/
+        # T1/T4 aligned with candidate direction) >= align_min. Lab: aligned>=3
+        # trades net +0.64p/64% WR vs counter<=1 at -0.30p/59%. 0 = disabled.
+        self.align_min = int(self.config.get("align_min", 0))
         self.blend_mode = str(self.config.get("blend_mode", "max")).lower()  # max | min | avg
         self._pair_lookup: dict[tuple, dict] = {}
         self._coarse_pair_lookup: dict[tuple, dict] = {}  # regime-agnostic fallback
@@ -134,17 +138,39 @@ class PipEaterGate(BaseGate):
         )
 
     def _compute_buckets(self, candidate: TradeCandidate, ctx: SymbolContext) -> dict[str, str]:
+        # Brock 2026-06-02 FIX: the old `ctx.features_dict()` never existed
+        # (hasattr False -> feat={}), so ALL 14 factor buckets came back "x" and
+        # regime/alignment ran on empty. The real features live in
+        # ctx.features[<calc>].values (matrix_features/atr/bollinger/ema/rsi).
+        # Merge them so the buckets compute on real data.
         feat = {}
         try:
-            feat = ctx.features_dict() if hasattr(ctx, "features_dict") else {}
+            for _fr in (getattr(ctx, "features", {}) or {}).values():
+                _v = getattr(_fr, "values", None)
+                if isinstance(_v, dict):
+                    feat.update(_v)
         except Exception:
             pass
+        # direction is required by the alignment-aware buckets (H20/H60/T1/T4)
+        try:
+            feat["direction"] = candidate.direction.value
+            feat["direction_exec"] = candidate.direction.value
+        except Exception:
+            pass
+        pip_size = 0.01 if any(j in candidate.symbol for j in ("JPY", "MXN")) else 0.0001
         try:
             stop_pips = abs(candidate.entry_price - candidate.stop_price)
-            pip_size = 0.01 if any(j in candidate.symbol for j in ("JPY", "MXN")) else 0.0001
             feat["stop_pips"] = stop_pips / pip_size if pip_size else 0.0
         except Exception:
             feat["stop_pips"] = 7.0
+        # SPR factor needs spread in pips; it lives on the snapshot, not a feature calc.
+        try:
+            if "spread_pips" not in feat:
+                _sp = getattr(getattr(ctx, "snapshot", None), "spread", 0.0) or 0.0
+                if _sp and pip_size:
+                    feat["spread_pips"] = _sp / pip_size
+        except Exception:
+            pass
         row = {**feat, "pair": candidate.symbol}
         out = {}
         for f in fb.FACTORS:
@@ -188,6 +214,29 @@ class PipEaterGate(BaseGate):
                 )
             buckets = self._compute_buckets(candidate, ctx)
             regime = mod.assign_regime(buckets)
+
+            # Brock 2026-06-02: MOMENTUM FILTER. Only trade WITH the trend.
+            # align_score = # of {H20,H60,T1,T4} aligned with candidate dir.
+            # Applies to EVERY candidate (incl. uncovered_bypass strategies) —
+            # the lab showed strategy identity barely matters; trade-level
+            # alignment is the whole edge (aligned>=3 +0.64p vs counter -0.30p).
+            if self.align_min > 0:
+                align_score = (
+                    (1 if buckets.get("H20") in ("H20a", "H20b") else 0)
+                    + (1 if buckets.get("H60") in ("H60a", "H60b") else 0)
+                    + (1 if buckets.get("T1") == "T1a" else 0)
+                    + (1 if buckets.get("T4") == "T4a" else 0)
+                )
+                if align_score < self.align_min:
+                    return GateResult(
+                        gate_name=self.name, passed=False, mode=self.mode,
+                        reason=(f"MOMENTUM filter: align_score={align_score} < {self.align_min} "
+                                f"(H20={buckets.get('H20')} H60={buckets.get('H60')} "
+                                f"T1={buckets.get('T1')} T4={buckets.get('T4')} dir={direction})"),
+                        metrics={"verdict": "low_align", "align_score": align_score,
+                                 "align_min": self.align_min, "pair": pair,
+                                 "strategy": strategy, "direction": direction},
+                    )
 
             pair_key = (pair, strategy, direction, session, regime)
             mat_key = (pair, strategy, direction, session)
