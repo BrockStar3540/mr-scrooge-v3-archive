@@ -60,6 +60,22 @@ JOURNAL_CURSOR_FILE = DATA_DIR / "journal.cursor"
 JOURNAL_UNIT = "mr-scrooge-v3.service"
 JOURNAL_MAX_ENTRIES_PER_CYCLE = 10000
 
+# --- LightGBM shadow ingestion (PIP-EATER era live scan-feature source) ---
+# 2026-06-02: the V3 scorer was retired for the pip_eater architecture, so
+# /api/data signals no longer carry scorer.breakdown and the bot emits zero
+# [V3_SCORER] log lines. The old API/journal-driven scan capture therefore
+# produces nothing (scans.jsonl stayed 0 bytes). The live per-scan feature
+# source is now the pip_eater LightGBM shadow log — one JSON row per scan for
+# the picked candidate, carrying the 14 categorical buckets + identity. The
+# observer tails it (byte-offset cursor) and mirrors each row into scans.jsonl.
+LIGHTGBM_SHADOW_FILE = OBS_DIR / "data" / "lightgbm_shadow.jsonl"
+# Canonical bucket feature schema (shared with the live LightGBM shadow model
+# for train/inference parity): feature_order + categorical_levels.
+BUCKET_META_FILE     = OBS_DIR / "data" / "lab_training" / "v0" / "feature_meta.json"
+# Max seconds from a scan's ts to the resulting OANDA trade_open fill when
+# joining scans -> outcomes for labels (market-order fills land within seconds).
+SCAN_OPEN_WINDOW_SEC = 900
+
 # --- Legacy (still used for reads during backfill) ---
 OBSERVATIONS_FILE = DATA_DIR / "observations.jsonl"  # legacy — no new writes
 

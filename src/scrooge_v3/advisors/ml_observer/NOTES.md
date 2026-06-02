@@ -10,6 +10,37 @@ and V2 (practice) trading bots. Collects signal data, trains a win/loss
 classifier after enough trades accumulate, and logs "protests" when its
 predictions disagree with bot decisions. Never takes action — read-only.
 
+## 2026-06-02 — Current architecture (PIP-EATER era) — supersedes sections below
+
+The bot migrated off the V3 scorer to the pip_eater/LightGBM architecture. The
+sections below (V1/V2, 24-feature status.json vector, mr_scrooge_env) are
+historical. Current reality:
+
+- **Service:** `ml-observer.service` (systemd **--user**), venv `~/mr_burns_env`
+  (xgboost 3.2.0, pandas 3.0.1). Watches **V3 only** (paper/practice acct).
+- **Scan-feature source (the live one):** the V3 scorer is retired, so
+  `/api/data` signals carry no `scorer.breakdown` and the bot emits zero
+  `[V3_SCORER]` lines — the old API/journal scan capture is dead. The observer
+  now **tails `data/lightgbm_shadow.jsonl`** (pip_eater's per-scan picked
+  candidate: 14 categorical buckets + identity) via a persisted byte-offset
+  cursor (`observer.ingest_shadow_scans`) and mirrors each row into
+  `scans.jsonl` (`verdict=TAKE_SHADOW`, `source=lightgbm_shadow`).
+- **Features = categorical buckets**, not the old numeric vector. Schema is
+  shared with the live LightGBM model: `data/lab_training/v0/feature_meta.json`
+  (`feature_order` + `categorical_levels`, 18 cols = 14 buckets + pair +
+  strategy_id + direction_exec + session_bucket). Trained with xgboost
+  `hist` + `enable_categorical`. `model.xgb` is written with a
+  `model-features.json` sidecar so `predict()` rebuilds an identical frame;
+  `predict()` returns the neutral sentinel `(0.5, -1)` when given non-bucket
+  inputs (e.g. the featureless API path), so phase-3 `advise()` no-ops cleanly.
+- **Label join:** `outcomes.jsonl` `trade_close → trade_open` (by `trade_id`)
+  → nearest prior shadow scan for that symbol within `SCAN_OPEN_WINDOW_SEC`
+  (900s). `y` = win(1)/loss(0).
+- **Loop wiring:** `maybe_train()`/`advise()` are called from `observer.run()`
+  each cycle. (This call was dropped in epoch-reset commit `0a7bd4a`, which is
+  why training silently stopped on 2026-05-13; restored 2026-06-02.)
+- Shadow/advisory ONLY — gates nothing live.
+
 ## Architecture
 
 - Standalone systemd service: `ml-observer.service`

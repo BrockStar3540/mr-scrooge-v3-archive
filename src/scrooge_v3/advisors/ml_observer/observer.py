@@ -54,6 +54,7 @@ from config import (  # noqa: E402
     LOG_DIR, DATA_DIR,
     PHASE2_MIN_TRADES, RETRAIN_INTERVAL_TRADES, PROTEST_CONFIDENCE,
     TRADE_ASSOCIATION_WINDOW_SEC,
+    LIGHTGBM_SHADOW_FILE,
 )
 from features import build_scan_row, extract_features, FEATURE_NAMES  # noqa: E402
 # v3_scorer_parser archived 2026-05-28 -- bot no longer emits V3_SCORER
@@ -115,6 +116,8 @@ class ObserverState:
         self.known_trade_ids: set = set()
         self.shadow_next_id = 1
         self.shadow_positions: list[dict] = []
+        # Byte offset into lightgbm_shadow.jsonl — resume tailing across restarts.
+        self.shadow_offset = 0
 
     def save(self):
         STATE_FILE.write_text(json.dumps({
@@ -131,6 +134,7 @@ class ObserverState:
             "known_trade_ids": list(self.known_trade_ids),
             "shadow_next_id": self.shadow_next_id,
             "shadow_positions": self.shadow_positions,
+            "shadow_offset": self.shadow_offset,
         }, indent=2))
 
     def load(self):
@@ -154,6 +158,7 @@ class ObserverState:
         self.known_trade_ids = set(data.get("known_trade_ids", []))
         self.shadow_next_id = int(data.get("shadow_next_id", 1) or 1)
         self.shadow_positions = list(data.get("shadow_positions", []))
+        self.shadow_offset = int(data.get("shadow_offset", 0) or 0)
 
 
 def _append_jsonl(path: Path, record: dict) -> None:
@@ -261,6 +266,109 @@ def drain_journal(state: ObserverState) -> tuple[dict, int, int]:
 
 
 # ----------------------------- Scans -----------------------------
+
+def _shadow_entry_to_scan_row(e: dict) -> dict:
+    """Normalize a lightgbm_shadow.jsonl entry into a scans.jsonl row.
+
+    PIP-EATER era schema: the live per-scan feature set is the 14 categorical
+    `buckets` plus identity (strategy/direction/session/regime). The legacy
+    numeric `ml_features` vector is retired (it came from the dead V3 scorer),
+    so it is left empty. `verdict` is stamped TAKE_SHADOW (TAKE_ prefix) so the
+    existing scan<->trade matching in trainer/_find_scan_for_trade still keys on
+    it; these rows are the picked best-by-score candidate per scan.
+    """
+    buckets = e.get("buckets") if isinstance(e.get("buckets"), dict) else {}
+    strategy = str(e.get("strategy", "") or "")
+    direction = str(e.get("direction", "") or "")
+    session = str(e.get("session", "") or "")
+    regime = str(e.get("regime", "") or buckets.get("regime", "") or "")
+    return {
+        "ts": e.get("ts"),
+        "cycle": None,
+        "symbol": str(e.get("symbol", "") or ""),
+        "verdict": "TAKE_SHADOW",
+        "source": "lightgbm_shadow",
+        "strategy_allowed": strategy,
+        "buckets": buckets,
+        "p_win": e.get("p_win"),
+        "candidate_score": e.get("candidate_score"),
+        "n_candidates_this_scan": e.get("n_candidates_this_scan"),
+        "candidate": {
+            "strategy": strategy,
+            "direction": direction,
+            "family": "",
+        },
+        "identity": {
+            "symbol": str(e.get("symbol", "") or ""),
+            "strategy": strategy,
+            "direction": direction,
+            "session_bucket": session,
+            "regime53": regime,
+        },
+        "ml_features": {},  # legacy numeric vector retired in PIP-EATER era
+        "trade_id": None,
+    }
+
+
+def ingest_shadow_scans(state: ObserverState) -> tuple[int, list[dict]]:
+    """Tail lightgbm_shadow.jsonl and mirror new rows into scans.jsonl.
+
+    This replaces the dead API/journal scan-capture path: /api/data no longer
+    carries scorer.breakdown so collect_scans() records nothing. The pip_eater
+    LightGBM shadow log is the live source. We read via a persisted byte offset
+    so rows are never re-ingested; on first run (offset 0) the whole existing
+    file is backfilled, giving the trainer immediate labeled data.
+
+    Returns (n_new_rows, new_rows).
+    """
+    path = LIGHTGBM_SHADOW_FILE
+    if not path.exists():
+        return 0, []
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return 0, []
+    # Truncation/rotation guard: if the file shrank below our cursor, restart.
+    if state.shadow_offset > size:
+        log.warning("[scans] shadow log shrank (%d < offset %d) — restarting tail",
+                    size, state.shadow_offset)
+        state.shadow_offset = 0
+
+    new_rows: list[dict] = []
+    try:
+        with open(path, "rb") as f:
+            f.seek(state.shadow_offset)
+            while True:
+                bline = f.readline()
+                if not bline:
+                    break
+                if not bline.endswith(b"\n"):
+                    # Partial trailing line (writer mid-append) — leave the
+                    # cursor before it so we re-read it complete next cycle.
+                    break
+                state.shadow_offset = f.tell()
+                line = bline.decode("utf-8", "replace").strip()
+                if not line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                row = _shadow_entry_to_scan_row(e)
+                if not row.get("ts") or not row.get("symbol"):
+                    continue
+                _append_jsonl(SCANS_FILE, row)
+                new_rows.append(row)
+    except OSError as ex:
+        log.warning("[scans] shadow ingest read failed: %s", ex)
+        return 0, []
+
+    state.total_scans += len(new_rows)
+    if new_rows:
+        log.info("[scans] ingested %d shadow scan rows (offset=%d total_scans=%d)",
+                 len(new_rows), state.shadow_offset, state.total_scans)
+    return len(new_rows), new_rows
+
 
 def build_current_scan_rows(data: dict, scorer_by_symbol: dict) -> tuple[int, list[dict]]:
     """Build current-cycle scan rows without mutating persistent state."""
@@ -594,6 +702,10 @@ def run():
                 log.info("[journal] actions=%d logs=%d scorer=%d",
                          n_actions, n_logs, len(scorer_map))
 
+            # PIP-EATER era live scan-feature capture (file-based, independent
+            # of the V3 API). Mirrors lightgbm_shadow.jsonl into scans.jsonl.
+            ingest_shadow_scans(state)
+
             if data:
                 _, scan_rows = collect_scans(state, data, scorer_map)
                 snapshot_account(state, data)
@@ -616,6 +728,16 @@ def run():
                     shadow_summary.get("matrix_nomatch", 0),
                     shadow_summary.get("matrix_nocand", 0),
                 )
+
+            # Train on accumulated outcomes, then advise once phase 3 is reached.
+            # (This call was dropped in the 2026-05-28 epoch-reset rewrite, which
+            # is why the observer stopped training even before scans went empty.)
+            # Training reads scans.jsonl + outcomes.jsonl, so it is independent of
+            # the live API; advise() needs the current signals, so it is gated on
+            # `data` being present.
+            trained = maybe_train(state)
+            if trained and state.phase >= 3 and data:
+                advise(state, data)
 
             state.save()
 
