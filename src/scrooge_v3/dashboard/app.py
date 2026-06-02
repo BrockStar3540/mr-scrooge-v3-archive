@@ -12,10 +12,34 @@ import os
 from typing import Any
 
 from flask import Flask, Response, jsonify, render_template, request
+from flask.json.provider import DefaultJSONProvider
 
 from .live_state import LiveState
 
 log = logging.getLogger("scrooge_v3.dashboard.app")
+
+
+class _SafeJSONProvider(DefaultJSONProvider):
+    """Never let /api/data 500 on serialization (Brock 2026-06-02).
+
+    A `set` leaking into the snapshot crashed jsonify with
+    'Object of type set is not JSON serializable', which 500'd /api/data and
+    starved the ml-observer's scorer (acc=0.00). Convert sets/frozensets to
+    lists; fall back to str() for any other exotic type so the dashboard — and
+    the ML outcome feed that reads it — stay alive.
+    """
+
+    @staticmethod
+    def default(o: Any) -> Any:
+        if isinstance(o, (set, frozenset)):
+            try:
+                return sorted(o)
+            except Exception:
+                return list(o)
+        try:
+            return DefaultJSONProvider.default(o)
+        except TypeError:
+            return str(o)
 
 _TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 _STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
@@ -33,6 +57,7 @@ def create_app(
 
     config = config or {}
     app = Flask(__name__, template_folder=_TEMPLATE_DIR, static_folder=_STATIC_DIR)
+    app.json = _SafeJSONProvider(app)  # set-safe serialization (fixes /api/data 500)
 
     auth_user = config.get("auth_user", os.environ.get("DASHBOARD_USER", "admin"))
     auth_pass = config.get("auth_pass", os.environ.get("DASHBOARD_PASS", "scrooge"))
