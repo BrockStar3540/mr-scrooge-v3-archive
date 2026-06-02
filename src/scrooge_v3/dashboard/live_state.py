@@ -217,7 +217,7 @@ class LiveState:
                 "verdict": r.get("verdict", ""),
                 "features": {},
                 "classifications": r.get("classifications", {}),
-                "strategy_allowed": r.get("strategy_allowed", []),
+                "strategy_allowed": sorted(r.get("strategy_allowed") or []),
                 "gates": r.get("gates", {}),
                 "scorer": r.get("scorer", {}),
                 # B-1 Patch C (2026-05-27): include candidate so ml-observer
