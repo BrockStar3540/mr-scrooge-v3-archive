@@ -69,6 +69,10 @@ class PipEaterGate(BaseGate):
         # T1/T4 aligned with candidate direction) >= align_min. Lab: aligned>=3
         # trades net +0.64p/64% WR vs counter<=1 at -0.30p/59%. 0 = disabled.
         self.align_min = int(self.config.get("align_min", 0))
+        # Brock 2026-06-03: per-pair strategy blocklist. strategy_id -> [pairs]
+        # where that strategy is a net loser in lab (hard veto, any mode).
+        _bl = self.config.get("pair_blocklist", {}) or {}
+        self.pair_blocklist = {str(k): set(v or []) for k, v in _bl.items()}
         self.blend_mode = str(self.config.get("blend_mode", "max")).lower()  # max | min | avg
         self._pair_lookup: dict[tuple, dict] = {}
         self._coarse_pair_lookup: dict[tuple, dict] = {}  # regime-agnostic fallback
@@ -204,6 +208,16 @@ class PipEaterGate(BaseGate):
             strategy = candidate.strategy or ""
             direction = _normalize_direction(candidate.direction)
             session = self._get_session(ctx)
+
+            # --- per-pair strategy blocklist (Brock 2026-06-03) ---
+            _blk = self.pair_blocklist.get(strategy)
+            if _blk and pair in _blk:
+                return GateResult(
+                    gate_name=self.name, passed=False, mode=self.mode,
+                    reason=f"PAIR-BLOCKLIST: {strategy} disabled on {pair} (lab net-negative)",
+                    metrics={"verdict": "pair_blocked", "pair": pair,
+                             "strategy": strategy, "direction": direction},
+                )
 
             mod = ppm.get(pair, strategy)
             if mod is None:

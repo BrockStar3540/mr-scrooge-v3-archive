@@ -98,7 +98,7 @@
     },
     "probes_v2": {
       "BR2_vcb_long": {
-        "enabled": true
+        "enabled": false
       },
       "BR2_vcb_short": {
         "enabled": true
@@ -113,7 +113,7 @@
         "enabled": true
       },
       "MR5_williams_extreme_long": {
-        "enabled": true
+        "enabled": false
       },
       "MR5_williams_extreme_short": {
         "enabled": true
@@ -128,13 +128,13 @@
         "enabled": true
       },
       "BR3_inside_bar_long": {
-        "enabled": true
+        "enabled": false
       },
       "BR3_inside_bar_short": {
         "enabled": true
       },
       "CP1_coil_breakout_long": {
-        "enabled": true
+        "enabled": false
       },
       "CP1_coil_breakout_short": {
         "enabled": true
@@ -143,19 +143,19 @@
         "enabled": true
       },
       "TF4_sar_long": {
-        "enabled": true
+        "enabled": false
       },
       "BR5_opening_range_breakout_long": {
-        "enabled": true
+        "enabled": false
       },
       "BR5_opening_range_breakout_short": {
-        "enabled": true
+        "enabled": false
       },
       "RG1_range_bound_scalp_long": {
         "enabled": true
       },
       "TF2_pullback_EMA20_long": {
-        "enabled": true
+        "enabled": false
       },
       "TF2_pullback_EMA20_short": {
         "enabled": true
@@ -179,7 +179,7 @@
         "enabled": true
       },
       "charlie_pullback_continuation_v2": {
-        "enabled": true
+        "enabled": false
       },
       "delta_tag_and_go_v2": {
         "enabled": true
@@ -271,7 +271,21 @@
       "mode": "hard",
       "floor_pips": 0.0,
       "min_n": 30,
-      "align_min": 3
+      "align_min": 4,
+      "pair_blocklist": {
+        "CP3_vol_coil_fade_short": [
+          "USD_CAD"
+        ],
+        "CP2_squeeze_momentum_long": [
+          "USD_CAD"
+        ],
+        "BR2_vcb_short": [
+          "AUD_USD"
+        ],
+        "TF2_pullback_EMA20_short": [
+          "EUR_USD"
+        ]
+      }
     },
     "matrix_router_gate": {
       "enabled": false,

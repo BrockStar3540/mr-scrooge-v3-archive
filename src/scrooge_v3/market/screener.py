@@ -65,9 +65,10 @@ SESSION_WINDOWS = [
 ]
 
 CANDIDATE_PAIRS = [
-    # Backtest 2026-06-03: the 5 OOS-positive (no-ratchet) pairs. Dropped USD_JPY
-    # (+0.01 OOS, dead weight without the ratchet) + all consistent losers.
-    "AUD_USD", "EUR_USD", "GBP_USD", "EUR_JPY", "USD_CAD",
+    # 2026-06-03 align_min=4 dial-in: kept the 4 strongest align=4 pairs
+    # (net/trade EUR_USD +1.42, GBP_USD +1.26, AUD_USD +0.97, USD_CAD +0.77).
+    # Chopped EUR_JPY (laggard +0.52p, sub-50% WR even fully aligned).
+    "AUD_USD", "EUR_USD", "GBP_USD", "USD_CAD",
 ]
 
 
