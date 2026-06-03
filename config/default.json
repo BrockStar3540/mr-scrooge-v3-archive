@@ -310,55 +310,23 @@
     "tp1_r": 1.0,
     "ratchet": {
       "_comment": "Brock 2026-06-01 Option A \u2014 6-step scalper schedule, constant 0.5p buffer between trigger and lock",
-      "scalper_steps": [
-        [
-          3.5,
-          2.5
-        ],
-        [
-          5.5,
-          5.0
-        ],
-        [
-          7.5,
-          7.0
-        ],
-        [
-          10.5,
-          10.0
-        ],
-        [
-          13.0,
-          12.5
-        ],
-        [
-          15.5,
-          15.0
-        ],
-        [
-          20.5,
-          20.0
-        ],
-        [
-          30.5,
-          30.0
-        ]
-      ]
+      "scalper_steps": [],
+      "_disabled": "2026-06-03 backtest: ratchet capped wins, -0.10p OOS"
     },
     "break_even": {
-      "be_trigger_r": 0.786,
-      "be_trigger_min_pips": 5.5,
+      "be_trigger_r": 99.0,
+      "be_trigger_min_pips": 9999.0,
       "be_offset_r": 0.714,
       "be_offset_min_pips": 5.0
     },
     "exit_manager": {
-      "early_hold_threshold_r": 0.5,
-      "lock_threshold_r": 0.8,
+      "early_hold_threshold_r": 99.0,
+      "lock_threshold_r": 99.0,
       "min_sl_step_pips": 1.0
     },
     "dust_unit_threshold": 2,
     "favorable_exit": {
-      "enabled": true,
+      "enabled": false,
       "favorable_exit_offset_pips": 0.5,
       "favorable_exit_expiry_seconds": 600,
       "peak_retrace_pct": 0.5,
