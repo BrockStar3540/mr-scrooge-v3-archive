@@ -65,10 +65,9 @@ SESSION_WINDOWS = [
 ]
 
 CANDIDATE_PAIRS = [
-    # Backtest 2026-06-03: pruned to the 6 OOS-positive pairs (positive net in
-    # BOTH train+test halves, no-ratchet fixed SL10/TP12). Dropped consistent
-    # losers EUR_CHF/EUR_GBP and flippers NZD_USD/USD_CHF.
-    "USD_JPY", "EUR_USD", "GBP_USD", "AUD_USD", "USD_CAD", "EUR_JPY",
+    # Backtest 2026-06-03: 3 most OOS-robust pairs (positive net both train+test
+    # halves, no-ratchet). The profitable core; everything else dropped.
+    "USD_JPY", "EUR_USD", "EUR_JPY",
 ]
 
 

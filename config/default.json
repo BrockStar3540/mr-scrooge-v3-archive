@@ -13,11 +13,13 @@
     "max_open_positions": 8,
     "max_daily_loss_pct": 3.0,
     "margin_utilization": 0.4,
-    "cooldown_after_stop_minutes": 60,
+    "cooldown_after_stop_minutes": 360,
     "zone_blacklist_hours": 4,
     "zone_bucket_pips": 20,
     "max_consecutive_expiries": 3,
-    "backoff_minutes": 30
+    "backoff_minutes": 30,
+    "max_risk_per_trade_pct": 0.05,
+    "_note_5pct": "2026-06-03 Brock: 5% target risk (paper); margin may cap effective risk"
   },
   "features": {
     "atr": {
