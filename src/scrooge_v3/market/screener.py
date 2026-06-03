@@ -65,9 +65,9 @@ SESSION_WINDOWS = [
 ]
 
 CANDIDATE_PAIRS = [
-    # Backtest 2026-06-03: 3 most OOS-robust pairs (positive net both train+test
-    # halves, no-ratchet). The profitable core; everything else dropped.
-    "USD_JPY", "EUR_USD", "EUR_JPY",
+    # Backtest 2026-06-03: the 5 OOS-positive (no-ratchet) pairs. Dropped USD_JPY
+    # (+0.01 OOS, dead weight without the ratchet) + all consistent losers.
+    "AUD_USD", "EUR_USD", "GBP_USD", "EUR_JPY", "USD_CAD",
 ]
 
 
