@@ -68,6 +68,7 @@ class PositionPipeline:
         stop_planner: Any = None,
         event_bus: EventBus | None = None,
         exit_config: dict | None = None,
+        green_exit_manager: Any = None,
     ):
         self.trail = trail_manager
         self.ratchet = ratchet_manager
@@ -77,6 +78,7 @@ class PositionPipeline:
         self.emergency = emergency_manager
         self.stop_planner = stop_planner
         self.event_bus = event_bus
+        self.green_exit = green_exit_manager
 
         # Exit manager config
         cfg = exit_config or {}
@@ -107,6 +109,17 @@ class PositionPipeline:
             tracker: PositionTracker — used to mark tp1_taken when a
                 broker-observed reduction is detected.
         """
+        # --- Green Exit ladder (Brock 2026-06-04) — top priority when enabled ---
+        if self.green_exit is not None and getattr(self.green_exit, "enabled", False):
+            try:
+                _gx = self.green_exit.check(position, current_price, pip_size, bid=bid, ask=ask)
+            except Exception:
+                log.exception("[PIPELINE] green_exit.check failed")
+                _gx = None
+            if _gx is not None:
+                _gpid = getattr(position, "trade_id", None) or getattr(position, "position_id", str(id(position)))
+                return ManagementAction(position_id=_gpid, action="green_exit", details={"gx": _gx})
+
         pos_id = getattr(position, "position_id", None) or getattr(position, "trade_id", str(id(position)))
         direction = TradeDirection(getattr(position, "direction", "long"))
         entry_price = getattr(position, "entry_price", 0.0)

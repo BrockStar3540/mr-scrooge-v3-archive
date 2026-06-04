@@ -34,6 +34,13 @@ class ExecutionCoordinator:
         from scrooge_v3.execution.stop_planner import StopPlanner
 
         risk_cfg = ctx.config.section("risk") if hasattr(ctx, "config") else {}
+        # Green Exit ladder (Brock 2026-06-04): when enabled, the server-side TP
+        # anchors at the FINAL tranche (+30); the ladder's +12/+20 partials + SL
+        # step are managed in software by GreenExitManager / position_coordinator.
+        _gx_mgmt = ctx.config.section("management") if hasattr(ctx, "config") else {}
+        _gx_cfg = (_gx_mgmt or {}).get("green_exit", {}) or {}
+        _gx_on = bool(_gx_cfg.get("enabled", False))
+        _gx_tp_anchor = float(_gx_cfg.get("tp3_pips", 30.0))
         sizer = SizingCalculator(config=risk_cfg)
         stop_planner = StopPlanner()
         acct = ctx.broker.get_account()
@@ -238,12 +245,13 @@ class ExecutionCoordinator:
             # SCALPER risk/reward geometry honest from the real entry.
             _prec = 3 if any(j in best.symbol for j in ("JPY", "MXN")) else 5
             fill_px = result.fill_price or signal_entry_price
+            _tp_pips = _gx_tp_anchor if _gx_on else SCALPER_TP_PIPS
             if best.direction.value == "long":
                 anchored_sl = round(fill_px - SCALPER_SL_PIPS * pip_size, _prec)
-                anchored_tp = round(fill_px + SCALPER_TP_PIPS * pip_size, _prec)
+                anchored_tp = round(fill_px + _tp_pips * pip_size, _prec)
             else:
                 anchored_sl = round(fill_px + SCALPER_SL_PIPS * pip_size, _prec)
-                anchored_tp = round(fill_px - SCALPER_TP_PIPS * pip_size, _prec)
+                anchored_tp = round(fill_px - _tp_pips * pip_size, _prec)
             try:
                 ctx.broker.modify_stop_loss(result.trade_id, anchored_sl)
                 ctx.broker.modify_take_profit(result.trade_id, anchored_tp)
@@ -254,6 +262,11 @@ class ExecutionCoordinator:
             except Exception:
                 log.exception("[EXEC] SL/TP re-anchor failed; keeping provisional signal-based SL/TP")
             ctx.state.position_count += 1
+            if _gx_on and isinstance(best.metadata, dict):
+                best.metadata.setdefault("gx_enabled", True)
+                best.metadata.setdefault("gx_tp1_done", False)
+                best.metadata.setdefault("gx_tp2_done", False)
+                best.metadata.setdefault("gx_phase2", False)
             ctx.tracker.register_entry(
                 trade_id=result.trade_id,
                 symbol=best.symbol,

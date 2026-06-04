@@ -508,6 +508,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     from scrooge_v3.management.partial_harvest import PartialHarvestManager
     from scrooge_v3.management.emergency_close import EmergencyCloseManager
     from scrooge_v3.management.favorable_exit import FavorableExitManager
+    from scrooge_v3.management.green_exit import GreenExitManager
     from scrooge_v3.execution.stop_planner import StopPlanner
     from scrooge_v3.telemetry.execution_audit import ExecutionAudit
     from scrooge_v3.telemetry.dbb_candidate_audit import DBBCandidateAudit
@@ -536,6 +537,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         dbb_audit.record(p)
     event_bus.subscribe('DBBCandidateScored', _on_dbb_scored)
 
+    _green_exit_mgr = GreenExitManager(mgmt_cfg.get("green_exit", {}))
     position_pipeline = PositionPipeline(
         trail_manager=TrailManager(mgmt_cfg.get("trail", {})),
         ratchet_manager=RatchetManager(mgmt_cfg.get("ratchet", {})),
@@ -546,8 +548,10 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
         stop_planner=StopPlanner(config.section("execution")),
         event_bus=event_bus,
         exit_config=exit_cfg,
+        green_exit_manager=_green_exit_mgr,
     )
-    log.info("[BOOT] Position pipeline initialized (trail, ratchet, BE, harvest, emergency, exit_manager)")
+    log.info("[BOOT] Position pipeline initialized (trail, ratchet, BE, harvest, emergency, exit_manager) | green_exit enabled=%s observe=%s",
+             _green_exit_mgr.enabled, _green_exit_mgr.observe)
 
     # --- Spread monitor ---
     from scrooge_v3.market.spread_monitor import SpreadMonitor

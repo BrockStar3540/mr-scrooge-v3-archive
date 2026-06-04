@@ -351,6 +351,22 @@
     "harvest": {
       "tp1_fraction": 0.0,
       "_note": "tp1_fraction=0 means no partial harvest. Full position runs to TP2/ratchet/favorable_exit. Brock 2026-05-16: 1:2 effective R:R was crushing winners."
+    },
+    "green_exit": {
+      "enabled": true,
+      "observe": false,
+      "sl_pips": -10.0,
+      "tp1_pips": 12.0,
+      "tp2_pips": 20.0,
+      "tp3_pips": 30.0,
+      "tp1_fraction": 0.5,
+      "tp2_fraction": 0.25,
+      "sl_lock_pips": 6.0,
+      "phase1_minutes": 240.0,
+      "harvest_min_pips": 7.0,
+      "phase2_limit_pips": 7.5,
+      "phase2_scan_minutes": 30.0,
+      "harvest_past_tick_pips": 0.5
     }
   },
   "scoring": {
