@@ -324,24 +324,8 @@ class StateRecovery:
                 pnl_delta, equity_start=equity_ref,
             )
 
-        # Phase 2 RL exits (shadow bootstrap): credit the bandit arm chosen at
-        # entry with this trade's realized pips. Biased while exits are shadow
-        # (chosen profile wasn't actually applied) — accepted as warm-up.
-        if tracked is not None and close_price is not None:
-            try:
-                from scrooge_v3.management.exit_profile_bandit import observe_from_close
-                _sym = getattr(tracked, "symbol", "") or ""
-                _entry_px = float(getattr(tracked, "entry_price", 0) or 0)
-                _pip = 0.01 if "JPY" in _sym else 0.0001
-                if getattr(tracked, "direction", "") == "short":
-                    _pnl_pips = (_entry_px - close_price) / _pip
-                else:
-                    _pnl_pips = (close_price - _entry_px) / _pip
-                observe_from_close(tracked, _pnl_pips,
-                                   extra={"trade_id": trade_id,
-                                          "realized_pl": round(pnl_delta, 2)})
-            except Exception:
-                log.debug("[BANDIT] close observe failed for %s", trade_id)
+        # Exit-profile bandit close-observe UNPLUGGED 2026-06-04 (moved to ML Lab).
+        # The record_stop/cooldown logic below is independent of it.
 
         if tracked is None:
             return
@@ -416,13 +400,7 @@ class StateRecovery:
                 ctx.state.record_zone_entry(symbol, f"{new_trade.current_stop:.5f}")
                 log.info("[RECOVERY] LIMIT ENTRY FILLED: %s %s @ %.5f (order %s)",
                          new_trade.trade_id, symbol, new_trade.entry_price, order_id)
-                # Phase 2 RL exits (shadow bootstrap): pick + record exit
-                # profile for this limit fill so the close path can credit it.
-                from scrooge_v3.management.exit_profile_bandit import choose_and_record_entry
-                _bregime = (meta.get("metadata", {}) or {}).get("regime") or "?"
-                choose_and_record_entry(ctx.tracker, new_trade.symbol,
-                                        meta.get("strategy", "limit_fill"),
-                                        _bregime, new_trade.trade_id)
+                # Exit-profile bandit UNPLUGGED 2026-06-04 (moved to ML Lab)
                 # Phase 4: fill resets expiry counter.
                 tracker_obj = getattr(ctx, "cooldown_tracker", None)
                 if tracker_obj is not None:

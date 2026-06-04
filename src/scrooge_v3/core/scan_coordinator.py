@@ -135,10 +135,11 @@ class ScanCoordinator:
         except Exception:
             log.exception("[LIGHTGBM] live gate failed — falling back to score ranking")
 
-        # Filter out symbols we already have a position in or pending entry for
-        held_symbols = {pos.symbol for pos in ctx.tracker.all_positions()}
+        # Brock 2026-06-04: SAME-PAIR STACKING ALLOWED. A fresh signal fires
+        # regardless of what's already open on that symbol. Only dedup in-flight
+        # pending entries. Global max_positions (8) remains the hard total cap.
         pending_symbols = set(ctx.tracker.all_pending_entries().keys())
-        candidates = [c for c in candidates if c.symbol not in held_symbols and c.symbol not in pending_symbols]
+        candidates = [c for c in candidates if c.symbol not in pending_symbols]
 
         if not candidates or ctx.state.position_count >= ctx.state.max_positions:
             result.candidates = candidates
@@ -157,7 +158,7 @@ class ScanCoordinator:
         # That starved the 452-cell bank — one AUD_JPY open killed 10+ pairs.
         # NEW rule: cap exposure at MAX_PER_CURRENCY positions per currency.
         # Also block exact-pair stacking (same symbol already open or pending).
-        MAX_PER_CURRENCY = 3
+        MAX_PER_CURRENCY = 8  # Brock 2026-06-04: non-binding (== max_positions) — pair/currency stacking allowed
         currency_counts: dict[str, int] = {}
         open_symbols: set[str] = set()
         for pos in ctx.tracker.all_positions():
@@ -175,10 +176,7 @@ class ScanCoordinator:
 
         uncorrelated = []
         for c in candidates:
-            # Block exact-pair stacking (same symbol already in play)
-            if c.symbol in open_symbols:
-                log.debug("[SCAN] Already open/pending on %s, skipping new candidate", c.symbol)
-                continue
+            # Brock 2026-06-04: same-pair stacking allowed — no exact-pair block.
             parts = c.symbol.split("_")
             if len(parts) == 2:
                 base, quote = parts
@@ -223,20 +221,8 @@ class ScanCoordinator:
                 )
                 lightgbm_shadow.observe(best.symbol, ctx_for_shadow, best,
                                          all_candidates=candidates)
-                # v1 pip-prediction shadow (parallel to v0 P(win) shadow)
-                try:
-                    from scrooge_v3.advisors import lightgbm_pip_shadow
-                    lightgbm_pip_shadow.observe(best.symbol, ctx_for_shadow, best,
-                            all_candidates=approved)
-                except Exception:
-                    pass
-                # Matrix shadow advisor: cross-validate LightGBM's pick against matrix data
-                try:
-                    from scrooge_v3.advisors import matrix_shadow
-                    matrix_shadow.observe(best.symbol, ctx_for_shadow, best,
-                                          all_candidates=candidates)
-                except Exception:
-                    log.debug("[MATRIX_SHADOW] observe failed", exc_info=True)
+                # LightGBM v1 pip-shadow observe UNPLUGGED 2026-06-04 (moved to ML Lab)
+                # Matrix shadow advisor observe UNPLUGGED 2026-06-04 (moved to ML Lab)
         except Exception:
             log.debug("[SHADOW] observe failed", exc_info=True)
 

@@ -285,14 +285,10 @@ class ExecutionCoordinator:
             log.info("[EXEC] MARKET FILLED: %s %s %d units @ %.5f",
                      result.trade_id, best.symbol, signed_units, result.fill_price)
 
-            # Phase 2 RL exits — Brock 2026-05-31. SHADOW bootstrap: pick an
-            # exit profile, stamp the choice on the position, log it. Live exits
-            # still use global config; observe() credits the chosen arm with
-            # realized pips at close (state_recovery vanish path).
-            _regime = (best.metadata.get("regime") if best.metadata else None) or "?"
-            from scrooge_v3.management.exit_profile_bandit import choose_and_record_entry
-            choose_and_record_entry(ctx.tracker, best.symbol, best.strategy,
-                                    _regime, result.trade_id)
+            # Exit-profile bandit UNPLUGGED 2026-06-04 (Brock): shadow-only — its
+            # chosen profile was never applied to live exits (global config / now
+            # the green-exit ladder owns exits). It only stamped an unread
+            # bandit_profile. Relocating to the sealed ML Lab.
 
             if attrib is not None:
                 # Immediate fills come back with trade_id (no separate order_id);
