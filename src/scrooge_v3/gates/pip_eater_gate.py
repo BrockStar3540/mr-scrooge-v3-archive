@@ -40,6 +40,12 @@ import factor_buckets as fb  # type: ignore  # noqa: E402
 
 PAIR_LOOKUP_CSV = Path("/home/ubuntu/mr-scrooge-v3/data/pip_meal_lookup.csv")
 MATRIX_LOOKUP_CSV = Path("/home/ubuntu/mr-scrooge-v3/data/matrix_meal_lookup.csv")
+# Brock 2026-06-07: 8yr Play Book EV table (NEW single source for the EV check).
+# Keyed on the live edge axis (strategy, align[, amplifier bucket]) from
+# "Brock's Bot Strategy Book.xlsx -> Per Strategy Play Book". Two tiers:
+# tier=amp -> (strategy, align, candidate's bucket in that strategy's amplifier
+# factor); tier=spine -> (strategy, align) unconditional fallback.
+PLAYBOOK_CSV = Path("/home/ubuntu/mr-scrooge-v3/data/playbook_ev.csv")
 
 
 def _tag(exp_pips: float, floor: float = 4.0) -> str:
@@ -83,6 +89,9 @@ class PipEaterGate(BaseGate):
         self._pair_lookup: dict[tuple, dict] = {}
         self._coarse_pair_lookup: dict[tuple, dict] = {}  # regime-agnostic fallback
         self._matrix_lookup: dict[tuple, dict] = {}
+        # Brock 2026-06-07: 8yr Play Book EV. strategy -> {amp_factor, floor,
+        # amp:{(align,bucket):ev}, spine:{align:ev}}. Drives the EV check.
+        self._playbook: dict[str, dict] = {}
         self._known_strategies: set[str] = set()  # any strategy present in lab data
         self._missing_logged: set[tuple] = set()
         self._load()
@@ -146,6 +155,45 @@ class PipEaterGate(BaseGate):
             "[PIP_EATER] loaded %d pair cells + %d matrix cells + %d coarse(regime-agnostic) cells. Floor=%.1fp blend=%s",
             pair_n, mat_n, len(self._coarse_pair_lookup), self.floor_pips, self.blend_mode,
         )
+        # Brock 2026-06-07: load the 8yr Play Book EV table. When present it is
+        # the SINGLE source for the EV check (the (pair,session) matrix/pair
+        # lookups above stay loaded but no longer drive decisions). The Play Book
+        # strategy set also becomes the "covered" set for uncovered_bypass.
+        if PLAYBOOK_CSV.exists():
+            try:
+                pbdf = pd.read_csv(PLAYBOOK_CSV)
+                book: dict[str, dict] = {}
+                for s, g in pbdf.groupby("strategy"):
+                    amp: dict[tuple, float] = {}
+                    spine: dict[int, float] = {}
+                    for r in g.itertuples():
+                        if str(r.tier) == "amp":
+                            # min_n guard (parity with the old pair-lookup): thin
+                            # amp cells (e.g. n=1 -> 18.5p noise) are dropped so
+                            # the candidate falls back to the large-n spine.
+                            if int(r.n) >= self.min_n:
+                                amp[(int(r.align), str(r.bucket))] = float(r.ev_pips)
+                        else:
+                            spine[int(r.align)] = float(r.ev_pips)
+                    book[str(s)] = {
+                        "amp_factor": str(g["amp_factor"].iloc[0]),
+                        "floor": int(g["floor"].iloc[0]),
+                        "amp": amp, "spine": spine,
+                    }
+                if book:
+                    self._playbook = book
+                    # 8yr book defines the covered universe for uncovered_bypass.
+                    self._known_strategies = set(book.keys())
+                self._log.info(
+                    "[PIP_EATER] loaded Play Book EV: %d strategies, %d amp cells, %d spine cells",
+                    len(self._playbook),
+                    sum(len(v["amp"]) for v in self._playbook.values()),
+                    sum(len(v["spine"]) for v in self._playbook.values()),
+                )
+            except Exception as e:
+                self._log.warning("[PIP_EATER] Play Book load failed (%s) — EV check disabled", e)
+        else:
+            self._log.warning("[PIP_EATER] Play Book CSV missing at %s — EV check has no source", PLAYBOOK_CSV)
 
     def _compute_buckets(self, candidate: TradeCandidate, ctx: SymbolContext) -> dict[str, str]:
         # Brock 2026-06-02 FIX: the old `ctx.features_dict()` never existed
@@ -277,40 +325,35 @@ class PipEaterGate(BaseGate):
                     )
 
 
-            pair_key = (pair, strategy, direction, session, regime)
-            mat_key = (pair, strategy, direction, session)
-            pair_cell = self._pair_lookup.get(pair_key)
-            mat_cell = self._matrix_lookup.get(mat_key)
+            # Brock 2026-06-07: EV from the 8yr Play Book, keyed on the live edge
+            # axis the gate already computes — (strategy, align[, amplifier
+            # bucket]) — retiring the stale (pair,session) matrix/pair lookups
+            # from the decision path. Two-tier:
+            #   tier 1 (amp_bucket): EV for the candidate's bucket in this
+            #     strategy's amplifier factor at this align (richest);
+            #   tier 2 (spine): unconditional EV at this align (always present
+            #     for align >= the strategy's floor);
+            #   neither -> below the per-strategy floor / no cell -> reject
+            #     (known strategy) or uncovered_bypass (not in the 8yr book).
+            # Spread-cost subtraction below is unchanged.
+            pb = self._playbook.get(strategy)
+            final_ev = None
+            ev_tier = None
+            amp_factor = pb["amp_factor"] if pb else None
+            amp_bucket = buckets.get(amp_factor) if (pb and amp_factor) else None
+            if pb is not None:
+                if amp_bucket is not None:
+                    final_ev = pb["amp"].get((align_score, amp_bucket))
+                    if final_ev is not None:
+                        ev_tier = "amp_bucket"
+                if final_ev is None:
+                    final_ev = pb["spine"].get(align_score)
+                    if final_ev is not None:
+                        ev_tier = "spine"
 
-            pair_ev = pair_cell["mean_pip"] if pair_cell else None
-            # Brock 2026-06-01: HONEST EV. Was exp_optimized_pips (mean of the
-            # cherry-picked winning-signature subset, kept ~8-16%, NOT achievable
-            # live since the signature filter is not enforced -> systemic +6-8p
-            # over-promise). exp_baseline_pips is the honest full-sample mean.
-            matrix_ev = mat_cell["exp_baseline_pips"] if mat_cell else None
-            final_ev = self._blend(pair_ev, matrix_ev)
-
-            # Brock 2026-06-01: regime-agnostic fallback. If neither the
-            # regime-specific pair cell nor the matrix cell has evidence, fall
-            # back to the pair-module collapsed across regimes. Trades taken on
-            # this fallback are STAMPED (metadata + reason + verdict) so their
-            # realized PnL can be compared against full-evidence trades.
-            nocell_fallback = False
-            coarse_cell = None
             if final_ev is None:
-                coarse_cell = self._coarse_pair_lookup.get(mat_key)
-                if coarse_cell is not None:
-                    final_ev = coarse_cell["mean_pip"]
-                    nocell_fallback = True
-
-            if final_ev is None:
-                # Brock 2026-06-01: UNCOVERED-STRATEGY BYPASS. If the strategy is
-                # entirely absent from the lab (never backtested -> no EV cell at
-                # any granularity), pass pip_eater and rely on the HTF-hard
-                # alignment gate + other gates for quality. STAMPED as unvalidated
-                # so realized PnL is separable at close. NOTE: a *known* strategy
-                # that merely lacks this specific cell still rejects below — a
-                # missing slice for a tested strategy is meaningful.
+                # Uncovered strategy (absent from the 8yr book) -> pass on the
+                # align/ADR + other gates, STAMPED unvalidated for separable PnL.
                 if strategy and strategy not in self._known_strategies:
                     try:
                         if candidate.metadata is None:
@@ -321,21 +364,22 @@ class PipEaterGate(BaseGate):
                         pass
                     return GateResult(
                         gate_name=self.name, passed=True, mode=self.mode,
-                        reason=(f"BYPASS uncovered strategy={strategy} — no lab evidence; "
-                                f"passing on HTF-alignment/other gates (pair={pair} reg={regime})"),
+                        reason=(f"BYPASS uncovered strategy={strategy} — not in 8yr book; "
+                                f"passing on align/ADR/other gates (pair={pair} align={align_score})"),
                         metrics={"verdict": "uncovered_bypass", "evidence": "uncovered_bypass",
-                                 "nocell_fallback": False, "uncovered": True, "regime": regime,
-                                 "pair": pair, "strategy": strategy,
-                                 "direction": direction, "session": session},
+                                 "uncovered": True, "pair": pair, "strategy": strategy,
+                                 "direction": direction, "align_score": align_score},
                     )
-                if pair_key not in self._missing_logged:
-                    self._missing_logged.add(pair_key)
+                # Known strategy but no cell at this align (below per-strategy
+                # floor, or align-cell absent) -> reject. Meaningful: the book
+                # says don't trade this strategy at this alignment.
                 return GateResult(
                     gate_name=self.name, passed=False, mode=self.mode,
-                    reason=f"no cell evidence (pair={pair} strat={strategy} reg={regime})",
-                    metrics={"verdict": "no_cell", "regime": regime,
-                             "pair": pair, "strategy": strategy,
-                             "direction": direction, "session": session},
+                    reason=(f"no cell evidence (strat={strategy} align={align_score} "
+                            f"amp={amp_factor}/{amp_bucket})"),
+                    metrics={"verdict": "no_cell", "pair": pair, "strategy": strategy,
+                             "direction": direction, "align_score": align_score,
+                             "amp_factor": amp_factor, "amp_bucket": amp_bucket},
                 )
 
             # Brock 2026-06-01: NET-of-spread EV. Lab pnl_pips is GROSS; live we
@@ -348,23 +392,14 @@ class PipEaterGate(BaseGate):
             net_ev = final_ev - spread_pips
             tag = _tag(net_ev, floor=self.floor_pips)
             passed = tag in ("good_plate", "tasty", "optimized_meal")
-            chose = (
-                "regime_agnostic_fallback" if nocell_fallback
-                else "max" if (pair_ev is not None and matrix_ev is not None and self.blend_mode == "max")
-                else "pair_only" if matrix_ev is None
-                else "matrix_only" if pair_ev is None
-                else self.blend_mode
-            )
-            # STAMP (Brock 2026-06-01): mark the trade's evidence source so the
-            # regime-agnostic fallback ("No Cell") trades are identifiable at
-            # close. Rides into the position via candidate.metadata.
-            evidence = "regime_agnostic_fallback" if nocell_fallback else chose
+            evidence = f"playbook_{ev_tier}"
+            # STAMP: mark the EV source so realized PnL is attributable at close.
             try:
                 if candidate.metadata is None:
                     candidate.metadata = {}
                 candidate.metadata["pip_evidence"] = evidence
                 candidate.metadata["pip_net_ev"] = round(net_ev, 2)
-                candidate.metadata["pip_nocell"] = bool(nocell_fallback)
+                candidate.metadata["pip_nocell"] = False
             except Exception:
                 pass
             metrics = {
@@ -372,36 +407,24 @@ class PipEaterGate(BaseGate):
                 "final_exp_pips": round(final_ev, 2),
                 "net_exp_pips": round(net_ev, 2),
                 "spread_pips": round(spread_pips, 2),
-                "pair_exp_pips": round(pair_ev, 2) if pair_ev is not None else None,
-                "matrix_exp_pips": round(matrix_ev, 2) if matrix_ev is not None else None,
-                "blend": chose,
                 "evidence": evidence,
-                "nocell_fallback": bool(nocell_fallback),
+                "ev_tier": ev_tier,
+                "amp_factor": amp_factor,
+                "amp_bucket": amp_bucket,
+                "align_score": align_score,
                 "regime": regime,
-                "pair_n": pair_cell["n"] if pair_cell else 0,
-                "matrix_n": mat_cell["n_optimized"] if mat_cell else 0,
-                "coarse_n": coarse_cell["n"] if coarse_cell else 0,
-                "cohort": pair_cell["cohort"] if pair_cell else (coarse_cell["cohort"] if coarse_cell else "n/a"),
+                "pair": pair, "strategy": strategy, "direction": direction,
             }
-            # Safe-None formatters for log lines
-            pe_s = f"{pair_ev:+.2f}p" if pair_ev is not None else "n/a"
-            me_s = f"{matrix_ev:+.2f}p" if matrix_ev is not None else "n/a"
-            pn = pair_cell["n"] if pair_cell else 0
-            mn = mat_cell["n_optimized"] if mat_cell else 0
-            if passed and nocell_fallback:
-                reason = (f"HARVEST {tag} [NOCELL-FALLBACK] net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) "
-                          f"(regime-agnostic coarse={final_ev:+.2f}p[n={coarse_cell['n']}] "
-                          f"regime={regime} — no pair/matrix cell)")
-            elif passed:
+            _amp_s = f"{amp_factor}={amp_bucket}" if ev_tier == "amp_bucket" else "spine"
+            if passed:
                 reason = (f"HARVEST {tag} net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) "
-                          f"(pair={pe_s}[n={pn}] matrix={me_s}[n={mn}] "
-                          f"chose={chose} regime={regime})")
+                          f"[playbook {ev_tier} align={align_score} {_amp_s}]")
             elif tag == "pip_trick":
                 reason = (f"PIP TRICK detected exp_pips={final_ev:+.2f}p — danger "
-                          f"(pair={pe_s} matrix={me_s} regime={regime})")
+                          f"[playbook {ev_tier} align={align_score} {_amp_s}]")
             else:
                 reason = (f"empty plate net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) < floor={self.floor_pips}p "
-                          f"(pair={pe_s} matrix={me_s} regime={regime})")
+                          f"[playbook {ev_tier} align={align_score} {_amp_s}]")
             return GateResult(
                 gate_name=self.name, passed=passed, mode=self.mode,
                 reason=reason, metrics=metrics,
