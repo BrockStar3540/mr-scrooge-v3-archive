@@ -271,19 +271,13 @@
       "mode": "hard",
       "floor_pips": 0.0,
       "min_n": 30,
-      "align_min": 4,
+      "align_min": 2,
+      "align_floor_by_pair": { "AUD_USD": 2, "EUR_USD": 2, "USD_CAD": 2, "GBP_USD": 3 },
+      "require_adr_min": 4,
+      "adr_exempt_strategies": [ "TF2_pullback_EMA20_short" ],
       "pair_blocklist": {
-        "CP3_vol_coil_fade_short": [
-          "USD_CAD"
-        ],
-        "CP2_squeeze_momentum_long": [
-          "USD_CAD"
-        ],
-        "BR2_vcb_short": [
-          "AUD_USD"
-        ],
-        "TF2_pullback_EMA20_short": [
-          "EUR_USD"
+        "alpha_breakout_retest_v2": [
+          "GBP_USD"
         ]
       }
     },

@@ -73,6 +73,12 @@ class PipEaterGate(BaseGate):
         # where that strategy is a net loser in lab (hard veto, any mode).
         _bl = self.config.get("pair_blocklist", {}) or {}
         self.pair_blocklist = {str(k): set(v or []) for k, v in _bl.items()}
+        # Brock 2026-06-07: per-pair align floor + ADR amplifier gate (8yr book).
+        self.align_floor_by_pair = {
+            str(k): int(v) for k, v in (self.config.get("align_floor_by_pair", {}) or {}).items()
+        }
+        self.require_adr_min = int(self.config.get("require_adr_min", 0))
+        self.adr_exempt_strategies = set(self.config.get("adr_exempt_strategies", []) or [])
         self.blend_mode = str(self.config.get("blend_mode", "max")).lower()  # max | min | avg
         self._pair_lookup: dict[tuple, dict] = {}
         self._coarse_pair_lookup: dict[tuple, dict] = {}  # regime-agnostic fallback
@@ -234,23 +240,42 @@ class PipEaterGate(BaseGate):
             # Applies to EVERY candidate (incl. uncovered_bypass strategies) —
             # the lab showed strategy identity barely matters; trade-level
             # alignment is the whole edge (aligned>=3 +0.64p vs counter -0.30p).
-            if self.align_min > 0:
-                align_score = (
-                    (1 if buckets.get("H20") in ("H20a", "H20b") else 0)
-                    + (1 if buckets.get("H60") in ("H60a", "H60b") else 0)
-                    + (1 if buckets.get("T1") == "T1a" else 0)
-                    + (1 if buckets.get("T4") == "T4a" else 0)
+            # Brock 2026-06-07: PER-PAIR ALIGN FLOOR + ADR AMPLIFIER GATE.
+            # Validated 8yr x per-pair x per-year (Brock's Bot Strategy Book).
+            # Per-pair floor (GBP=3, others=2); ADR>=require_adr_min amplifier;
+            # calm-regime strategies (TF2) exempt from the ADR gate.
+            align_floor = self.align_floor_by_pair.get(pair, self.align_min)
+            align_score = (
+                (1 if buckets.get("H20") in ("H20a", "H20b") else 0)
+                + (1 if buckets.get("H60") in ("H60a", "H60b") else 0)
+                + (1 if buckets.get("T1") == "T1a" else 0)
+                + (1 if buckets.get("T4") == "T4a" else 0)
+            )
+            if align_floor > 0 and align_score < align_floor:
+                return GateResult(
+                    gate_name=self.name, passed=False, mode=self.mode,
+                    reason=(f"MOMENTUM filter: align_score={align_score} < floor={align_floor} "
+                            f"(pair={pair} H20={buckets.get('H20')} H60={buckets.get('H60')} "
+                            f"T1={buckets.get('T1')} T4={buckets.get('T4')} dir={direction})"),
+                    metrics={"verdict": "low_align", "align_score": align_score,
+                             "align_floor": align_floor, "pair": pair,
+                             "strategy": strategy, "direction": direction},
                 )
-                if align_score < self.align_min:
+            # ADR amplifier gate: require ADR>=require_adr_min, except calm-exempt (TF2).
+            if self.require_adr_min > 0 and strategy not in self.adr_exempt_strategies:
+                _adr = buckets.get("ADR", "") or ""
+                _adr_lvl = int(_adr[3:]) if _adr.startswith("ADR") and _adr[3:].isdigit() else -1
+                if _adr_lvl < self.require_adr_min:
                     return GateResult(
                         gate_name=self.name, passed=False, mode=self.mode,
-                        reason=(f"MOMENTUM filter: align_score={align_score} < {self.align_min} "
-                                f"(H20={buckets.get('H20')} H60={buckets.get('H60')} "
-                                f"T1={buckets.get('T1')} T4={buckets.get('T4')} dir={direction})"),
-                        metrics={"verdict": "low_align", "align_score": align_score,
-                                 "align_min": self.align_min, "pair": pair,
+                        reason=(f"ADR filter: ADR={_adr} < ADR{self.require_adr_min} "
+                                f"(pair={pair} strategy={strategy} align={align_score} dir={direction})"),
+                        metrics={"verdict": "low_adr", "adr": _adr, "adr_level": _adr_lvl,
+                                 "require_adr_min": self.require_adr_min,
+                                 "align_score": align_score, "pair": pair,
                                  "strategy": strategy, "direction": direction},
                     )
+
 
             pair_key = (pair, strategy, direction, session, regime)
             mat_key = (pair, strategy, direction, session)
