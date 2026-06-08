@@ -41,6 +41,13 @@ class ExecutionCoordinator:
         _gx_cfg = (_gx_mgmt or {}).get("green_exit", {}) or {}
         _gx_on = bool(_gx_cfg.get("enabled", False))
         _gx_tp_anchor = float(_gx_cfg.get("tp3_pips", 30.0))
+        # ADR-scaled runner TP (Brock 2026-06-08): high-ADR moves run far past
+        # +30 (8yr validated: ADR5 median winner +69p; ladder capped at +30 left
+        # ~half on the table). Scale the server TP3 by the amplifier on high-ADR
+        # entries. Safe default: missing/off -> +30 (unchanged). 4h harvest backstops.
+        _adr_tp_cfg = (_gx_cfg.get("adr_scaled_tp") or {})
+        _adr_scaled_on = bool(_adr_tp_cfg.get("enabled", False))
+        _adr_tp_map = _adr_tp_cfg.get("by_adr", {}) or {}
         sizer = SizingCalculator(config=risk_cfg)
         stop_planner = StopPlanner()
         acct = ctx.broker.get_account()
@@ -246,6 +253,12 @@ class ExecutionCoordinator:
             _prec = 3 if any(j in best.symbol for j in ("JPY", "MXN")) else 5
             fill_px = result.fill_price or signal_entry_price
             _tp_pips = _gx_tp_anchor if _gx_on else SCALPER_TP_PIPS
+            if _gx_on and _adr_scaled_on and isinstance(best.metadata, dict):
+                _scaled = _adr_tp_map.get(str(best.metadata.get("adr_lvl", -1)))
+                if _scaled:
+                    _tp_pips = float(_scaled)
+                    log.info("[EXEC] ADR-scaled TP: ADR%s -> TP +%.0fp (base +%.0f)",
+                             best.metadata.get("adr_lvl"), _tp_pips, _gx_tp_anchor)
             if best.direction.value == "long":
                 anchored_sl = round(fill_px - SCALPER_SL_PIPS * pip_size, _prec)
                 anchored_tp = round(fill_px + _tp_pips * pip_size, _prec)

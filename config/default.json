@@ -366,7 +366,14 @@
       "harvest_min_pips": 7.0,
       "phase2_limit_pips": 7.5,
       "phase2_scan_minutes": 30.0,
-      "harvest_past_tick_pips": 0.5
+      "harvest_past_tick_pips": 0.5,
+      "adr_scaled_tp": {
+        "enabled": true,
+        "by_adr": {
+          "4": 55,
+          "5": 75
+        }
+      }
     }
   },
   "scoring": {

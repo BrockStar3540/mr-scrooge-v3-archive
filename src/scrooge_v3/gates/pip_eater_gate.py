@@ -353,6 +353,14 @@ class PipEaterGate(BaseGate):
                     metrics={"verdict": "no_module"},
                 )
             buckets = self._compute_buckets(candidate, ctx)
+            # stamp ADR level for the ADR-scaled runner TP (adaptive exit, 2026-06-08)
+            try:
+                _abk = str(buckets.get("ADR", "") or "")
+                if candidate.metadata is None:
+                    candidate.metadata = {}
+                candidate.metadata["adr_lvl"] = int(_abk[3:]) if _abk.startswith("ADR") and _abk[3:].isdigit() else -1
+            except Exception:
+                pass
             regime = mod.assign_regime(buckets)
 
             # Brock 2026-06-02: MOMENTUM FILTER. Only trade WITH the trend.
