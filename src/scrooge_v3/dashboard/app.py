@@ -47,6 +47,89 @@ _STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 # Global reference set by run_dashboard()
 _live_state: LiveState | None = None
 
+_LOG_PATH = "/home/ubuntu/mr-scrooge-v3/logs/scrooge_v3.log"
+
+
+def _tail(path: str, n: int) -> list:
+    try:
+        import collections
+        with open(path, "rb") as fh:
+            return [l.decode("utf-8", "replace") for l in collections.deque(fh, maxlen=n)]
+    except Exception:
+        return []
+
+
+def _oanda_open_trades() -> list:
+    import os, json, urllib.request
+    tok = os.environ.get("OANDA_API_TOKEN") or os.environ.get("OANDA_TOKEN")
+    acc = os.environ.get("OANDA_ACCOUNT_ID") or os.environ.get("OANDA_ACCOUNT")
+    if not tok or not acc:
+        return []
+    try:
+        req = urllib.request.Request(
+            f"https://api-fxpractice.oanda.com/v3/accounts/{acc}/openTrades",
+            headers={"Authorization": f"Bearer {tok}"})
+        out = []
+        for tr in json.load(urllib.request.urlopen(req, timeout=8)).get("trades", []):
+            u = float(tr["currentUnits"])
+            out.append({"id": tr["id"], "pair": tr["instrument"], "units": u,
+                        "upl": round(float(tr.get("unrealizedPL", 0)), 2),
+                        "dir": "long" if u > 0 else "short",
+                        "open": tr["openTime"][11:16]})
+        return out
+    except Exception:
+        return []
+
+
+def _brain_snapshot() -> dict:
+    import re
+    lines = _tail(_LOG_PATH, 1500)
+    funnel = {"passed": 0, "ev_veto": 0, "below_floor": 0, "adr": 0, "cooldown": 0, "other": 0}
+    passed_evs, factor, exit_feed, pos_dec = [], {}, [], {}
+    for ln in lines:
+        if "pip_eater] PASSED" in ln:
+            funnel["passed"] += 1
+            m = re.search(r"net=\+?(-?[\d.]+)p", ln)
+            if m: passed_evs.append(float(m.group(1)))
+        elif "pip_eater] FAILED" in ln or "empty_plate" in ln:
+            low = ln.lower()
+            if "ml_ev" in low or "ev_veto" in low or "neg ev" in low or "ev=" in low and "veto" in low: funnel["ev_veto"] += 1
+            elif "floor" in low or "empty_plate" in low: funnel["below_floor"] += 1
+            elif "adr" in low: funnel["adr"] += 1
+            elif "cooldown" in low: funnel["cooldown"] += 1
+            else: funnel["other"] += 1
+        ps = re.search(r"symbol=([A-Z]{3}_[A-Z]{3})", ln)
+        if ps:
+            al = re.search(r"align=(\d)", ln); ad = re.search(r"ADR=(ADR\d)", ln)
+            if al or ad:
+                f = factor.setdefault(ps.group(1), {"pair": ps.group(1)})
+                if al: f["align"] = int(al.group(1))
+                if ad: f["adr"] = ad.group(1)
+        if "GREEN_EXIT LIVE" in ln or "EXIT-BRAIN" in ln:
+            tid = re.search(r"\] (\d{3,})", ln); kind = re.search(r"kind=(\w+)", ln)
+            act = "RIDE" if "RIDE" in ln else ("TAKE" if "TAKE" in ln else (kind.group(1) if kind else "?"))
+            rem = re.search(r"rem=(-?[\d.]+)p", ln)
+            pf = re.search(r"profit=(-?[\d.]+)p", ln) or re.search(r"at \+?(-?[\d.]+)p", ln)
+            el = re.search(r"elapsed=(\d+)m", ln)
+            ev = {"t": ln[11:16], "trade": tid.group(1) if tid else "?", "action": act,
+                  "rem": float(rem.group(1)) if rem else None,
+                  "profit": float(pf.group(1)) if pf else None,
+                  "elapsed": int(el.group(1)) if el else None}
+            exit_feed.append(ev)
+            if tid: pos_dec[tid.group(1)] = ev
+    positions = _oanda_open_trades()
+    for p in positions:
+        p["brain"] = pos_dec.get(p["id"])
+    return {
+        "brains": {"entry_ev": "armed", "adr_tp": "live", "exit_brain": "live", "sizing": "parked"},
+        "exit_brain": positions,
+        "exit_feed": exit_feed[-30:][::-1],
+        "funnel": funnel,
+        "funnel_pass_ev_avg": round(sum(passed_evs) / len(passed_evs), 2) if passed_evs else None,
+        "factor_state": sorted(factor.values(), key=lambda x: x["pair"]),
+    }
+
+
 
 def create_app(
     live_state: LiveState | None = None,
@@ -88,6 +171,16 @@ def create_app(
     @requires_auth
     def api_data():
         return jsonify(_live_state.snapshot())
+
+    @app.route("/api/brain")
+    @requires_auth
+    def api_brain():
+        try:
+            return jsonify(_brain_snapshot())
+        except Exception as e:  # noqa: BLE001
+            log.exception("brain endpoint failed")
+            return jsonify({"error": str(e), "exit_brain": [], "exit_feed": [],
+                            "funnel": {}, "factor_state": [], "brains": {}})
 
     @app.route("/api/execution")
     @requires_auth

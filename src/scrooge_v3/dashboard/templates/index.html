@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mr. Scrooge V3</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+.bb{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#fff}
+.bb.live{background:#1F6F3D}.bb.armed{background:#2563eb}.bb.amber{background:#b45309}.bb.blue{background:#0e7490}.bb.red{background:#b91c1c}.bb.parked,.bb.gray{background:#555}
+.bcard{background:#161b22;border:1px solid #283041;border-radius:8px;padding:12px}
+.bcard h3{margin:0 0 10px;font-size:14px;color:#e6edf3}.bcard h4{font-size:12px;color:#9aa7b4;margin:12px 0 4px}
+.btab{width:100%;border-collapse:collapse;font-size:12px}
+.btab th{text-align:left;color:#7d8896;font-weight:600;border-bottom:1px solid #283041;padding:4px}
+.btab td{padding:5px 4px;border-bottom:1px solid #1c2230;color:#c9d1d9}
+.feed{max-height:220px;overflow:auto;font-size:12px}
+.frow{padding:3px 0;color:#c9d1d9}.frow .t{color:#7d8896}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.dot.blue{background:#0e7490}.dot.amber{background:#b45309}.dot.red{background:#b91c1c}.dot.gray{background:#555}
+.muted{color:#6e7681}.pos{color:#3fb950}.neg{color:#f85149}.al-live{color:#3fb950}.al-amber{color:#d29922}
+</style>
 </head>
 <body>
 <header>
@@ -23,11 +37,13 @@
   <button class="tab active" data-tab="signals">Signals</button>
   <button class="tab" data-tab="execution">Execution</button>
   <button class="tab" data-tab="dbb">DBB Trend</button>
+  <button class="tab" data-tab="brain">🧠 Brain</button>
 </nav>
 
 <section id="signals-grid" class="signals-grid"></section>
 <section id="execution-panel" class="execution-panel" style="display:none"></section>
 <section id="dbb-panel" class="execution-panel" style="display:none"></section>
+<section id="brain-panel" class="execution-panel" style="display:none"></section>
 
 <footer>Mr. Scrooge V3 &mdash; Plug-in Trading Platform</footer>
 
@@ -372,6 +388,63 @@ function renderExecution(ex) {
   el.innerHTML = html;
 }
 
+async function loadBrain() {
+  try { const r = await fetch(BASE + '/api/brain'); if (!r.ok) return; renderBrain(await r.json()); }
+  catch(e) { console.error(e); }
+}
+function renderBrain(b) {
+  const el = document.getElementById('brain-panel');
+  const S = k => (b.brains && b.brains[k]) || '?';
+  const sc = s => s==='live'?'live':(s==='armed'?'armed':'parked');
+  let h = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  h += '<span class="bb '+sc(S('entry_ev'))+'">ENTRY \u00b7 EV model \u00b7 '+S('entry_ev')+'</span>';
+  h += '<span class="bb '+sc(S('adr_tp'))+'">EXIT WIDTH \u00b7 ADR-TP \u00b7 '+S('adr_tp')+'</span>';
+  h += '<span class="bb '+sc(S('exit_brain'))+'">EXIT BRAIN \u00b7 TAKE/RIDE \u00b7 '+S('exit_brain')+'</span>';
+  h += '<span class="bb '+sc(S('sizing'))+'">SIZING \u00b7 p_win \u00b7 '+S('sizing')+'</span></div>';
+  h += '<div style="display:grid;grid-template-columns:1.25fr 1fr;gap:14px;align-items:start">';
+
+  // Exit Brain
+  h += '<div class="bcard"><h3>\uD83E\uDDE0 Exit Brain \u2014 open positions</h3>';
+  if (!b.exit_brain || !b.exit_brain.length) h += '<p class="muted">no open positions</p>';
+  else {
+    h += '<table class="btab"><tr><th>pair</th><th>dir</th><th>uPL</th><th>open</th><th>brain call</th></tr>';
+    b.exit_brain.forEach(p => {
+      let call = '<span class="muted">\u2014 pre-runner</span>';
+      if (p.brain) { const a=p.brain.action; const c=a==='RIDE'?'live':(a==='TAKE'?'amber':'blue');
+        call='<span class="bb '+c+'">'+a+'</span>'+(p.brain.rem!=null?' rem '+p.brain.rem+'p':'')+(p.brain.profit!=null?' @+'+p.brain.profit+'p':''); }
+      h += '<tr><td>'+p.pair+'</td><td>'+p.dir+'</td><td class="'+(p.upl>=0?'pos':'neg')+'">$'+p.upl+'</td><td>'+p.open+'</td><td>'+call+'</td></tr>';
+    });
+    h += '</table>';
+  }
+  h += '<h4>Recent brain decisions</h4>';
+  if (!b.exit_feed || !b.exit_feed.length) h += '<p class="muted">none in recent window (positions still pre-runner / pre-4h)</p>';
+  else { h += '<div class="feed">';
+    b.exit_feed.forEach(e => { const c=e.action==='RIDE'?'live':(e.action==='TAKE'?'amber':'blue');
+      h += '<div class="frow"><span class="t">'+e.t+'</span> <span class="bb '+c+'">'+e.action+'</span> '+e.trade+' '+(e.profit!=null?'+'+e.profit+'p':'')+' '+(e.rem!=null?'(rem '+e.rem+'p)':'')+'</div>'; });
+    h += '</div>'; }
+  h += '</div>';
+
+  // right column
+  h += '<div>';
+  const f = b.funnel || {};
+  h += '<div class="bcard"><h3>\uD83C\uDFAF Entry funnel <span class="muted">(recent log)</span></h3>';
+  h += '<div class="frow"><span class="bb live">PASSED '+(f.passed||0)+'</span> &nbsp;avg net EV <b>'+(b.funnel_pass_ev_avg!=null?'+'+b.funnel_pass_ev_avg+'p':'\u2014')+'</b></div>';
+  [['below_floor','below +1.25 floor','blue'],['adr','ADR gate','amber'],['ev_veto','EV model veto','red'],['cooldown','cooldown','gray'],['other','other','gray']].forEach(x => {
+    if (f[x[0]]) h += '<div class="frow"><span class="dot '+x[2]+'"></span>'+x[1]+': <b>'+f[x[0]]+'</b></div>';
+  });
+  h += '</div>';
+  h += '<div class="bcard" style="margin-top:14px"><h3>\uD83E\uDDED Factor / State per pair</h3>';
+  h += '<table class="btab"><tr><th>pair</th><th>alignment (\u2192 WR)</th><th>ADR (amplifier \u2192 size)</th></tr>';
+  (b.factor_state || []).forEach(fs => {
+    const al = fs.align!=null?fs.align:0; const dots='\u25CF'.repeat(al)+'\u25CB'.repeat(4-al);
+    const alc = al>=3?'al-live':(al>=2?'al-amber':'muted');
+    const adn = fs.adr?parseInt(fs.adr.replace('ADR','')):0; const adc = adn>=4?'al-live':(adn>=3?'al-amber':'muted');
+    h += '<tr><td>'+fs.pair+'</td><td class="'+alc+'">'+dots+' '+al+'/4</td><td class="'+adc+'">'+(fs.adr||'\u2014')+'</td></tr>';
+  });
+  h += '</table><p class="muted" style="margin-top:6px">alignment drives win rate \u00b7 ADR drives magnitude</p></div>';
+  h += '</div></div>';
+  el.innerHTML = h;
+}
 document.querySelector('.tab-bar').addEventListener('click', e => {
   if (e.target.classList.contains('tab')) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -380,11 +453,14 @@ document.querySelector('.tab-bar').addEventListener('click', e => {
     document.getElementById('signals-grid').style.display = tab === 'signals' ? '' : 'none';
     document.getElementById('execution-panel').style.display = tab === 'execution' ? '' : 'none';
     document.getElementById('dbb-panel').style.display = tab === 'dbb' ? '' : 'none';
+    document.getElementById('brain-panel').style.display = tab === 'brain' ? '' : 'none';
+    if (tab === 'brain') loadBrain();
   }
 });
 
 load();
 setInterval(load, 4000);
+setInterval(() => { const a=document.querySelector('.tab.active'); if (a && a.dataset.tab==='brain') loadBrain(); }, 4000);
 </script>
 </body>
 </html>
