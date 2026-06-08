@@ -81,6 +81,24 @@ def _oanda_open_trades() -> list:
         return []
 
 
+def _oanda_account() -> dict:
+    import os, json, urllib.request
+    tok = os.environ.get("OANDA_API_TOKEN") or os.environ.get("OANDA_TOKEN")
+    acc = os.environ.get("OANDA_ACCOUNT_ID") or os.environ.get("OANDA_ACCOUNT")
+    if not tok or not acc:
+        return {}
+    try:
+        req = urllib.request.Request(
+            f"https://api-fxpractice.oanda.com/v3/accounts/{acc}/summary",
+            headers={"Authorization": f"Bearer {tok}"})
+        a = json.load(urllib.request.urlopen(req, timeout=8))["account"]
+        return {"nav": round(float(a["NAV"]), 2), "balance": round(float(a["balance"]), 2),
+                "margin_used": round(float(a.get("marginUsed", 0)), 2),
+                "open": int(a.get("openTradeCount", 0))}
+    except Exception:
+        return {}
+
+
 def _brain_snapshot() -> dict:
     import re
     lines = _tail(_LOG_PATH, 1500)
@@ -127,6 +145,7 @@ def _brain_snapshot() -> dict:
         "funnel": funnel,
         "funnel_pass_ev_avg": round(sum(passed_evs) / len(passed_evs), 2) if passed_evs else None,
         "factor_state": sorted(factor.values(), key=lambda x: x["pair"]),
+        "account": _oanda_account(),
     }
 
 
@@ -171,6 +190,11 @@ def create_app(
     @requires_auth
     def api_data():
         return jsonify(_live_state.snapshot())
+
+    @app.route("/arcade")
+    @requires_auth
+    def arcade():
+        return render_template("arcade.html")
 
     @app.route("/api/brain")
     @requires_auth
