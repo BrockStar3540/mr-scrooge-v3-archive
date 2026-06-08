@@ -271,8 +271,8 @@
       "mode": "hard",
       "floor_pips": 0.0,
       "min_n": 30,
-      "align_min": 2,
-      "align_floor_by_pair": { "AUD_USD": 2, "EUR_USD": 2, "USD_CAD": 2, "GBP_USD": 3 },
+      "align_min": 0,
+      "align_floor_by_pair": {},
       "require_adr_min": 4,
       "adr_exempt_strategies": [ "TF2_pullback_EMA20_short" ],
       "pair_blocklist": {
