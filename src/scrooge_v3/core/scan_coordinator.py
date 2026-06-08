@@ -159,16 +159,24 @@ class ScanCoordinator:
         # NEW rule: cap exposure at MAX_PER_CURRENCY positions per currency.
         # Also block exact-pair stacking (same symbol already open or pending).
         MAX_PER_CURRENCY = 8  # Brock 2026-06-04: non-binding (== max_positions) — pair/currency stacking allowed
+        # Brock 2026-06-08: hard per-pair cap — at most N concurrent trades per symbol.
+        try:
+            MAX_PER_PAIR = int((ctx.config.section("risk") or {}).get("max_per_pair", 2))
+        except Exception:
+            MAX_PER_PAIR = 2
         currency_counts: dict[str, int] = {}
+        symbol_counts: dict[str, int] = {}
         open_symbols: set[str] = set()
         for pos in ctx.tracker.all_positions():
             open_symbols.add(pos.symbol)
+            symbol_counts[pos.symbol] = symbol_counts.get(pos.symbol, 0) + 1
             parts = pos.symbol.split("_")
             if len(parts) == 2:
                 currency_counts[parts[0]] = currency_counts.get(parts[0], 0) + 1
                 currency_counts[parts[1]] = currency_counts.get(parts[1], 0) + 1
         for sym in ctx.tracker.all_pending_entries().keys():
             open_symbols.add(sym)
+            symbol_counts[sym] = symbol_counts.get(sym, 0) + 1
             parts = sym.split("_")
             if len(parts) == 2:
                 currency_counts[parts[0]] = currency_counts.get(parts[0], 0) + 1
@@ -176,7 +184,11 @@ class ScanCoordinator:
 
         uncorrelated = []
         for c in candidates:
-            # Brock 2026-06-04: same-pair stacking allowed — no exact-pair block.
+            # Brock 2026-06-08: per-pair cap — at most MAX_PER_PAIR concurrent per symbol.
+            if symbol_counts.get(c.symbol, 0) >= MAX_PER_PAIR:
+                log.info("[SCAN] Per-pair cap: %s blocked (%d open/pending >= %d)",
+                         c.symbol, symbol_counts.get(c.symbol, 0), MAX_PER_PAIR)
+                continue
             parts = c.symbol.split("_")
             if len(parts) == 2:
                 base, quote = parts
