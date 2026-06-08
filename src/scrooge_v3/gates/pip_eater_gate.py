@@ -61,6 +61,21 @@ def _normalize_direction(d: Any) -> str:
     return "long" if s.startswith("l") else "short" if s.startswith("s") else s
 
 
+def _resolve_uncovered_family(strategy_id):
+    """Map a live uncovered strategy VARIANT id to its 8yr sweep FAMILY so the
+    pair-aware playbook (keyed by family for the uncovered ~30%) gates it. The
+    variants share the family's align x ADR cells. Returns None if not uncovered."""
+    s = strategy_id or ""
+    if s.startswith("IFVG"): return "ifvg"
+    if s.startswith("CMA"):  return "chaikin_macd_atr"
+    if s.startswith("MTB"):  return "box_master_theory"
+    if s.startswith("ITP"):  return "trend_pullback"
+    if s.startswith("SB"):   return "session_breakout"
+    if s == "dbb_trend":     return "dbb_trend"
+    if s.startswith("DBB"):  return "canonical_lien_dbb"
+    return None
+
+
 class PipEaterGate(BaseGate):
     """Dual-source pip-EV gate. Mode C (max) blend of pair-module + matrix."""
 
@@ -337,6 +352,12 @@ class PipEaterGate(BaseGate):
             #     (known strategy) or uncovered_bypass (not in the 8yr book).
             # Spread-cost subtraction below is unchanged.
             pb = self._playbook.get((pair, strategy))
+            _covered = pb is not None
+            if pb is None:
+                _fam = _resolve_uncovered_family(strategy)
+                if _fam is not None:
+                    pb = self._playbook.get((pair, _fam))
+                    _covered = pb is not None
             final_ev = None
             ev_tier = None
             amp_factor = pb["amp_factor"] if pb else None
@@ -354,7 +375,7 @@ class PipEaterGate(BaseGate):
             if final_ev is None:
                 # Uncovered strategy (absent from the 8yr book) -> pass on the
                 # align/ADR + other gates, STAMPED unvalidated for separable PnL.
-                if strategy and strategy not in self._known_strategies:
+                if strategy and strategy not in self._known_strategies and not _covered:
                     try:
                         if candidate.metadata is None:
                             candidate.metadata = {}
