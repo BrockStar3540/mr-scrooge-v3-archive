@@ -64,6 +64,9 @@ BACKTEST_SPREAD = {"AUD_USD": 1.875, "EUR_USD": 1.5, "GBP_USD": 2.0, "USD_CAD": 
 # --- ML EV filter: the 8yr full-feature regressor's read on the EXACT signature.
 # The playbook cell is only (pair x strat x align x ADR); this model sees all 18
 # features. Catches setups the coarse cell passes. shadow=log-only / enforce=veto.
+import json
+import logging as _logging_ml
+_ML_LOG = _logging_ml.getLogger("scrooge_v3.gate.pip_eater")
 _ML_MODEL_FILE = Path("/home/ubuntu/mr-scrooge-v3/data/ml-observer/model.xgb")
 _ML_SCHEMA_FILE = Path("/home/ubuntu/mr-scrooge-v3/data/ml-observer/model-features.json")
 _ML_BOOSTER = None
@@ -100,7 +103,7 @@ def _ml_ev_predict(features: dict):
         dm = _xgb.DMatrix(df, enable_categorical=True)
         return float(_ML_BOOSTER.predict(dm)[0])
     except Exception as e:  # noqa: BLE001
-        log.warning("ml_ev_predict failed (%s) — disabling ML filter", e)
+        _ML_LOG.warning("ml_ev_predict failed (%s) — disabling ML filter", e)
         _ML_LOAD_FAILED = True
         return None
 
@@ -502,16 +505,16 @@ class PipEaterGate(BaseGate):
                             if self.ml_filter_mode == "enforce":
                                 passed = False
                                 tag = "ml_veto"
-                                log.info("[PIP_EATER] ML VETO %s %s %s net=%+.2fp but model EV=%+.2fp < %.2fp",
+                                self._log.info("[PIP_EATER] ML VETO %s %s %s net=%+.2fp but model EV=%+.2fp < %.2fp",
                                          pair, strategy, direction, net_ev, _mlev, self.ml_ev_floor)
                             else:
-                                log.info("[PIP_EATER] ML-SHADOW DISAGREE %s %s %s gate-take net=%+.2fp / model EV=%+.2fp < %.2fp",
+                                self._log.info("[PIP_EATER] ML-SHADOW DISAGREE %s %s %s gate-take net=%+.2fp / model EV=%+.2fp < %.2fp",
                                          pair, strategy, direction, net_ev, _mlev, self.ml_ev_floor)
                         else:
-                            log.info("[PIP_EATER] ML-SHADOW AGREE %s %s %s net=%+.2fp model EV=%+.2fp",
+                            self._log.info("[PIP_EATER] ML-SHADOW AGREE %s %s %s net=%+.2fp model EV=%+.2fp",
                                      pair, strategy, direction, net_ev, _mlev)
                 except Exception as _mle:  # noqa: BLE001
-                    log.warning("[PIP_EATER] ML filter error (%s) — skipping", _mle)
+                    self._log.warning("[PIP_EATER] ML filter error (%s) — skipping", _mle)
             evidence = f"playbook_{ev_tier}"
             # STAMP: mark the EV source so realized PnL is attributable at close.
             try:
