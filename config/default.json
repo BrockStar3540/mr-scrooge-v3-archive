@@ -273,7 +273,7 @@
       "min_n": 30,
       "align_min": 0,
       "align_floor_by_pair": {},
-      "require_adr_min": 4,
+      "require_adr_min": 1,
       "adr_exempt_strategies": [ "TF2_pullback_EMA20_short" ],
       "pair_blocklist": {
         "alpha_breakout_retest_v2": [
