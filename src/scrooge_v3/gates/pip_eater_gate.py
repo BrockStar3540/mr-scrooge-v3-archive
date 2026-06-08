@@ -376,6 +376,21 @@ class PipEaterGate(BaseGate):
                 # Uncovered strategy (absent from the 8yr book) -> pass on the
                 # align/ADR + other gates, STAMPED unvalidated for separable PnL.
                 if strategy and strategy not in self._known_strategies and not _covered:
+                    # Conservative bypass: an unvalidated strategy has NO 8yr EV cell
+                    # to justify it, so still require high ADR. Without this, removing
+                    # the blanket ADR gate lets degenerate fallbacks (e.g. 'direct')
+                    # flood at low volatility. Covered strategies never reach here.
+                    _badr = buckets.get("ADR", "") or ""
+                    _badr_lvl = int(_badr[3:]) if _badr.startswith("ADR") and _badr[3:].isdigit() else -1
+                    if _badr_lvl < 4:
+                        return GateResult(
+                            gate_name=self.name, passed=False, mode=self.mode,
+                            reason=(f"uncovered strategy={strategy} below bypass ADR floor "
+                                    f"(ADR={_badr} < ADR4; no 8yr cell to justify at low vol)"),
+                            metrics={"verdict": "uncovered_low_adr", "adr": _badr,
+                                     "strategy": strategy, "pair": pair,
+                                     "align_score": align_score, "direction": direction},
+                        )
                     try:
                         if candidate.metadata is None:
                             candidate.metadata = {}
