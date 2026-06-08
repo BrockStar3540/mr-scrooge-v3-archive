@@ -71,9 +71,16 @@ def _oanda_open_trades() -> list:
             headers={"Authorization": f"Bearer {tok}"})
         out = []
         for tr in json.load(urllib.request.urlopen(req, timeout=8)).get("trades", []):
-            u = float(tr["currentUnits"])
-            out.append({"id": tr["id"], "pair": tr["instrument"], "units": u,
-                        "upl": round(float(tr.get("unrealizedPL", 0)), 2),
+            u = float(tr["currentUnits"]); inst = tr["instrument"]
+            upl = float(tr.get("unrealizedPL", 0)); op = float(tr.get("price", 0)) or 1
+            ps = 0.01 if "JPY" in inst else 0.0001
+            if inst.startswith("USD_"):
+                pipval = abs(u) * ps / op
+            else:
+                pipval = abs(u) * ps
+            pips = round(upl / pipval, 1) if pipval else 0.0
+            out.append({"id": tr["id"], "pair": inst, "units": u,
+                        "upl": round(upl, 2), "pips": pips,
                         "dir": "long" if u > 0 else "short",
                         "open": tr["openTime"][11:16]})
         return out
