@@ -18,7 +18,7 @@
     "zone_bucket_pips": 20,
     "max_consecutive_expiries": 3,
     "backoff_minutes": 30,
-    "max_risk_per_trade_pct": 0.035,
+    "max_risk_per_trade_pct": 0.002,
     "_note_5pct": "2026-06-03 Brock: 5% target risk (paper); margin may cap effective risk"
   },
   "features": {
