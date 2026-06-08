@@ -89,6 +89,7 @@ class GreenExitManager:
         _xm = (c.get("exit_model") or {})
         self.exit_model_on = bool(_xm.get("enabled", False))
         self.exit_take_below = float(_xm.get("take_below", 18.0))
+        self.exit_ride_above = float(_xm.get("ride_above", 25.0))
         self._xm_path = str(_xm.get("model_path", "/home/ubuntu/mr-scrooge-v3/data/exit-model/exit_model.xgb"))
         self._xm_meta_path = str(_xm.get("meta_path", "/home/ubuntu/mr-scrooge-v3/data/exit-model/exit_model_meta.json"))
         self._xm_booster = None
@@ -248,6 +249,13 @@ class GreenExitManager:
         # ---------- 4h CHECKPOINT (first crossing of p1_minutes) ----------
         if elapsed >= self.p1_minutes and not phase2:
             if profit >= self.harvest_min:
+                # EXIT BRAIN — don't harvest a climber at the 4h mark. If the model
+                # says room remains, drop to Phase 2 and ride the existing TP3.
+                if self.exit_model_on:
+                    _rem = self._exit_rem_mfe(position, profit, hourly_bars, pip_size, elapsed)
+                    if _rem is not None and _rem >= self.exit_ride_above:
+                        return mk(position_id=pos_id, kind="enter_phase2",
+                                  reason=f"EXIT-BRAIN RIDE: rem={_rem:.0f}p >= {self.exit_ride_above:.0f}p at +{profit:.1f}p -> skip 4h harvest, ride TP3")
                 # green harvest: limit 0.5 pip past the tick on the favorable side
                 edge = self.harvest_edge * pip_size
                 lim = exit_px + edge if direction == TradeDirection.LONG else exit_px - edge
@@ -268,6 +276,15 @@ class GreenExitManager:
                 return None  # not yet time to re-scan
             # it's a scan tick. If it has climbed to the harvest band, limit-exit at +7.5.
             if profit >= self.p2_limit:
+                # EXIT BRAIN — don't cap a climber. If the model says room remains,
+                # HOLD (scan_tick) and let the existing +30/ADR TP3 ride, instead of
+                # salvaging at the current level. Else salvage. Fixes Phase-2
+                # amputating late-bloomers (e.g. today's AUD shorts at +8-10).
+                if self.exit_model_on:
+                    _rem = self._exit_rem_mfe(position, profit, hourly_bars, pip_size, elapsed)
+                    if _rem is not None and _rem >= self.exit_ride_above:
+                        return mk(position_id=pos_id, kind="scan_tick",
+                                  reason=f"EXIT-BRAIN RIDE(p2): rem={_rem:.0f}p >= {self.exit_ride_above:.0f}p at +{profit:.1f}p -> hold, ride TP3")
                 lim = self._price_at(direction, entry, self.p2_limit, pip_size)
                 return mk(
                     position_id=pos_id, kind="limit_exit", limit_price=lim, green=True,

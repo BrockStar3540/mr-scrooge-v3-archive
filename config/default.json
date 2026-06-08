@@ -376,7 +376,8 @@
       },
       "exit_model": {
         "enabled": true,
-        "take_below": 18.0
+        "take_below": 18.0,
+        "ride_above": 25.0
       }
     }
   },
