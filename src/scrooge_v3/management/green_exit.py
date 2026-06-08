@@ -84,6 +84,16 @@ class GreenExitManager:
         self.p2_limit = float(c.get("phase2_limit_pips", 7.5))
         self.scan_minutes = float(c.get("phase2_scan_minutes", 30.0))
         self.harvest_edge = float(c.get("harvest_past_tick_pips", 0.5))
+        # EXIT BRAIN (2026-06-08): live model scores remaining upside each cycle.
+        # v1 = TAKE half (harvest faders early). RIDE half (extend runners) = v2.
+        _xm = (c.get("exit_model") or {})
+        self.exit_model_on = bool(_xm.get("enabled", False))
+        self.exit_take_below = float(_xm.get("take_below", 18.0))
+        self._xm_path = str(_xm.get("model_path", "/home/ubuntu/mr-scrooge-v3/data/exit-model/exit_model.xgb"))
+        self._xm_meta_path = str(_xm.get("meta_path", "/home/ubuntu/mr-scrooge-v3/data/exit-model/exit_model_meta.json"))
+        self._xm_booster = None
+        self._xm_meta = None
+        self._xm_failed = False
 
     # -- helpers -------------------------------------------------------
     @staticmethod
@@ -113,6 +123,59 @@ class GreenExitManager:
     def _price_at(self, direction: TradeDirection, entry: float, pips: float, pip: float) -> float:
         return entry + pips * pip if direction == TradeDirection.LONG else entry - pips * pip
 
+    def _recent_range_pips(self, hourly_bars, pip_size):
+        """1h high-low in pips from the last H1 bars (live recent_range feature)."""
+        try:
+            if hourly_bars is None or pip_size <= 0 or len(hourly_bars) < 1:
+                return None
+            hi = float(hourly_bars["high"].iloc[-2:].max())
+            lo = float(hourly_bars["low"].iloc[-2:].min())
+            return (hi - lo) / pip_size
+        except Exception:
+            return None
+
+    def _exit_rem_mfe(self, position, profit, hourly_bars, pip_size, elapsed_min):
+        """Predicted remaining favorable pips (the exit brain). None on any error."""
+        if self._xm_failed:
+            return None
+        try:
+            import json as _json
+            from pathlib import Path as _P
+            sig = self._meta(position).get("exit_sig")
+            if not isinstance(sig, dict):
+                return None
+            rr = self._recent_range_pips(hourly_bars, pip_size)
+            if rr is None:
+                return None
+            if self._xm_booster is None:
+                import xgboost as _xgb
+                if not _P(self._xm_path).exists():
+                    self._xm_failed = True
+                    return None
+                b = _xgb.Booster(); b.load_model(self._xm_path)
+                self._xm_booster = b
+                self._xm_meta = _json.loads(_P(self._xm_meta_path).read_text())
+            import xgboost as _xgb
+            import pandas as _pd
+            mt = self._xm_meta
+            order = mt["feature_order"]; levels = mt["categorical_levels"]
+            adr_lvl = self._meta(position).get("adr_lvl", -1)
+            row = {"profit_at": float(profit), "entry_adr": float(adr_lvl),
+                   "recent_range": float(rr), "bars_elapsed": float(elapsed_min) / 5.0}
+            for c in mt["categorical_features"]:
+                row[c] = str(sig.get(c, "NA"))
+            df = _pd.DataFrame([[row.get(c) for c in order]], columns=order)
+            for c in mt["categorical_features"]:
+                cats = levels.get(c) or [str(df[c].iloc[0])]
+                df[c] = df[c].astype(str).astype("category").cat.set_categories(cats)
+            for c in mt["numeric_features"]:
+                df[c] = _pd.to_numeric(df[c], errors="coerce")
+            return float(self._xm_booster.predict(_xgb.DMatrix(df, enable_categorical=True))[0])
+        except Exception as e:  # noqa: BLE001
+            log.warning("[GREEN_EXIT] exit model predict failed (%s) — disabling", e)
+            self._xm_failed = True
+            return None
+
     # -- main ----------------------------------------------------------
     def check(
         self,
@@ -121,6 +184,7 @@ class GreenExitManager:
         pip_size: float,
         bid: float = 0.0,
         ask: float = 0.0,
+        hourly_bars: Any = None,
     ) -> Optional[GreenExitDecision]:
         """Return the next ladder action for this position, or None to hold."""
         if not self.enabled:
@@ -168,6 +232,16 @@ class GreenExitManager:
                     close_fraction=self.f2,
                     reason=f"TP2 +{self.tp2:.0f}p hit (profit={profit:.1f}p) -> close {self.f2:.0%} of original",
                 )
+            # EXIT BRAIN (2026-06-08) — TAKE half: once the runner is active
+            # (TP1 done), score remaining upside each cycle; if the model says the
+            # move is dying, harvest the green NOW instead of riding it back down.
+            if self.exit_model_on and tp1_done and profit >= self.tp1:
+                rem = self._exit_rem_mfe(position, profit, hourly_bars, pip_size, elapsed)
+                if rem is not None and rem < self.exit_take_below:
+                    edge = self.harvest_edge * pip_size
+                    lim = exit_px + edge if direction == TradeDirection.LONG else exit_px - edge
+                    return mk(position_id=pos_id, kind="limit_exit", limit_price=lim, green=True,
+                              reason=f"EXIT-BRAIN TAKE: model rem={rem:.0f}p < {self.exit_take_below:.0f}p at +{profit:.1f}p -> harvest green")
             # tranche 3 (+30) rides on the server-side TP; nothing to do here.
             return None
 

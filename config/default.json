@@ -373,6 +373,10 @@
           "4": 55,
           "5": 75
         }
+      },
+      "exit_model": {
+        "enabled": true,
+        "take_below": 18.0
       }
     }
   },

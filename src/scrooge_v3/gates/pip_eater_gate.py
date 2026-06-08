@@ -359,6 +359,12 @@ class PipEaterGate(BaseGate):
                 if candidate.metadata is None:
                     candidate.metadata = {}
                 candidate.metadata["adr_lvl"] = int(_abk[3:]) if _abk.startswith("ADR") and _abk[3:].isdigit() else -1
+                # full entry signature for the live exit model (exit brain)
+                candidate.metadata["exit_sig"] = {
+                    **{_k: buckets.get(_k) for _k in ("BB","BBP","A5","A1","RSI","E20","E50","ZS","SPR","ADR","H20","H60","T1","T4")},
+                    "pair": pair, "strategy": strategy, "direction": direction,
+                    "session": self._get_session(ctx),
+                }
             except Exception:
                 pass
             regime = mod.assign_regime(buckets)

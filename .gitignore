@@ -128,3 +128,5 @@ crontab.bak_*
 *.bak_2026-*
 data/_archive_*/
 data/ml-observer/corpus_8yr.parquet
+data/exit-model/exit_model.xgb
+data/exit-model/exit_ml_corpus.parquet

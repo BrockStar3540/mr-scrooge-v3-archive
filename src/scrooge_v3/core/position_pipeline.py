@@ -112,7 +112,7 @@ class PositionPipeline:
         # --- Green Exit ladder (Brock 2026-06-04) — top priority when enabled ---
         if self.green_exit is not None and getattr(self.green_exit, "enabled", False):
             try:
-                _gx = self.green_exit.check(position, current_price, pip_size, bid=bid, ask=ask)
+                _gx = self.green_exit.check(position, current_price, pip_size, bid=bid, ask=ask, hourly_bars=hourly_bars)
             except Exception:
                 log.exception("[PIPELINE] green_exit.check failed")
                 _gx = None
