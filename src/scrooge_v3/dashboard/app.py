@@ -104,6 +104,7 @@ def _brain_snapshot() -> dict:
     lines = _tail(_LOG_PATH, 1500)
     funnel = {"passed": 0, "ev_veto": 0, "below_floor": 0, "adr": 0, "cooldown": 0, "other": 0}
     passed_evs, factor, exit_feed, pos_dec = [], {}, [], {}
+    strat_fires, strat_tally, last_size = [], {}, None
     for ln in lines:
         if "pip_eater] PASSED" in ln:
             funnel["passed"] += 1
@@ -135,6 +136,13 @@ def _brain_snapshot() -> dict:
                   "elapsed": int(el.group(1)) if el else None}
             exit_feed.append(ev)
             if tid: pos_dec[tid.group(1)] = ev
+        ms = re.search(r"\[STRATEGY:(\w+)\]\s+([A-Z_]+)\s+symbol=([A-Z]{3}_[A-Z]{3})", ln)
+        if ms:
+            strat_tally[ms.group(1)] = strat_tally.get(ms.group(1), 0) + 1
+            strat_fires.append({"s": ms.group(1), "sig": ms.group(2), "pair": ms.group(3), "t": ln[11:16]})
+        sz = re.search(r"\[SIZING\] ([A-Z]{3}_[A-Z]{3}): risk-capped \d+ -> (\d+)", ln)
+        if sz:
+            last_size = {"pair": sz.group(1), "units": int(sz.group(2)), "t": ln[11:16]}
     positions = _oanda_open_trades()
     for p in positions:
         p["brain"] = pos_dec.get(p["id"])
@@ -145,6 +153,8 @@ def _brain_snapshot() -> dict:
         "funnel": funnel,
         "funnel_pass_ev_avg": round(sum(passed_evs) / len(passed_evs), 2) if passed_evs else None,
         "factor_state": sorted(factor.values(), key=lambda x: x["pair"]),
+        "strategies": {"fires": strat_fires[-14:][::-1], "tally": strat_tally},
+        "sizing": last_size,
         "account": _oanda_account(),
     }
 
