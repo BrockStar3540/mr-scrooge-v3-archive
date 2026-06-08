@@ -283,7 +283,7 @@
         ]
       },
       "ml_ev_filter": {
-        "mode": "shadow",
+        "mode": "enforce",
         "floor": 0.0
       }
     },
