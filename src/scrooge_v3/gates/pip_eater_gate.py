@@ -56,6 +56,12 @@ def _tag(exp_pips: float, floor: float = 4.0) -> str:
     return "optimized_meal"
 
 
+# Per-pair spread (pips) baked into the backtest net_ladder = SPREAD[pair]*1.25
+# (scorer: AUD 1.5 / EUR 1.2 / GBP 1.6 / CAD 1.8, x1.25). The playbook ev_pips is
+# net of THIS, so the gate adds it back before charging the LIVE spread once.
+BACKTEST_SPREAD = {"AUD_USD": 1.875, "EUR_USD": 1.5, "GBP_USD": 2.0, "USD_CAD": 2.25}
+
+
 def _normalize_direction(d: Any) -> str:
     s = str(d).lower().replace("tradedirection.", "").strip()
     return "long" if s.startswith("l") else "short" if s.startswith("s") else s
@@ -418,14 +424,17 @@ class PipEaterGate(BaseGate):
                              "amp_factor": amp_factor, "amp_bucket": amp_bucket},
                 )
 
-            # Brock 2026-06-01: NET-of-spread EV. Lab pnl_pips is GROSS; live we
-            # pay ~1x round-trip spread (1.8p avg, up to 2.6p on crosses). Gate on
-            # the cost-adjusted number so a +4p gross edge on a wide-spread cross
-            # does not pass as net-marginal/negative.
+            # NET-of-spread EV. FIX 2026-06-08: the playbook ev_pips is
+            # net_ladder, ALREADY net of the backtest's baked-in spread
+            # (BACKTEST_SPREAD). Prior code subtracted the live spread on top of
+            # that — double-charging spread and ~halving the edge. Correct: add the
+            # backtest spread back to recover the gross ladder edge, then subtract
+            # the LIVE spread ONCE (adapts to real-time cost).
             _sp = getattr(getattr(ctx, "snapshot", None), "spread", 0.0) or 0.0
             _pip = 0.01 if any(j in pair for j in ("JPY", "MXN")) else 0.0001
             spread_pips = (_sp / _pip) if _pip else 0.0
-            net_ev = final_ev - spread_pips
+            _bt_spread = BACKTEST_SPREAD.get(pair, 2.5)
+            net_ev = final_ev + _bt_spread - spread_pips
             tag = _tag(net_ev, floor=self.floor_pips)
             passed = tag in ("good_plate", "tasty", "optimized_meal")
             evidence = f"playbook_{ev_tier}"
@@ -453,13 +462,13 @@ class PipEaterGate(BaseGate):
             }
             _amp_s = f"{amp_factor}={amp_bucket}" if ev_tier == "amp_bucket" else "spine"
             if passed:
-                reason = (f"HARVEST {tag} net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) "
+                reason = (f"HARVEST {tag} net={net_ev:+.2f}p (ladder={final_ev:+.2f}+bt{_bt_spread:.1f}-spr{spread_pips:.1f}) "
                           f"[playbook {ev_tier} align={align_score} {_amp_s}]")
             elif tag == "pip_trick":
                 reason = (f"PIP TRICK detected exp_pips={final_ev:+.2f}p — danger "
                           f"[playbook {ev_tier} align={align_score} {_amp_s}]")
             else:
-                reason = (f"empty plate net={net_ev:+.2f}p (gross={final_ev:+.2f}p-spr={spread_pips:.1f}p) < floor={self.floor_pips}p "
+                reason = (f"empty plate net={net_ev:+.2f}p (ladder={final_ev:+.2f}+bt{_bt_spread:.1f}-spr{spread_pips:.1f}) < floor={self.floor_pips}p "
                           f"[playbook {ev_tier} align={align_score} {_amp_s}]")
             return GateResult(
                 gate_name=self.name, passed=passed, mode=self.mode,
