@@ -45,7 +45,7 @@ MATRIX_LOOKUP_CSV = Path("/home/ubuntu/mr-scrooge-v3/data/matrix_meal_lookup.csv
 # "Brock's Bot Strategy Book.xlsx -> Per Strategy Play Book". Two tiers:
 # tier=amp -> (strategy, align, candidate's bucket in that strategy's amplifier
 # factor); tier=spine -> (strategy, align) unconditional fallback.
-PLAYBOOK_CSV = Path("/home/ubuntu/mr-scrooge-v3/data/playbook_ev.csv")
+PLAYBOOK_CSV = Path("/home/ubuntu/mr-scrooge-v3/data/playbook_ev_pairaware.csv")
 
 
 def _tag(exp_pips: float, floor: float = 4.0) -> str:
@@ -163,7 +163,7 @@ class PipEaterGate(BaseGate):
             try:
                 pbdf = pd.read_csv(PLAYBOOK_CSV)
                 book: dict[str, dict] = {}
-                for s, g in pbdf.groupby("strategy"):
+                for (p, s), g in pbdf.groupby(["pair", "strategy"]):
                     amp: dict[tuple, float] = {}
                     spine: dict[int, float] = {}
                     for r in g.itertuples():
@@ -175,7 +175,7 @@ class PipEaterGate(BaseGate):
                                 amp[(int(r.align), str(r.bucket))] = float(r.ev_pips)
                         else:
                             spine[int(r.align)] = float(r.ev_pips)
-                    book[str(s)] = {
+                    book[(str(p), str(s))] = {
                         "amp_factor": str(g["amp_factor"].iloc[0]),
                         "floor": int(g["floor"].iloc[0]),
                         "amp": amp, "spine": spine,
@@ -183,7 +183,7 @@ class PipEaterGate(BaseGate):
                 if book:
                     self._playbook = book
                     # 8yr book defines the covered universe for uncovered_bypass.
-                    self._known_strategies = set(book.keys())
+                    self._known_strategies = {k[1] for k in book.keys()}
                 self._log.info(
                     "[PIP_EATER] loaded Play Book EV: %d strategies, %d amp cells, %d spine cells",
                     len(self._playbook),
@@ -336,7 +336,7 @@ class PipEaterGate(BaseGate):
             #   neither -> below the per-strategy floor / no cell -> reject
             #     (known strategy) or uncovered_bypass (not in the 8yr book).
             # Spread-cost subtraction below is unchanged.
-            pb = self._playbook.get(strategy)
+            pb = self._playbook.get((pair, strategy))
             final_ev = None
             ev_tier = None
             amp_factor = pb["amp_factor"] if pb else None
