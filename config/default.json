@@ -274,11 +274,17 @@
       "align_min": 0,
       "align_floor_by_pair": {},
       "require_adr_min": 1,
-      "adr_exempt_strategies": [ "TF2_pullback_EMA20_short" ],
+      "adr_exempt_strategies": [
+        "TF2_pullback_EMA20_short"
+      ],
       "pair_blocklist": {
         "alpha_breakout_retest_v2": [
           "GBP_USD"
         ]
+      },
+      "ml_ev_filter": {
+        "mode": "shadow",
+        "floor": 0.0
       }
     },
     "matrix_router_gate": {

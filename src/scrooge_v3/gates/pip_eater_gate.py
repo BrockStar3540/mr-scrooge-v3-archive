@@ -61,6 +61,51 @@ def _tag(exp_pips: float, floor: float = 4.0) -> str:
 # net of THIS, so the gate adds it back before charging the LIVE spread once.
 BACKTEST_SPREAD = {"AUD_USD": 1.875, "EUR_USD": 1.5, "GBP_USD": 2.0, "USD_CAD": 2.25}
 
+# --- ML EV filter: the 8yr full-feature regressor's read on the EXACT signature.
+# The playbook cell is only (pair x strat x align x ADR); this model sees all 18
+# features. Catches setups the coarse cell passes. shadow=log-only / enforce=veto.
+_ML_MODEL_FILE = Path("/home/ubuntu/mr-scrooge-v3/data/ml-observer/model.xgb")
+_ML_SCHEMA_FILE = Path("/home/ubuntu/mr-scrooge-v3/data/ml-observer/model-features.json")
+_ML_BOOSTER = None
+_ML_SCHEMA = None
+_ML_LOAD_FAILED = False
+
+
+def _ml_ev_predict(features: dict):
+    """Predicted expected net pips (8yr EV regressor), cached booster. Returns
+    float or None on any error — never raises into the gate hot path."""
+    global _ML_BOOSTER, _ML_SCHEMA, _ML_LOAD_FAILED
+    if _ML_LOAD_FAILED:
+        return None
+    try:
+        import xgboost as _xgb
+        import pandas as _pd
+        if _ML_BOOSTER is None:
+            if not _ML_MODEL_FILE.exists():
+                _ML_LOAD_FAILED = True
+                return None
+            b = _xgb.Booster()
+            b.load_model(str(_ML_MODEL_FILE))
+            _ML_BOOSTER = b
+            _ML_SCHEMA = (json.loads(_ML_SCHEMA_FILE.read_text())
+                          if _ML_SCHEMA_FILE.exists() else {})
+        order = (_ML_SCHEMA or {}).get("feature_order") or []
+        levels = (_ML_SCHEMA or {}).get("categorical_levels") or {}
+        if not order:
+            return None
+        df = _pd.DataFrame([[str(features.get(c, "NA")) for c in order]], columns=order)
+        for c in order:
+            cats = levels.get(c) or sorted(df[c].astype(str).unique().tolist())
+            df[c] = df[c].astype(str).astype("category").cat.set_categories(cats)
+        dm = _xgb.DMatrix(df, enable_categorical=True)
+        return float(_ML_BOOSTER.predict(dm)[0])
+    except Exception as e:  # noqa: BLE001
+        log.warning("ml_ev_predict failed (%s) — disabling ML filter", e)
+        _ML_LOAD_FAILED = True
+        return None
+
+
+
 
 def _normalize_direction(d: Any) -> str:
     s = str(d).lower().replace("tradedirection.", "").strip()
@@ -96,6 +141,9 @@ class PipEaterGate(BaseGate):
         # T1/T4 aligned with candidate direction) >= align_min. Lab: aligned>=3
         # trades net +0.64p/64% WR vs counter<=1 at -0.30p/59%. 0 = disabled.
         self.align_min = int(self.config.get("align_min", 0))
+        _mlf = self.config.get("ml_ev_filter", {}) or {}
+        self.ml_filter_mode = str(_mlf.get("mode", "off"))   # off / shadow / enforce
+        self.ml_ev_floor = float(_mlf.get("floor", 0.0))
         # Brock 2026-06-03: per-pair strategy blocklist. strategy_id -> [pairs]
         # where that strategy is a net loser in lab (hard veto, any mode).
         _bl = self.config.get("pair_blocklist", {}) or {}
@@ -437,6 +485,33 @@ class PipEaterGate(BaseGate):
             net_ev = final_ev + _bt_spread - spread_pips
             tag = _tag(net_ev, floor=self.floor_pips)
             passed = tag in ("good_plate", "tasty", "optimized_meal")
+            # ML EV filter — the 8yr full-feature regressor's verdict on THIS exact
+            # signature (vs the coarse playbook cell). Scored only on would-pass
+            # trades. shadow=log the agree/disagree; enforce=veto below floor.
+            if passed and self.ml_filter_mode in ("shadow", "enforce"):
+                try:
+                    _mlev = _ml_ev_predict({**buckets, "pair": pair,
+                                            "strategy_id": strategy,
+                                            "direction_exec": direction,
+                                            "session_bucket": self._get_session(ctx)})
+                    if _mlev is not None:
+                        if candidate.metadata is None:
+                            candidate.metadata = {}
+                        candidate.metadata["ml_ev"] = round(_mlev, 2)
+                        if _mlev < self.ml_ev_floor:
+                            if self.ml_filter_mode == "enforce":
+                                passed = False
+                                tag = "ml_veto"
+                                log.info("[PIP_EATER] ML VETO %s %s %s net=%+.2fp but model EV=%+.2fp < %.2fp",
+                                         pair, strategy, direction, net_ev, _mlev, self.ml_ev_floor)
+                            else:
+                                log.info("[PIP_EATER] ML-SHADOW DISAGREE %s %s %s gate-take net=%+.2fp / model EV=%+.2fp < %.2fp",
+                                         pair, strategy, direction, net_ev, _mlev, self.ml_ev_floor)
+                        else:
+                            log.info("[PIP_EATER] ML-SHADOW AGREE %s %s %s net=%+.2fp model EV=%+.2fp",
+                                     pair, strategy, direction, net_ev, _mlev)
+                except Exception as _mle:  # noqa: BLE001
+                    log.warning("[PIP_EATER] ML filter error (%s) — skipping", _mle)
             evidence = f"playbook_{ev_tier}"
             # STAMP: mark the EV source so realized PnL is attributable at close.
             try:
