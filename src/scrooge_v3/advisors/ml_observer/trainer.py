@@ -321,6 +321,39 @@ def _load_shadow_outcomes(min_rows: int):
     return df, np.array(ys), len(feat_rows)
 
 
+# --- ML REFRAME 2026-06-08: 8-year canonical training substrate ---
+# scored_7yr (1.6M per-trade rows: 14 buckets + pair/strategy/dir/session,
+# y = won under the live green-exit ladder). This is THE training corpus now;
+# the live scans are sparse. Capped for RAM safety on the live box.
+CORPUS_8YR_FILE = SCANS_FILE.parent / "corpus_8yr.parquet"
+CORPUS_8YR_MAX = 400_000
+
+
+def _load_8yr_corpus(min_rows: int = 0):
+    """Load the 8yr canonical corpus as a categorical (X, y) set, schema-matched
+    to the live bucket space. Returns (X df, y, n) or (None, None, n)."""
+    if not CORPUS_8YR_FILE.exists():
+        return None, None, 0
+    import pandas as pd
+    df = pd.read_parquet(CORPUS_8YR_FILE)
+    if len(df) > CORPUS_8YR_MAX:
+        df = df.sample(n=CORPUS_8YR_MAX, random_state=42).reset_index(drop=True)
+    if len(df) < max(min_rows, 1):
+        return None, None, len(df)
+    y = df["y"].to_numpy(dtype=float)
+    Xdf = df.drop(columns=["y"]).copy()
+    order, levels = _bucket_schema()
+    for c in list(Xdf.columns):
+        Xdf[c] = Xdf[c].astype(str).astype("category")
+        cats = levels.get(c)
+        if cats:
+            Xdf[c] = Xdf[c].cat.set_categories(cats)
+    keep = [c for c in order if c in Xdf.columns] if order else list(Xdf.columns)
+    if keep:
+        Xdf = Xdf[keep]
+    return Xdf, y, len(df)
+
+
 def load_training_data() -> Tuple[Optional[object], Optional[np.ndarray], int]:
     """Load the labeled training set.
 
@@ -331,6 +364,11 @@ def load_training_data() -> Tuple[Optional[object], Optional[np.ndarray], int]:
     kept only for archival reference. We therefore do NOT fall back to them, to
     avoid training on all-zero vectors.
     """
+    # ML REFRAME: 8yr canonical corpus is the base; fall back to live scans.
+    X8, y8, n8 = _load_8yr_corpus(PHASE2_MIN_TRADES)
+    if X8 is not None:
+        log.info("[ML-REFRAME] training on 8yr canonical corpus: %d rows", n8)
+        return X8, y8, n8
     X, y, n = _load_shadow_outcomes(PHASE2_MIN_TRADES)
     if X is not None:
         return X, y, n
