@@ -376,20 +376,30 @@ def load_training_data() -> Tuple[Optional[object], Optional[np.ndarray], int]:
 
 
 def train_model() -> dict:
+    import numpy as _np
+    import pandas as pd
     X, y, n = load_training_data()
     if X is None:
         return {"status": "insufficient_data", "n_samples": n,
                 "required": PHASE2_MIN_TRADES}
 
-    wins = int(y.sum())
-    losses = n - wins
-    log.info("Training on %d trades (%d wins, %d losses)", n, wins, losses)
-
-    import pandas as pd
+    # ML REFRAME 2026-06-08: continuous target (8yr net_ladder pips) -> train a
+    # REGRESSOR that predicts EXPECTED net pips (EV). The goal is high net pips,
+    # NOT win rate (WR is a ~coinflip; the edge lives in EV).
+    is_reg = not set(_np.unique(y).tolist()).issubset({0.0, 1.0})
     is_categorical = isinstance(X, pd.DataFrame)
     params = dict(XGB_PARAMS)
+    wins = losses = None
+    if is_reg:
+        params["objective"] = "reg:squarederror"
+        params["eval_metric"] = "rmse"
+        params.pop("scale_pos_weight", None)
+        log.info("Training EV REGRESSOR on %d trades (mean net=%.3fp)", n, float(y.mean()))
+    else:
+        wins = int(y.sum()); losses = n - wins
+        log.info("Training classifier on %d trades (%d wins, %d losses)", n, wins, losses)
+
     if is_categorical:
-        # XGBoost categorical splits require the hist tree method.
         params["tree_method"] = "hist"
         dtrain = xgb.DMatrix(X, label=y, enable_categorical=True)
         feat_names = list(X.columns)
@@ -397,61 +407,62 @@ def train_model() -> dict:
         dtrain = xgb.DMatrix(X, label=y, feature_names=FEATURE_NAMES)
         feat_names = FEATURE_NAMES
 
-    # Guard CV folds against tiny / imbalanced sets.
-    nfold = max(2, min(XGB_CV_FOLDS, wins, losses)) if min(wins, losses) else 2
-    cv_results = xgb.cv(
-        params, dtrain,
-        num_boost_round=XGB_NUM_ROUNDS,
-        nfold=nfold,
-        early_stopping_rounds=XGB_EARLY_STOPPING,
-        seed=42,
-        verbose_eval=False,
-    )
+    metric = "rmse" if is_reg else "logloss"
+    if is_reg:
+        nfold = XGB_CV_FOLDS
+    else:
+        nfold = max(2, min(XGB_CV_FOLDS, wins, losses)) if min(wins, losses) else 2
+    cv_results = xgb.cv(params, dtrain, num_boost_round=XGB_NUM_ROUNDS,
+                        nfold=nfold, early_stopping_rounds=XGB_EARLY_STOPPING,
+                        seed=42, verbose_eval=False)
     best_round = len(cv_results)
-    best_logloss = cv_results["test-logloss-mean"].iloc[-1]
-    best_logloss_std = cv_results["test-logloss-std"].iloc[-1]
+    cv_score = float(cv_results["test-" + metric + "-mean"].iloc[-1])
+    cv_score_std = float(cv_results["test-" + metric + "-std"].iloc[-1])
     model = xgb.train(params, dtrain, num_boost_round=best_round)
     preds = model.predict(dtrain)
-    pred_labels = (preds > 0.5).astype(int)
-    accuracy = (pred_labels == y).mean()
     importance = model.get_score(importance_type="gain")
     sorted_imp = sorted(importance.items(), key=lambda x: x[1], reverse=True)
     model.save_model(str(MODEL_FILE))
-    # Persist the feature schema so predict() rebuilds an identical input frame.
+
+    target = "ev_pips" if is_reg else "win"
     if is_categorical:
-        schema = {
-            "mode": "categorical",
-            "feature_order": feat_names,
-            "categorical_levels": {
-                c: list(map(str, X[c].cat.categories)) for c in feat_names
-            },
-        }
+        schema = {"mode": "categorical", "target": target, "feature_order": feat_names,
+                  "categorical_levels": {c: list(map(str, X[c].cat.categories)) for c in feat_names}}
     else:
-        schema = {"mode": "numeric", "feature_order": list(feat_names)}
+        schema = {"mode": "numeric", "target": target, "feature_order": list(feat_names)}
     try:
         MODEL_FEATURES_FILE.write_text(json.dumps(schema))
     except OSError as e:  # noqa: BLE001
         log.warning("could not write model feature schema: %s", e)
-    log.info("Model saved to %s (mode=%s)", MODEL_FILE,
-             "categorical" if is_categorical else "numeric")
-    report = {
-        "status": "trained",
-        "n_samples": n, "wins": wins, "losses": losses,
-        "cv_best_round": best_round,
-        "cv_logloss": round(best_logloss, 4),
-        "cv_logloss_std": round(best_logloss_std, 4),
-        "insample_accuracy": round(float(accuracy), 4),
-        "feature_importance_top10": [
-            {"feature": name, "gain": round(float(gain), 2)}
-            for name, gain in sorted_imp[:10]
-        ],
-        "phase3_ready": bool(accuracy >= PHASE3_MIN_CV_ACCURACY),
-    }
-    log.info("Training: logloss=%s acc=%s phase3=%s",
-             report["cv_logloss"], report["insample_accuracy"],
-             report["phase3_ready"])
+    log.info("Model saved to %s (target=%s)", MODEL_FILE, target)
+
+    report = {"status": "trained", "mode": "regression" if is_reg else "classification",
+              "target": target, "n_samples": n, "cv_best_round": best_round,
+              "cv_" + metric: round(cv_score, 4), "cv_" + metric + "_std": round(cv_score_std, 4),
+              "feature_importance_top10": [{"feature": nm, "gain": round(float(g), 2)}
+                                            for nm, g in sorted_imp[:10]]}
+    if is_reg:
+        dl = pd.DataFrame({"pred": preds, "act": y})
+        try:
+            dl["dec"] = pd.qcut(dl["pred"], 10, labels=False, duplicates="drop")
+            lift = {int(k): round(float(v), 2) for k, v in dl.groupby("dec")["act"].mean().items()}
+        except Exception:  # noqa: BLE001
+            lift = {}
+        report["pred_ev_range"] = [round(float(preds.min()), 2), round(float(preds.max()), 2)]
+        report["actual_mean_net"] = round(float(y.mean()), 3)
+        report["ev_decile_actual_net"] = lift
+        report["phase3_ready"] = False
+        log.info("EV regressor: cv_rmse=%.3f | actual net by predicted-EV decile (0=low..9=high): %s",
+                 cv_score, lift)
+    else:
+        pred_labels = (preds > 0.5).astype(int)
+        accuracy = float((pred_labels == y).mean())
+        report["wins"] = wins; report["losses"] = losses
+        report["insample_accuracy"] = round(accuracy, 4)
+        report["phase3_ready"] = bool(accuracy >= PHASE3_MIN_CV_ACCURACY)
+        log.info("Classifier: cv_logloss=%.4f acc=%.4f", cv_score, accuracy)
     for i, item in enumerate(report["feature_importance_top10"]):
-        log.info("  Feature #%d: %s (gain=%s)", i+1, item["feature"], item["gain"])
+        log.info("  Feature #%d: %s (gain=%s)", i + 1, item["feature"], item["gain"])
     return report
 
 
@@ -491,11 +502,11 @@ def predict(features_dict: dict) -> Tuple[float, int]:
             df[c] = df[c].astype(str).astype("category").cat.set_categories(cats)
         dmat = xgb.DMatrix(df, enable_categorical=True)
         prob = float(model.predict(dmat)[0])
-        return prob, (1 if prob > 0.5 else 0)
+        return prob, (1 if prob > (0.0 if schema.get("target") == "ev_pips" else 0.5) else 0)
 
     # Legacy numeric path (retired V3-scorer feature vector).
     _row = {n: features_dict.get(n, 0.0) for n in FEATURE_NAMES}
     _df = _pd.DataFrame([_row], columns=FEATURE_NAMES)
     dmat = xgb.DMatrix(_df)
     prob = float(model.predict(dmat)[0])
-    return prob, (1 if prob > 0.5 else 0)
+    return prob, (1 if prob > (0.0 if schema.get("target") == "ev_pips" else 0.5) else 0)
