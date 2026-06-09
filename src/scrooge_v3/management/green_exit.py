@@ -124,18 +124,22 @@ class GreenExitManager:
     def _price_at(self, direction: TradeDirection, entry: float, pips: float, pip: float) -> float:
         return entry + pips * pip if direction == TradeDirection.LONG else entry - pips * pip
 
-    def _recent_range_pips(self, hourly_bars, pip_size):
-        """1h high-low in pips from the last H1 bars (live recent_range feature)."""
+    def _recent_range_pips(self, m5_bars, pip_size):
+        """High-low range (pips) over the last ~1h of M5 bars = the last 13 bars,
+        matching exit_corpus.py's training window slice(b-12, b+1). The range is
+        direction-independent (the short-side mirroring cancels in hi.max-lo.min),
+        so raw high/low is faithful for both directions. None on any error."""
         try:
-            if hourly_bars is None or pip_size <= 0 or len(hourly_bars) < 1:
+            if m5_bars is None or pip_size <= 0 or len(m5_bars) < 1:
                 return None
-            hi = float(hourly_bars["high"].iloc[-2:].max())
-            lo = float(hourly_bars["low"].iloc[-2:].min())
+            w = m5_bars.iloc[-13:]
+            hi = float(w["high"].max())
+            lo = float(w["low"].min())
             return (hi - lo) / pip_size
         except Exception:
             return None
 
-    def _exit_rem_mfe(self, position, profit, hourly_bars, pip_size, elapsed_min):
+    def _exit_rem_mfe(self, position, profit, m5_bars, pip_size, elapsed_min):
         """Predicted remaining favorable pips (the exit brain). None on any error."""
         if self._xm_failed:
             return None
@@ -145,7 +149,7 @@ class GreenExitManager:
             sig = self._meta(position).get("exit_sig")
             if not isinstance(sig, dict):
                 return None
-            rr = self._recent_range_pips(hourly_bars, pip_size)
+            rr = self._recent_range_pips(m5_bars, pip_size)
             if rr is None:
                 return None
             if self._xm_booster is None:
@@ -186,6 +190,7 @@ class GreenExitManager:
         bid: float = 0.0,
         ask: float = 0.0,
         hourly_bars: Any = None,
+        m5_bars: Any = None,
     ) -> Optional[GreenExitDecision]:
         """Return the next ladder action for this position, or None to hold."""
         if not self.enabled:
@@ -237,12 +242,12 @@ class GreenExitManager:
             # (TP1 done), score remaining upside each cycle; if the model says the
             # move is dying, harvest the green NOW instead of riding it back down.
             if self.exit_model_on and tp1_done and profit >= self.tp1:
-                rem = self._exit_rem_mfe(position, profit, hourly_bars, pip_size, elapsed)
+                rem = self._exit_rem_mfe(position, profit, m5_bars, pip_size, elapsed)
                 if rem is not None and rem < self.exit_take_below:
                     edge = self.harvest_edge * pip_size
                     lim = exit_px + edge if direction == TradeDirection.LONG else exit_px - edge
                     return mk(position_id=pos_id, kind="limit_exit", limit_price=lim, green=True,
-                              reason=f"EXIT-BRAIN TAKE: model rem={rem:.0f}p < {self.exit_take_below:.0f}p at +{profit:.1f}p -> harvest green")
+                              reason=f"EXIT-BRAIN TAKE: model rem={rem:.1f}p < {self.exit_take_below:.0f}p at +{profit:.1f}p -> harvest green")
             # tranche 3 (+30) rides on the server-side TP; nothing to do here.
             return None
 
@@ -252,10 +257,10 @@ class GreenExitManager:
                 # EXIT BRAIN — don't harvest a climber at the 4h mark. If the model
                 # says room remains, drop to Phase 2 and ride the existing TP3.
                 if self.exit_model_on:
-                    _rem = self._exit_rem_mfe(position, profit, hourly_bars, pip_size, elapsed)
+                    _rem = self._exit_rem_mfe(position, profit, m5_bars, pip_size, elapsed)
                     if _rem is not None and _rem >= self.exit_ride_above:
                         return mk(position_id=pos_id, kind="enter_phase2",
-                                  reason=f"EXIT-BRAIN RIDE: rem={_rem:.0f}p >= {self.exit_ride_above:.0f}p at +{profit:.1f}p -> skip 4h harvest, ride TP3")
+                                  reason=f"EXIT-BRAIN RIDE: rem={_rem:.1f}p >= {self.exit_ride_above:.0f}p at +{profit:.1f}p -> skip 4h harvest, ride TP3")
                 # green harvest: limit 0.5 pip past the tick on the favorable side
                 edge = self.harvest_edge * pip_size
                 lim = exit_px + edge if direction == TradeDirection.LONG else exit_px - edge
@@ -281,10 +286,10 @@ class GreenExitManager:
                 # salvaging at the current level. Else salvage. Fixes Phase-2
                 # amputating late-bloomers (e.g. today's AUD shorts at +8-10).
                 if self.exit_model_on:
-                    _rem = self._exit_rem_mfe(position, profit, hourly_bars, pip_size, elapsed)
+                    _rem = self._exit_rem_mfe(position, profit, m5_bars, pip_size, elapsed)
                     if _rem is not None and _rem >= self.exit_ride_above:
                         return mk(position_id=pos_id, kind="scan_tick",
-                                  reason=f"EXIT-BRAIN RIDE(p2): rem={_rem:.0f}p >= {self.exit_ride_above:.0f}p at +{profit:.1f}p -> hold, ride TP3")
+                                  reason=f"EXIT-BRAIN RIDE(p2): rem={_rem:.1f}p >= {self.exit_ride_above:.0f}p at +{profit:.1f}p -> hold, ride TP3")
                 lim = self._price_at(direction, entry, self.p2_limit, pip_size)
                 return mk(
                     position_id=pos_id, kind="limit_exit", limit_price=lim, green=True,

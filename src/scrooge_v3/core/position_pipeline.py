@@ -95,6 +95,7 @@ class PositionPipeline:
         spread: float,
         mean_spread: float = 0.0,
         hourly_bars: Any = None,
+        m5_bars: Any = None,
         pip_size: float = 0.0001,
         live_units: float | None = None,
         tracker: Any = None,
@@ -112,7 +113,7 @@ class PositionPipeline:
         # --- Green Exit ladder (Brock 2026-06-04) — top priority when enabled ---
         if self.green_exit is not None and getattr(self.green_exit, "enabled", False):
             try:
-                _gx = self.green_exit.check(position, current_price, pip_size, bid=bid, ask=ask, hourly_bars=hourly_bars)
+                _gx = self.green_exit.check(position, current_price, pip_size, bid=bid, ask=ask, hourly_bars=hourly_bars, m5_bars=m5_bars)
             except Exception:
                 log.exception("[PIPELINE] green_exit.check failed")
                 _gx = None
@@ -413,6 +414,7 @@ class PositionPipeline:
                 spread=data.get("spread", 0.0),
                 mean_spread=data.get("mean_spread", 0.0),
                 hourly_bars=data.get("hourly_bars"),
+                m5_bars=data.get("m5_bars"),
                 pip_size=_pip_size(symbol),
             )
             actions.append(action)

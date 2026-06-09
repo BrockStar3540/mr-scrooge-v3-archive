@@ -49,6 +49,9 @@ class PositionCoordinator:
                 continue
 
             h1 = ctx.broker.get_candles(tracked.symbol, "H1", 24)
+            # M5 for the exit brain's recent_range (last 13 bars ~= 1h, matching
+            # exit_corpus.py training window). H1 stays for the trailing-stop manager.
+            m5 = ctx.broker.get_candles(tracked.symbol, "M5", 16)
             pip = 0.01 if "JPY" in tracked.symbol else 0.0001
             direction = TradeDirection(tracked.direction)
 
@@ -60,6 +63,7 @@ class PositionCoordinator:
                 spread=quote.spread,
                 mean_spread=ctx.spread_monitor.get_stats(tracked.symbol).get('mean', quote.spread),
                 hourly_bars=h1,
+                m5_bars=m5,
                 pip_size=pip,
                 live_units=live_units_by_id.get(tracked.trade_id),
                 tracker=ctx.tracker,
