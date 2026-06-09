@@ -235,7 +235,7 @@ class PipEaterGate(BaseGate):
             try:
                 pbdf = pd.read_csv(PLAYBOOK_CSV)
                 book: dict[str, dict] = {}
-                for (p, s), g in pbdf.groupby(["pair", "strategy"]):
+                for (p, s, d), g in pbdf.groupby(["pair", "strategy", "direction"]):
                     amp: dict[tuple, float] = {}
                     spine: dict[int, float] = {}
                     for r in g.itertuples():
@@ -247,7 +247,7 @@ class PipEaterGate(BaseGate):
                                 amp[(int(r.align), str(r.bucket))] = float(r.ev_pips)
                         else:
                             spine[int(r.align)] = float(r.ev_pips)
-                    book[(str(p), str(s))] = {
+                    book[(str(p), str(s), str(d))] = {
                         "amp_factor": str(g["amp_factor"].iloc[0]),
                         "floor": int(g["floor"].iloc[0]),
                         "amp": amp, "spine": spine,
@@ -422,12 +422,12 @@ class PipEaterGate(BaseGate):
             #   neither -> below the per-strategy floor / no cell -> reject
             #     (known strategy) or uncovered_bypass (not in the 8yr book).
             # Spread-cost subtraction below is unchanged.
-            pb = self._playbook.get((pair, strategy))
+            pb = self._playbook.get((pair, strategy, direction))
             _covered = pb is not None
             if pb is None:
                 _fam = _resolve_uncovered_family(strategy)
                 if _fam is not None:
-                    pb = self._playbook.get((pair, _fam))
+                    pb = self._playbook.get((pair, _fam, direction))
                     _covered = pb is not None
             final_ev = None
             ev_tier = None
