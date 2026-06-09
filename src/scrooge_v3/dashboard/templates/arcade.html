@@ -27,6 +27,7 @@ const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 let W,H;function rs(){W=cv.width=innerWidth;H=cv.height=innerHeight;}rs();onresize=rs;
 const PAIRCOL={AUD_USD:'#39c5ff',EUR_USD:'#7c5cff',GBP_USD:'#ff5ca8',USD_CAD:'#ffb14d'};
 const C={win:'#3fff7a',loss:'#f85149',gold:'#ffce4d',brain:'#b18cff',ml:'#b18cff',gate:'#ff8a3a',trunk:'#7a5230',nav:'#39c5ff'};
+const LEM=new Image();LEM.src=BASE+'/static/lemming_walk.png';let LEM_OK=false;LEM.onload=()=>{LEM_OK=true;};
 const NS=[
  {nx:.06,ny:.155,l:'MARKET FEED',k:'feed'},{nx:.215,ny:.155,l:'FEATURE MILL',k:'mill'},
  {nx:.37,ny:.155,l:'STRATEGY FORGE',k:'forge'},{nx:.55,ny:.155,l:'ALIGN GATE',k:'gate',rk:'other'},
@@ -80,9 +81,10 @@ function spawnToken(){const w=pairWeighted();tokens.push({from:0,to:1,p:0,col:w.
 function gateDrop(rk){const fn=DATA.funnel||{};const tot=(fn.passed||0)+(fn.below_floor||0)+(fn.adr||0)+(fn.ev_veto||0)+(fn.cooldown||0)+(fn.other||0)||1;return Math.max(0,Math.min(.9,(fn[rk]||0)/tot));}
 function fireBurst(pair){const e=SP(NS.length-1);bursts.push({x:e.x,y:e.y,t:0,pair});}
 // fruit drops from the NAV tank into the Balance bin — only on a realized close.
-function bankFruit(db,closed){const kind=db>=0?'win':'loss';const n=Math.min(50,Math.max(1,Math.ceil(Math.abs(db)/3)));const nv=navRect(),bl=balRect();
-  for(let i=0;i<n;i++){const sx=nv.x+rnd(8,nv.w-8),sy=nv.y+6,tx=bl.x+rnd(12,bl.w-12),ty=bl.y+bl.h*(1-balFill)+rnd(3,12);
-    fruits.push({sx,sy,x:sx,y:sy,tx,ty,t:0,dur:rnd(.7,1.15),arc:rnd(35,80),kind,col:kind==='win'?C.win:C.loss,ph:Math.random()*6.28});}}
+// a CLOSED trade sends a troop of Lemmings marching from its tree to the Balance bank
+function bankFruit(db,closed){const kind=db>=0?'win':'loss';const n=Math.min(20,Math.max(1,Math.ceil(Math.abs(db)/5)));const ord=orchard(),bl=balRect();
+  for(let i=0;i<n;i++){const src=closed.length?closed[Math.floor(Math.random()*closed.length)]:null;const sx=src?src.x:rnd(ord.x0,ord.x1);
+    fruits.push({x:sx+rnd(-12,12),y:ord.ground-5,vx:rnd(.7,1.4),target:bl.x+bl.w*0.5,kind,col:kind==='win'?C.win:C.loss,fr:Math.random()*6});}}
 function update(dt){
   energy+=(marketEnergy()-energy)*.03;
   if(Math.random()<.15+energy*1.4)rain.push({x:rnd(0,W),y:-10,v:rnd(4,8)+energy*8,len:rnd(6,14)});
@@ -106,10 +108,11 @@ function update(dt){
   trees.forEach((t,i)=>{t.growth+=(t.gTarget-t.growth)*.03;t.fruit+=(t.fTarget-t.fruit)*.04;t.sway+=.012;t.x=ord.x0+(ord.x1-ord.x0)*((i+.5)/Math.max(1,trees.length));
     if(t.pips>=20&&Math.random()<.25){const cy=ord.ground-(ord.ground-ord.top)*t.growth;sparks.push({x:t.x+rnd(-22,22),y:cy+rnd(-18,6),vy:rnd(-1.4,-.5),t:0,col:t.pips>=30?C.gold:C.win});}});
   for(const s of sparks){s.y+=s.vy;s.t+=dt;}sparks=sparks.filter(s=>s.t<1.1);
-  // fruit: projectile NAV -> Balance
-  for(const l of fruits){l.t+=dt/l.dur;l.ph+=.3;if(l.t>=1){l.done=1;coins.push({x:l.tx,y:l.ty,t:0,col:l.col});continue;}
-    l.x=l.sx+(l.tx-l.sx)*l.t;l.y=l.sy+(l.ty-l.sy)*l.t-l.arc*Math.sin(Math.PI*l.t);}
-  fruits=fruits.filter(l=>!l.done);if(fruits.length>160)fruits.splice(0,fruits.length-160);
+  // lemmings WALK the ground from their tree to the Balance bank, then drop in
+  const _bl=balRect();
+  for(const l of fruits){l.fr=(l.fr||0)+dt*9;l.x+=l.vx;
+    if(l.x>=l.target){l.done=1;coins.push({x:l.target+rnd(-10,10),y:_bl.y+_bl.h*(1-balFill),t:0,col:l.col});}}
+  fruits=fruits.filter(l=>!l.done);if(fruits.length>120)fruits.splice(0,fruits.length-120);
   coins=coins.filter(c=>(c.t+=dt)<.7);
   // containers ease toward real values
   const a=DATA.account||{};if(a.nav!=null)navFill+=(mapAcct(a.nav)-navFill)*.05;if(a.balance!=null)balFill+=(mapAcct(a.balance)-balFill)*.05;
@@ -145,9 +148,12 @@ function drawBrain(){const x=W*.39,y=brainY(),r=22+Math.sin(performance.now()*.0
   ctx.fillStyle=C.brain;ctx.beginPath();ctx.arc(x,y,r*.6,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x-5,y-2,2.7,0,7);ctx.arc(x+5,y-2,2.7,0,7);ctx.fill();ctx.fillStyle='#241038';ctx.beginPath();ctx.arc(x-5,y-1,1.3,0,7);ctx.arc(x+5,y-1,1.3,0,7);ctx.fill();
   ctx.fillStyle='#cdb6ff';ctx.font='bold 10px monospace';ctx.textAlign='center';ctx.fillText('🧠 EXIT BRAIN — the gardener',x,y-r-6);
   if(brainMsgT>0){ctx.globalAlpha=Math.min(1,brainMsgT*2);ctx.fillStyle=brainMsg.startsWith('RIDE')?C.win:C.gold;ctx.font='bold 13px monospace';ctx.fillText(brainMsg,x,y+r+14);ctx.globalAlpha=1;}}
-function drawFruit(l){ctx.save();ctx.translate(l.x,l.y);const sq=1+Math.sin(l.ph)*.12;ctx.fillStyle='rgba(0,0,0,.2)';ctx.beginPath();ctx.ellipse(0,7,4,1.6,0,0,7);ctx.fill();
-  ctx.fillStyle=l.col;ctx.beginPath();ctx.ellipse(0,0,5,5*sq,0,0,7);ctx.fill();ctx.strokeStyle='#1d3a22';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(0,-5);ctx.lineTo(1,-8);ctx.stroke();ctx.fillStyle='#2f9e44';ctx.beginPath();ctx.ellipse(3,-7,3,1.5,.6,0,7);ctx.fill();
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-1.6,0,1.4,0,7);ctx.arc(1.8,0,1.4,0,7);ctx.fill();ctx.fillStyle='#08101c';ctx.beginPath();ctx.arc(-1.3,.2,.7,0,7);ctx.arc(2.1,.2,.7,0,7);ctx.fill();ctx.restore();}
+function drawFruit(l){
+  ctx.fillStyle=l.col;ctx.globalAlpha=.32;ctx.beginPath();ctx.ellipse(l.x,l.y+1,7,2.4,0,0,7);ctx.fill();ctx.globalAlpha=1;
+  if(LEM_OK){const s=.82,w=32*s,h=32*s,fi=Math.floor(l.fr||0)%6;
+    ctx.save();ctx.translate(l.x,l.y);ctx.imageSmoothingEnabled=false;ctx.shadowColor=l.col;ctx.shadowBlur=8;
+    ctx.drawImage(LEM,fi*32,0,32,32,-w/2,-h,w,h);ctx.restore();return;}
+  ctx.fillStyle=l.col;ctx.beginPath();ctx.arc(l.x,l.y-6,4,0,7);ctx.fill();}
 function drawTank(rect,fill,col,title,amount,face){const r=rect;ctx.fillStyle='#0c1622';rrect(r.x,r.y,r.w,r.h,11);ctx.fill();
   const fh=r.h*fill;let gg=ctx.createLinearGradient(0,r.y+r.h-fh,0,r.y+r.h);gg.addColorStop(0,col[0]);gg.addColorStop(1,col[1]);ctx.fillStyle=gg;rrect(r.x+4,r.y+r.h-fh+2,r.w-8,fh-4,8);ctx.fill();
   // wavy surface
