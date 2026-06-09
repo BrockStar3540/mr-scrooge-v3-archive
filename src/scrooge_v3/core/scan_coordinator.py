@@ -268,7 +268,7 @@ class ScanCoordinator:
         for symbol, quote in prices.items():
             candles = {}
             for oanda_tf, internal_key in (("D", "D"), ("H1", "1H"), ("M5", "5M")):
-                df = ctx.broker.get_candles(symbol, oanda_tf)
+                df = ctx.broker.get_candles(symbol, oanda_tf, count=(130 if oanda_tf == "D" else 50))
                 if df is not None:
                     candles[internal_key] = df
 

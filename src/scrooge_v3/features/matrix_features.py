@@ -207,19 +207,29 @@ class MatrixFeaturesCalculator:
             have = len(h1) if h1 is not None else 0
             degraded.append(f"ema50_slope:need{self.ema_long}_have{have}")
 
-        # HTF positional buckets
-        pct20 = _pct_position(h1, self.htf_short_window) if h1 is not None else None
-        pct60 = _pct_position(h1, self.htf_long_window) if h1 is not None else None
-        values["htf_pct_20"] = round(pct20, 4) if pct20 is not None else None
-        values["htf_pct_60"] = round(pct60, 4) if pct60 is not None else None
-        values["htf_bias_20"] = _bias_from_pct(pct20)
-        values["htf_bias_60"] = _bias_from_pct(pct60)
+        # HTF directional buckets — DAILY N-day return (signed), matching the lab
+        # corpus + factor_buckets. Prior impl used a 1H [0..1] range-position
+        # (_pct_position) — a different quantity that froze H20/H60 at 'e' live.
+        # Fix 2026-06-09: daily candles already in the snapshot; use 20d/60d return.
+        _d = snapshot.candles.get("D")
+        _dcl = _d["close"].astype(float) if (_d is not None and "close" in _d and len(_d)) else None
+        def _daily_ret(lb):
+            if _dcl is None or len(_dcl) <= lb:
+                return None
+            a = float(_dcl.iloc[-1]); b = float(_dcl.iloc[-1 - lb])
+            return ((a - b) / b) if b else 0.0
+        pct20 = _daily_ret(20)
+        pct60 = _daily_ret(60)
+        values["htf_pct_20"] = round(pct20, 6) if pct20 is not None else None
+        values["htf_pct_60"] = round(pct60, 6) if pct60 is not None else None
+        _sgn = lambda p: ("long" if p > 0 else "short" if p < 0 else "flat") if p is not None else ""
+        values["htf_bias_20"] = _sgn(pct20)
+        values["htf_bias_60"] = _sgn(pct60)
+        _dhave = len(_dcl) if _dcl is not None else 0
         if pct20 is None:
-            have = len(h1) if h1 is not None else 0
-            degraded.append(f"htf_pct_20:need{self.htf_short_window}_have{have}")
+            degraded.append(f"htf_pct_20:needD>20_have{_dhave}")
         if pct60 is None:
-            have = len(h1) if h1 is not None else 0
-            degraded.append(f"htf_pct_60:need{self.htf_long_window}_have{have}")
+            degraded.append(f"htf_pct_60:needD>60_have{_dhave}")
 
         # Trend per timeframe
         trend_1h = _trend_from_ema(h1, self.ema_short, self.trend_deadzone_bps) if h1 is not None else ""
