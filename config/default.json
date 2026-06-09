@@ -272,7 +272,7 @@
       "mode": "hard",
       "floor_pips": 1.25,
       "min_n": 30,
-      "align_min": 0,
+      "align_min": 3,
       "align_floor_by_pair": {},
       "require_adr_min": 1,
       "adr_exempt_strategies": [
