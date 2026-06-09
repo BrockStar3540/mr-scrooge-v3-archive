@@ -106,6 +106,36 @@ def _oanda_account() -> dict:
         return {}
 
 
+def _recent_activity(lines: list) -> dict:
+    """Real firing rate: gate decisions + strategy fires in the last ~90s of the log."""
+    import re, datetime
+    dec, fires = [], []
+    for ln in lines:
+        m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)", ln)
+        if not m:
+            continue
+        try:
+            dt = datetime.datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            continue
+        if "pip_eater] PASSED" in ln:
+            dec.append((dt, "pass"))
+        elif "pip_eater] FAILED" in ln:
+            dec.append((dt, "fail"))
+        if "[STRATEGY:" in ln:
+            sm = re.search(r"STRATEGY:(\w+)", ln)
+            if sm:
+                fires.append((dt, sm.group(1)))
+    allt = [d[0] for d in dec] + [f[0] for f in fires]
+    if not allt:
+        return {"cand_90s": 0, "pass_90s": 0, "firing": False, "strats": []}
+    now = max(allt); cut = now - datetime.timedelta(seconds=90)
+    cand = sum(1 for d, k in dec if d >= cut)
+    passed = sum(1 for d, k in dec if d >= cut and k == "pass")
+    strats = list(dict.fromkeys(s for tt, s in fires if tt >= cut))
+    return {"cand_90s": cand, "pass_90s": passed, "firing": cand > 0 or bool(strats), "strats": strats[:6]}
+
+
 def _brain_snapshot() -> dict:
     import re
     lines = _tail(_LOG_PATH, 1500)
@@ -162,6 +192,7 @@ def _brain_snapshot() -> dict:
         "factor_state": sorted(factor.values(), key=lambda x: x["pair"]),
         "strategies": {"fires": strat_fires[-14:][::-1], "tally": strat_tally},
         "sizing": last_size,
+        "activity": _recent_activity(lines),
         "account": _oanda_account(),
     }
 

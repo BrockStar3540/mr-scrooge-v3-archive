@@ -36,7 +36,7 @@ const NS=[
 ];
 let DATA={funnel:{},factor_state:[],exit_brain:[],exit_feed:[],strategies:{fires:[],tally:{}},sizing:null,account:{}};
 let tokens=[],fruits=[],coins=[],trees=[],glow=new Array(NS.length).fill(0),rain=[],sparks=[],bursts=[];
-let navFill=.5,balFill=.5,brainPulse=0,brainMsg='',brainMsgT=0;
+let navFill=.5,balFill=.5,brainPulse=0,brainMsg='',brainMsgT=0,spawnAccum=0;
 let lastKey=null,baseNav=null,forgeIdx=0,sizeFlash=0,energy=0,lightning=0,knownIds=null,lastBalance=null,baseBal=null;
 const rnd=(a,b)=>a+Math.random()*(b-a),lerp=(a,b,t)=>a+(b-a)*t,clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function SP(i){return{x:NS[i].nx*W,y:NS[i].ny*H};}
@@ -88,8 +88,10 @@ function update(dt){
   if(Math.random()<.15+energy*1.4)rain.push({x:rnd(0,W),y:-10,v:rnd(4,8)+energy*8,len:rnd(6,14)});
   for(const d of rain)d.y+=d.v;rain=rain.filter(d=>d.y<H+10);if(rain.length>260)rain.splice(0,rain.length-260);
   if(energy>.62&&Math.random()<.004)lightning=1;if(lightning>0)lightning-=dt*3;
-  const pressure=1.2+(DATA.factor_state||[]).reduce((s,f)=>s+(f.align||0),0)*.5+energy*2;
-  if(Math.random()<Math.min(.75,pressure*.035))spawnToken();
+  // tokens spawn at the REAL candidate firing rate (cand_90s) — idle when nothing fires
+  const act=DATA.activity||{};const candPerSec=(act.cand_90s||0)/90;
+  spawnAccum+=candPerSec*dt*3.5;while(spawnAccum>=1){spawnToken();spawnAccum-=1;}
+  if((act.strats||[]).length)glow[2]=Math.min(1,glow[2]+dt*1.3);  // Forge glows on real fires
   const ord=orchard();
   for(const k of tokens){k.bob+=.3;
     if(k.st!=='go'){k.dy=(k.dy||0)+.4;k.y+=k.dy;k.x+=(k.dvx||0);continue;}
@@ -122,7 +124,7 @@ function drawBG(){const top=`rgb(${Math.round(lerp(12,30,energy))},${Math.round(
   const ord=orchard();for(let x=0;x<W;x+=38){ctx.fillStyle=((x/38)|0)%2?'#163021':'#122a1b';ctx.fillRect(x,ord.ground,38,H-ord.ground);}ctx.fillStyle='#2a5a34';ctx.fillRect(0,ord.ground-4,W,5);}
 function drawBelts(){ctx.lineCap='round';for(let i=0;i<NS.length-1;i++){const a=SP(i),b=SP(i+1);ctx.strokeStyle='#1d2b3e';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.strokeStyle='#33506f';ctx.lineWidth=2;ctx.setLineDash([3,7]);ctx.lineDashOffset=-performance.now()*.05;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.setLineDash([]);}
   const e=SP(NS.length-1),ord=orchard();ctx.strokeStyle='#1d2b3e';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.x,ord.top);ctx.stroke();}
-function statText(i){const s=NS[i],fn=DATA.funnel||{};if(s.k==='feed')return(DATA.factor_state||[]).length+' pairs';if(s.k==='mill')return'14 factors';if(s.k==='forge'){const ta=(DATA.strategies&&DATA.strategies.tally)||{};const ks=Object.keys(ta);return ks.length?ks[0].slice(0,11)+' ×'+ta[ks[0]]:'idle';}if(s.k==='gate')return'✕ '+(fn[s.rk]||0);if(s.k==='rank')return'PASSED '+(fn.passed||0);if(s.k==='size'){const z=DATA.sizing;return z?(z.units/1000).toFixed(0)+'k u':'1% risk';}if(s.k==='plant')return'🌱';return'';}
+function statText(i){const s=NS[i],fn=DATA.funnel||{};if(s.k==='feed')return(DATA.factor_state||[]).length+' pairs';if(s.k==='mill')return'14 factors';if(s.k==='forge'){const a=DATA.activity||{};if((a.strats||[]).length)return a.strats[0].slice(0,11)+' 🔥';const ta=(DATA.strategies&&DATA.strategies.tally)||{};const ks=Object.keys(ta);return ks.length?ks[0].slice(0,11)+' ×'+ta[ks[0]]:'idle';}if(s.k==='gate')return'✕ '+(fn[s.rk]||0);if(s.k==='rank')return'PASSED '+(fn.passed||0);if(s.k==='size'){const z=DATA.sizing;return z?(z.units/1000).toFixed(0)+'k u':'1% risk';}if(s.k==='plant')return'🌱';return'';}
 function drawStation(i){const s=NS[i],p=SP(i),w=Math.min(118,W*.115),h=44,g=glow[i];const jam=(s.k==='gate'&&(DATA.funnel||{}).passed===0&&(DATA.funnel||{})[s.rk]>5);
   ctx.fillStyle='#0d1826';rrect(p.x-w/2,p.y-h/2,w,h,8);ctx.fill();
   let edge=s.ml?C.ml:(s.k==='gate'?(jam?'#ff4d4d':C.gate):(s.k==='plant'?'#3fff7a':(s.k==='feed'?'#39c5ff':'#33506f')));
@@ -161,9 +163,14 @@ function drawContainers(){const a=DATA.account||{},nv=navRect(),bl=balRect();
   drawTank(bl,balFill,['#ffe28a','#d99a1e','#ffce4d'],'💰 BALANCE (banked)',a.balance!=null?'$'+a.balance.toLocaleString(undefined,{maximumFractionDigits:0}):'$—',true);
   for(const c of coins){ctx.fillStyle=c.col;ctx.globalAlpha=1-c.t/.7;star(c.x,c.y-c.t*8,3);ctx.globalAlpha=1;}}
 function drawBanner(){const fn=DATA.funnel||{},rj=(fn.below_floor||0)+(fn.adr||0)+(fn.ev_veto||0)+(fn.other||0);if(fn.passed===0&&rj>15){ctx.fillStyle=`rgba(255,60,60,${.5+Math.abs(Math.sin(performance.now()*.005))*.4})`;ctx.font='bold 15px monospace';ctx.textAlign='center';ctx.fillText('⛔ GATE JAM — candidates blocked, nothing reaching the orchard',W*.42,H*.385);}}
+function drawFiringStatus(){const a=DATA.activity||{};const x=W*.5,y=H*.075;let txt,col;
+  if(!a.firing){txt='💤 IDLE — no signals firing';col='#6e7681';}
+  else if((a.pass_90s||0)>0){txt='✅ FIRING '+(a.cand_90s||0)+'/90s → '+a.pass_90s+' PASSED the gate';col='#3fff7a';}
+  else{txt='⚡ FIRING '+(a.cand_90s||0)+'/90s → 0 passed · ALL BLOCKED at the gate';col='rgba(255,150,60,'+(.7+Math.abs(Math.sin(performance.now()*.004))*.3)+')';}
+  ctx.fillStyle=col;ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText(txt,x,y);}
 let last=performance.now();
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);
-  drawBG();drawBelts();for(let i=0;i<NS.length;i++)drawStation(i);drawBanner();
+  drawBG();drawBelts();for(let i=0;i<NS.length;i++)drawStation(i);drawBanner();drawFiringStatus();
   for(const k of tokens){if(k.st==='drop'){ctx.fillStyle=C.gate;ctx.globalAlpha=.85;ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText('✕',k.x,k.y);ctx.globalAlpha=1;}else{ctx.fillStyle=k.col;ctx.beginPath();ctx.arc(k.x,k.y,k.st==='plant'?3:4,0,7);ctx.fill();ctx.globalAlpha=.4;ctx.strokeStyle=k.col;ctx.beginPath();ctx.arc(k.x,k.y,6,0,7);ctx.stroke();ctx.globalAlpha=1;}}
   for(const b of bursts){const rr=b.t*40;ctx.globalAlpha=1-b.t/1.2;ctx.strokeStyle='#3fff7a';ctx.lineWidth=3;ctx.beginPath();ctx.arc(b.x,b.y,rr,0,7);ctx.stroke();ctx.fillStyle=C.gold;ctx.font='bold 12px monospace';ctx.textAlign='center';ctx.fillText('🌱 FIRED! '+(b.pair||'').replace('_','/'),b.x,b.y-rr-4);ctx.globalAlpha=1;}
   const ord=orchard();if(!trees.length){ctx.fillStyle='#3a5544';ctx.font='13px monospace';ctx.textAlign='center';ctx.fillText('🌱 orchard bare — no open trades',ord.x0+(ord.x1-ord.x0)/2,(ord.top+ord.ground)/2);}else trees.slice().sort((a,b)=>a.growth-b.growth).forEach(drawTree);
