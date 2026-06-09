@@ -129,3 +129,15 @@ crontab.bak_*
 data/_archive_*/
 data/ml-observer/corpus_8yr.parquet
 data/exit-model/exit_ml_corpus.parquet
+
+# --- cleanup 2026-06-09: local artifacts, backups, dead Phase-0 shadow streams ---
+_audit/
+logs/nohup.out
+data/_forensic_trades.json
+data/_state_backup_*/
+data/matrix_shadow.jsonl
+data/exit_profile_shadow.jsonl
+data/exit_profile_bandit_state.json
+data/playbook_*_backup.csv
+data/lab_training/v0/model.txt.bak_pre8yr
+*.bak_20260609_*
