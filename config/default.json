@@ -81,7 +81,7 @@
       "mode": "disabled"
     },
     "dbb_trend": {
-      "enabled": true,
+      "enabled": false,
       "mode": "active",
       "lookback_bars": 12,
       "pullback_max_retrace_pct": 0.55,
@@ -190,19 +190,19 @@
       }
     },
     "ifvg": {
-      "enabled": true
+      "enabled": false
     },
     "session_breakout": {
-      "enabled": true
+      "enabled": false
     },
     "compression_expansion": {
       "enabled": true
     },
     "trend_pullback": {
-      "enabled": true
+      "enabled": false
     },
     "chaikin_macd_atr": {
-      "enabled": true
+      "enabled": false
     },
     "compression_reversion": {
       "enabled": true
@@ -281,6 +281,48 @@
       "pair_blocklist": {
         "alpha_breakout_retest_v2": [
           "GBP_USD"
+        ],
+        "box_master_theory": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "canonical_lien_dbb": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "chaikin_macd_atr": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "dbb_trend": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "ifvg": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "session_breakout": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "trend_pullback": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
         ]
       },
       "ml_ev_filter": {
