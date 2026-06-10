@@ -273,6 +273,7 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
     # regime_floor and the rest.
     from scrooge_v3.gates import (
         BoxV3ShadowGate, CooldownGate, DailyCircuitGate, DebounceGate,
+        NewsBlackoutGate,  # Brock 2026-06-10: calendar veto, CPI-day -10.8%
         ExpiryBackoffGate, ZoneEntryCapGate,
         # MatrixRouterGate retired 2026-05-31 — pip_eater_gate dual-source replaces it
         SessionFilterGate, PairFilterGate,
@@ -310,7 +311,21 @@ def build_runtime(config: ConfigStore, live_state: Any = None) -> RuntimeContext
             "[BOOT] NaturalTargetFloorGate DISABLED via config "
             "(gates.natural_target_floor.enabled=false) — ML rules carry the quality bar"
         )
+    _nb_cfg = gate_cfg.get("news_blackout", {})
+    _nb_enabled = bool(_nb_cfg.get("enabled", True))
+    if not _nb_enabled:
+        import logging as _lg3
+        _lg3.getLogger("scrooge_v3.core.bootstrap").warning(
+            "[BOOT] NewsBlackoutGate DISABLED via config "
+            "(gates.news_blackout.enabled=false) -- no scheduled-release "
+            "protection"
+        )
     gate_pipeline.register_many([
+        *( [NewsBlackoutGate(
+            _nb_cfg,
+            mode=GateMode.OBSERVE if _nb_cfg.get("mode", "hard") == "observe"
+            else GateMode.HARD,
+        )] if _nb_enabled else [] ),
         *( [DailyCircuitGate(
             mode=GateMode.OBSERVE if (
                 gate_cfg.get("daily_circuit", {}).get("mode", "hard") == "observe"

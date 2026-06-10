@@ -34,6 +34,7 @@ from .matrix_signature_filter_gate import MatrixSignatureFilterGate
 from .cooldown import CooldownGate
 from .expiry_backoff import ExpiryBackoffGate
 from .daily_circuit import DailyCircuitGate
+from .news_blackout import NewsBlackoutGate  # Brock 2026-06-10 CPI-day
 from .pip_eater_gate import PipEaterGate  # Brock 2026-05-31
 
 __all__ = [
@@ -70,4 +71,5 @@ __all__ = [
     "CooldownGate",
     "ExpiryBackoffGate",
     "DailyCircuitGate",
+    "NewsBlackoutGate",
 ]

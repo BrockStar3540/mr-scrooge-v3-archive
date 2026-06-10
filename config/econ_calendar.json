@@ -1,0 +1,30 @@
+{
+  "_source": "OMB Schedule of Release Dates for Principal Federal Economic Indicators CY2026 (statspolicy.gov) + Fed FOMC calendar. Times converted ET->UTC (EDT until 2026-11-01, EST after). 8:30 ET = 12:30Z (EDT) / 13:30Z (EST); FOMC 14:00 ET = 18:00Z / 19:00Z.",
+  "_maintenance": "Refill before the last event passes -- the gate warns when <30 days of calendar remain. CPI/NFP/PPI: bls.gov/schedule; FOMC: federalreserve.gov/monetarypolicy/fomccalendars.htm",
+  "events": [
+    {"utc": "2026-06-11T12:30:00Z", "name": "US PPI (May)", "impact": "medium", "currencies": ["USD"]},
+    {"utc": "2026-06-17T18:00:00Z", "name": "FOMC statement + SEP", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-07-02T12:30:00Z", "name": "US NFP (Jun)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-07-14T12:30:00Z", "name": "US CPI (Jun)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-07-15T12:30:00Z", "name": "US PPI (Jun)", "impact": "medium", "currencies": ["USD"]},
+    {"utc": "2026-07-29T18:00:00Z", "name": "FOMC statement", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-08-07T12:30:00Z", "name": "US NFP (Jul)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-08-12T12:30:00Z", "name": "US CPI (Jul)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-08-13T12:30:00Z", "name": "US PPI (Jul)", "impact": "medium", "currencies": ["USD"]},
+    {"utc": "2026-09-04T12:30:00Z", "name": "US NFP (Aug)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-09-10T12:30:00Z", "name": "US PPI (Aug)", "impact": "medium", "currencies": ["USD"]},
+    {"utc": "2026-09-11T12:30:00Z", "name": "US CPI (Aug)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-09-16T18:00:00Z", "name": "FOMC statement + SEP", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-10-02T12:30:00Z", "name": "US NFP (Sep)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-10-14T12:30:00Z", "name": "US CPI (Sep)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-10-15T12:30:00Z", "name": "US PPI (Sep)", "impact": "medium", "currencies": ["USD"]},
+    {"utc": "2026-10-28T18:00:00Z", "name": "FOMC statement", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-11-06T13:30:00Z", "name": "US NFP (Oct)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-11-10T13:30:00Z", "name": "US CPI (Oct)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-11-13T13:30:00Z", "name": "US PPI (Oct)", "impact": "medium", "currencies": ["USD"]},
+    {"utc": "2026-12-04T13:30:00Z", "name": "US NFP (Nov)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-12-09T19:00:00Z", "name": "FOMC statement + SEP", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-12-10T13:30:00Z", "name": "US CPI (Nov)", "impact": "high", "currencies": ["USD"]},
+    {"utc": "2026-12-15T13:30:00Z", "name": "US PPI (Nov)", "impact": "medium", "currencies": ["USD"]}
+  ]
+}

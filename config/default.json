@@ -267,6 +267,22 @@
       "enabled": false,
       "mode": "observe"
     },
+    "news_blackout": {
+      "enabled": true,
+      "mode": "hard",
+      "calendar_file": "config/econ_calendar.json",
+      "windows": {
+        "high": [
+          45,
+          20
+        ],
+        "medium": [
+          30,
+          15
+        ]
+      },
+      "stale_warn_days": 30
+    },
     "pip_eater": {
       "enabled": true,
       "mode": "hard",
