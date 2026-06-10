@@ -363,7 +363,7 @@
       "tp1_fraction": 0.5,
       "tp2_fraction": 0.25,
       "sl_lock_pips": 6.0,
-      "phase1_minutes": 240.0,
+      "phase1_minutes": 120.0,
       "harvest_min_pips": 7.0,
       "phase2_limit_pips": 7.5,
       "phase2_scan_minutes": 30.0,
