@@ -286,7 +286,9 @@
       "ml_ev_filter": {
         "mode": "enforce",
         "floor": 0.0
-      }
+      },
+      "htf_misalign_block": true,
+      "htf_misalign_floor": 1
     },
     "matrix_router_gate": {
       "enabled": false,

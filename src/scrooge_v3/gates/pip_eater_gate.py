@@ -157,6 +157,11 @@ class PipEaterGate(BaseGate):
         }
         self.require_adr_min = int(self.config.get("require_adr_min", 0))
         self.adr_exempt_strategies = set(self.config.get("adr_exempt_strategies", []) or [])
+        # Brock 2026-06-10: targeted HTF gate. Block counter-trend trades with NO
+        # other support (the 7955 class): H20 opposes the 20d daily bias (d/e) AND
+        # align < htf_misalign_floor. 8yr: align==0 misaligned = -2.96p net.
+        self.htf_misalign_block = bool(self.config.get("htf_misalign_block", False))
+        self.htf_misalign_floor = int(self.config.get("htf_misalign_floor", 1))
         self.blend_mode = str(self.config.get("blend_mode", "max")).lower()  # max | min | avg
         self._pair_lookup: dict[tuple, dict] = {}
         self._coarse_pair_lookup: dict[tuple, dict] = {}  # regime-agnostic fallback
@@ -385,6 +390,20 @@ class PipEaterGate(BaseGate):
                 + (1 if buckets.get("T1") == "T1a" else 0)
                 + (1 if buckets.get("T4") == "T4a" else 0)
             )
+            # Brock 2026-06-10: targeted HTF gate -- block the 7955 class
+            # (counter-trend, no other support): H20 opposes the daily bias (d/e)
+            # AND align < floor. 8yr align==0 -> -2.96p net. Starts at align==0.
+            if (self.htf_misalign_block and align_score < self.htf_misalign_floor
+                    and buckets.get("H20") in ("H20d", "H20e")):
+                return GateResult(
+                    gate_name=self.name, passed=False, mode=self.mode,
+                    reason=(f"HTF-MISALIGN+low-align: H20={buckets.get('H20')} opposes daily "
+                            f"bias & align={align_score} < {self.htf_misalign_floor} "
+                            f"(pair={pair} strategy={strategy} dir={direction}) counter-trend no support"),
+                    metrics={"verdict": "htf_misalign_lowalign", "align_score": align_score,
+                             "h20": buckets.get("H20"), "pair": pair,
+                             "strategy": strategy, "direction": direction},
+                )
             if align_floor > 0 and align_score < align_floor:
                 return GateResult(
                     gate_name=self.name, passed=False, mode=self.mode,
