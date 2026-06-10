@@ -104,6 +104,7 @@ class GatePipeline:
                 candidate.symbol, result.rejection_reason,
             )
 
+        self._ledger(candidate, ctx, result)
         return result
 
     def _run_one(
@@ -127,3 +128,39 @@ class GatePipeline:
                 reason=reason,
                 metrics={"crashed": True},
             )
+
+    # -- Candidate ledger (Brock 2026-06-10) ---------------------------------
+    # Append EVERY evaluated candidate (approved or refused) to
+    # data/candidate-ledger.jsonl: the live counterfactual stream. The bot
+    # previously only recorded picks; refusals are the training signal the
+    # lab needs (forward-labeled daily on the Mini). Must never raise.
+    def _ledger(self, candidate, ctx, result) -> None:
+        try:
+            import json as _json
+            from datetime import datetime as _dt, timezone as _tz
+            meta = getattr(candidate, "metadata", None) or {}
+            sig = meta.get("exit_sig") or {}
+            pw = None
+            try:
+                from scrooge_v3.advisors import lightgbm_shadow as _lgs
+                pw = _lgs.predict_p_win(candidate.symbol, ctx, candidate)
+            except Exception:
+                pass
+            rec = {
+                "ts": _dt.now(_tz.utc).isoformat(timespec="seconds"),
+                "symbol": candidate.symbol,
+                "strategy": getattr(candidate, "strategy", ""),
+                "direction": getattr(getattr(candidate, "direction", None), "value", ""),
+                "entry": getattr(candidate, "entry_price", None),
+                "stop": getattr(candidate, "stop_price", None),
+                "align": meta.get("align_score"),
+                "buckets": {k: sig.get(k) for k in ("BB","BBP","A5","A1","RSI","E20","E50","ZS","SPR","ADR","H20","H60","T1","T4")} if sig else None,
+                "session": sig.get("session") if sig else None,
+                "p_win": round(pw, 4) if isinstance(pw, float) else None,
+                "passed": bool(result.all_passed),
+                "rejection": result.rejection_reason or None,
+            }
+            with open("data/candidate-ledger.jsonl", "a") as f:
+                f.write(_json.dumps(rec) + "\n")
+        except Exception:
+            logger.debug("[LEDGER] write failed", exc_info=True)

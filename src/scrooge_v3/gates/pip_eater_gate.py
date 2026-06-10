@@ -390,6 +390,10 @@ class PipEaterGate(BaseGate):
                 + (1 if buckets.get("T1") == "T1a" else 0)
                 + (1 if buckets.get("T4") == "T4a" else 0)
             )
+            try:
+                candidate.metadata["align_score"] = align_score  # candidate-ledger
+            except Exception:
+                pass
             # Brock 2026-06-10: targeted HTF gate -- block the 7955 class
             # (counter-trend, no other support): H20 opposes the daily bias (d/e)
             # AND align < floor. 8yr align==0 -> -2.96p net. Starts at align==0.
