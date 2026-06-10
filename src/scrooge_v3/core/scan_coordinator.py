@@ -182,8 +182,32 @@ class ScanCoordinator:
                 currency_counts[parts[0]] = currency_counts.get(parts[0], 0) + 1
                 currency_counts[parts[1]] = currency_counts.get(parts[1], 0) + 1
 
+        # Brock 2026-06-10: DUP GUARD — one concurrent position per
+        # (pair, strategy, direction). The per-pair cap=2 is meant to allow two
+        # IDEAS on a pair, but a persisting signal was getting approved again on
+        # the next 60s scan at full size (8073/8083, 8091/8099, 8115/8123,
+        # 8155/8163 — each twin pair stopped in the same second, doubling the
+        # loss for zero information gain). Different strategy or direction on
+        # the same pair still stacks freely (2026-06-04 stacking intent).
+        try:
+            _dedup_same_signal = bool(
+                (ctx.config.section("risk") or {}).get("dedup_same_signal", True))
+        except Exception:
+            _dedup_same_signal = True
+        open_signal_keys: set = set()
+        if _dedup_same_signal:
+            for pos in ctx.tracker.all_positions():
+                open_signal_keys.add((pos.symbol, pos.strategy, pos.direction))
+
         uncorrelated = []
         for c in candidates:
+            _key = (c.symbol, c.strategy,
+                    getattr(c.direction, "value", str(c.direction)))
+            if _key in open_signal_keys:
+                log.info("[SCAN] Dup guard: %s %s %s blocked — same signal "
+                         "already has an open position", c.symbol, c.strategy,
+                         _key[2])
+                continue
             # Brock 2026-06-08: per-pair cap — at most MAX_PER_PAIR concurrent per symbol.
             if symbol_counts.get(c.symbol, 0) >= MAX_PER_PAIR:
                 log.info("[SCAN] Per-pair cap: %s blocked (%d open/pending >= %d)",

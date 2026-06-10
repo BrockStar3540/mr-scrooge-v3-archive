@@ -20,7 +20,8 @@
     "backoff_minutes": 30,
     "max_risk_per_trade_pct": 0.01,
     "_note_5pct": "2026-06-03 Brock: 5% target risk (paper); margin may cap effective risk",
-    "max_per_pair": 2
+    "max_per_pair": 2,
+    "dedup_same_signal": true
   },
   "features": {
     "atr": {
