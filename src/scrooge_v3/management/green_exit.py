@@ -95,6 +95,13 @@ class GreenExitManager:
         self._xm_booster = None
         self._xm_meta = None
         self._xm_failed = False
+        # ATR-COLLAPSE emergency exit (2026-06-09): take the green when 5m
+        # volatility dies on a still-green pre-TP1 trade. Validated as the only
+        # dead-zone exit that does NOT choke runners (runners keep ATR high).
+        _ac = (c.get("atr_collapse_exit") or {})
+        self.atr_collapse_on = bool(_ac.get("enabled", False))
+        self.atr_collapse_arm = float(_ac.get("arm_pips", 6.0))
+        self.atr_collapse_thresh = float(_ac.get("atr_thresh_pips", 1.5))
 
     # -- helpers -------------------------------------------------------
     @staticmethod
@@ -136,6 +143,18 @@ class GreenExitManager:
             hi = float(w["high"].max())
             lo = float(w["low"].min())
             return (hi - lo) / pip_size
+        except Exception:
+            return None
+
+    def _recent_atr_pips(self, m5_bars, pip_size):
+        """Mean per-bar 5m range (pips) over the last 12 bars - the volatility
+        proxy for the ATR-collapse exit. Matches the validated backtest signal
+        (mean of per-bar high-low), NOT the max-min span of _recent_range_pips."""
+        try:
+            if m5_bars is None or pip_size <= 0 or len(m5_bars) < 3:
+                return None
+            w = m5_bars.iloc[-12:]
+            return float(((w["high"] - w["low"]) / pip_size).mean())
         except Exception:
             return None
 
@@ -231,6 +250,16 @@ class GreenExitManager:
                     close_fraction=self.f1, move_sl_after=sl_lock_px,
                     reason=f"TP1 +{self.tp1:.0f}p hit (profit={profit:.1f}p) -> close {self.f1:.0%}, lock SL +{self.sl_lock:.0f}p",
                 )
+            # ATR-COLLAPSE emergency exit (dead zone, pre-TP1): 5m vol died
+            # while green -> harvest now instead of riding back to the SL. Spares
+            # runners (they keep ATR high); only cuts genuinely-stalled trades.
+            if self.atr_collapse_on and (not tp1_done) and profit >= self.atr_collapse_arm:
+                _atr = self._recent_atr_pips(m5_bars, pip_size)
+                if _atr is not None and _atr < self.atr_collapse_thresh:
+                    edge = self.harvest_edge * pip_size
+                    lim = exit_px + edge if direction == TradeDirection.LONG else exit_px - edge
+                    return mk(position_id=pos_id, kind="limit_exit", limit_price=lim, green=True,
+                              reason=f"ATR-COLLAPSE: 5m ATR {_atr:.2f}p < {self.atr_collapse_thresh:.1f}p at +{profit:.1f}p -> harvest green")
             # tranche 2: +20, close 25%
             if tp1_done and (not tp2_done) and profit >= self.tp2:
                 return mk(

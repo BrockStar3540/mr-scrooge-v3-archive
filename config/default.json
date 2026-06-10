@@ -379,6 +379,11 @@
         "enabled": true,
         "take_below": 18.0,
         "ride_above": 25.0
+      },
+      "atr_collapse_exit": {
+        "enabled": true,
+        "arm_pips": 6.0,
+        "atr_thresh_pips": 1.5
       }
     }
   },
