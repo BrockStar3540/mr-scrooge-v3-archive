@@ -38,6 +38,15 @@ and recent 5m ATR < 1.5p -> harvest the green. Behind `management.green_exit.atr
 (enabled, arm_pips 6, atr_thresh_pips 1.5). Verified: fires on 0.8p vol, spares 4.0p runner.
 Small (~+0.01p/trade) but free: never chokes a runner, nudges WR up, instantly reversible.
 
-## Open lever (not yet done)
-Entry-side: profile the low-align x low-volatility (low A5/ADR) cells that bleed give-backs,
-and tighten the entry gate to drop them. That's where the data keeps pointing.
+## Entry lever -- RESOLVED (already pulled by the gate fixes)
+Profiled the low-align x low-vol cells (corpus_8yr, 1.6M signals): align<=1 & ADR<=2 = 15%
+of the raw candidate pool at ~-2p net; align<=2 & ADR<=2 = 26%. Net-positive EV exists ONLY
+in the high-align x high-vol corner (align 3-4 x ADR 4-5); everything low-align OR low-vol
+is net-negative, far below the +1.25 floor. So the corrected EV gate ALREADY excludes the
+low-align x low-vol bleeders by selecting +EV -- the bot doesn't take them.
+
+The give-back bleed was a BROKEN-gate symptom: frozen align + pooled direction made those
+cells look up a WRONG, sometimes-passing EV. The htf-unfreeze (6964295) + direction-key
+(9cc79b1) fixes made them read their true -2p and get rejected. No explicit entry filter
+needed -- the lever was real, and we already pulled it when we unfroze align and keyed
+direction. (Profile: giveback_volume.py.)
