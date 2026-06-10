@@ -340,16 +340,6 @@ class PipEaterGate(BaseGate):
             direction = _normalize_direction(candidate.direction)
             session = self._get_session(ctx)
 
-            # --- per-pair strategy blocklist (Brock 2026-06-03) ---
-            _blk = self.pair_blocklist.get(strategy)
-            if _blk and pair in _blk:
-                return GateResult(
-                    gate_name=self.name, passed=False, mode=self.mode,
-                    reason=f"PAIR-BLOCKLIST: {strategy} disabled on {pair} (lab net-negative)",
-                    metrics={"verdict": "pair_blocked", "pair": pair,
-                             "strategy": strategy, "direction": direction},
-                )
-
             mod = ppm.get(pair, strategy)
             if mod is None:
                 return GateResult(
@@ -394,6 +384,19 @@ class PipEaterGate(BaseGate):
                 candidate.metadata["align_score"] = align_score  # candidate-ledger
             except Exception:
                 pass
+            # --- per-pair strategy blocklist (Brock 2026-06-03; moved below
+            # bucket/align stamping 2026-06-11 so BENCHED strategies still land
+            # in the candidate ledger with full factor vectors: AEF-only era
+            # trades one strategy while the other 20 run as a zero-risk
+            # shadow book graded daily by the forward labeler) ---
+            _blk = self.pair_blocklist.get(strategy)
+            if _blk and pair in _blk:
+                return GateResult(
+                    gate_name=self.name, passed=False, mode=self.mode,
+                    reason=f"PAIR-BLOCKLIST: {strategy} benched on {pair}",
+                    metrics={"verdict": "pair_blocked", "pair": pair,
+                             "strategy": strategy, "direction": direction},
+                )
             # Brock 2026-06-10: targeted HTF gate -- block the 7955 class
             # (counter-trend, no other support): H20 opposes the daily bias (d/e)
             # AND align < floor. 8yr align==0 -> -2.96p net. Starts at align==0.

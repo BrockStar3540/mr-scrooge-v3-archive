@@ -297,7 +297,10 @@
       ],
       "pair_blocklist": {
         "alpha_breakout_retest_v2": [
-          "GBP_USD"
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
         ],
         "box_master_theory": [
           "AUD_USD",
@@ -336,6 +339,120 @@
           "USD_CAD"
         ],
         "trend_pullback": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "alpha_pullback_v2": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "echo_box_fade_v2": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "charlie_compression_breakout": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "bravo_failed_momentum": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "bravo_expansion_continuation": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "delta_tag_and_go_v2": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "TF2_pullback_EMA20_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "BR2_vcb_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "CP3_vol_coil_fade_long": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "CP3_vol_coil_fade_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "MR5_williams_extreme_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "MR4_zscore_extreme_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "MR4_zscore_extreme_long": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "MR2_bb_reversion_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "RG1_range_bound_scalp_long": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "RG1_range_bound_scalp_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "BR3_inside_bar_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "CP1_coil_breakout_short": [
+          "AUD_USD",
+          "EUR_USD",
+          "GBP_USD",
+          "USD_CAD"
+        ],
+        "CP2_squeeze_momentum_long": [
           "AUD_USD",
           "EUR_USD",
           "GBP_USD",
