@@ -5,7 +5,7 @@
 ---
 
 ## Prehistory
-Before Scrooge there were other machines in Brock's shop — browser bots, agents, scrapers. Scrooge was different from the first commit: a real trading platform with a written theory, built to learn. The name was a promise: a machine that counts every pip.
+Before Scrooge there were other machines in Brock's shop — browser bots, agents, scrapers. The trading line begins with two earlier repos: **`mr-scrooge`** (V1/V2, through April 15) — a prior-day-box mean-reversion bot with margin-based sizing, staged profit harvesting, and the first MASTER_THEORY.md, whose AGENTS/AUDIT/NOTES files still anchor V3's decision records — and **`Oanda-Bot-Trainer`** (through May 10), the first historical replay and backtest lab, ancestor of the Mini replay lab and the canonical corpus. Both are archived read-only on GitHub. Scrooge V3 was different from its first commit: a real trading platform with a written theory, built to learn. The name was a promise: a machine that counts every pip.
 
 ## Act I — Genesis (April 14–22, 2026)
 On April 14 the repo opens with *"Initial scaffold — V3 plug-in trading platform"* and, the same day, **MASTER_THEORY.md** — boxes, zones, lifecycle, the source truth the code had to honor. The architecture was plug-in from birth: strategies, gates, management as swappable modules; a two-tier developer log; OANDA practice account as the proving ground. Forty-six commits on April 15 alone. The bot traded zones and double-bollinger-bands, and it bled politely while its creators learned what the market thought of theory.
