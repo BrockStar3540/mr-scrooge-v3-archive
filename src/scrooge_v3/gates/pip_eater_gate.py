@@ -151,6 +151,7 @@ class PipEaterGate(BaseGate):
         # where that strategy is a net loser in lab (hard veto, any mode).
         _bl = self.config.get("pair_blocklist", {}) or {}
         self.pair_blocklist = {str(k): set(v or []) for k, v in _bl.items()}
+        self.cell_allowlist = dict(self.config.get("cell_allowlist") or {})
         # Brock 2026-06-07: per-pair align floor + ADR amplifier gate (8yr book).
         self.align_floor_by_pair = {
             str(k): int(v) for k, v in (self.config.get("align_floor_by_pair", {}) or {}).items()
@@ -397,6 +398,26 @@ class PipEaterGate(BaseGate):
                     metrics={"verdict": "pair_blocked", "pair": pair,
                              "strategy": strategy, "direction": direction},
                 )
+
+            # --- per-strategy CELL ALLOW-LIST (Brock 2026-06-11) ---
+            # Strategy fires ONLY inside corpus-validated (align, factor=bucket)
+            # cells (train<=2024-06 AND OOS>=2025-07 both +EV with lift; see
+            # data/lab_training/brock_cell_check_2026-06-11.csv). OR-of-cells.
+            _allow = self.cell_allowlist.get(strategy)
+            if _allow:
+                _hit = any(
+                    int(_c[0]) == align_score and buckets.get(_c[1]) == _c[2]
+                    for _c in _allow
+                )
+                if not _hit:
+                    return GateResult(
+                        gate_name=self.name, passed=False, mode=self.mode,
+                        reason=(f"CELL-ALLOWLIST: {strategy} align={align_score} "
+                                f"outside validated cells"),
+                        metrics={"verdict": "cell_not_allowed", "pair": pair,
+                                 "strategy": strategy, "direction": direction,
+                                 "align": align_score},
+                    )
             # Brock 2026-06-10: targeted HTF gate -- block the 7955 class
             # (counter-trend, no other support): H20 opposes the daily bias (d/e)
             # AND align < floor. 8yr align==0 -> -2.96p net. Starts at align==0.

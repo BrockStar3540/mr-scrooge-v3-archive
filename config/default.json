@@ -380,12 +380,6 @@
           "GBP_USD",
           "USD_CAD"
         ],
-        "TF2_pullback_EMA20_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
         "BR2_vcb_short": [
           "AUD_USD",
           "EUR_USD",
@@ -464,7 +458,88 @@
         "floor": 0.0
       },
       "htf_misalign_block": true,
-      "htf_misalign_floor": 1
+      "htf_misalign_floor": 1,
+      "cell_allowlist": {
+        "alpha_extended_fade_v2": [
+          [
+            2,
+            "H60",
+            "H60e"
+          ],
+          [
+            3,
+            "ZS",
+            "ZS3"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            3,
+            "A1",
+            "A1_0"
+          ],
+          [
+            3,
+            "A1",
+            "A1_1"
+          ],
+          [
+            3,
+            "A5",
+            "A5_1"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "A1",
+            "A1_0"
+          ],
+          [
+            4,
+            "A1",
+            "A1_1"
+          ],
+          [
+            4,
+            "ZS",
+            "ZS3"
+          ],
+          [
+            4,
+            "A5",
+            "A5_1"
+          ],
+          [
+            4,
+            "E20",
+            "E20e"
+          ]
+        ],
+        "TF2_pullback_EMA20_short": [
+          [
+            2,
+            "RSI",
+            "RSI4"
+          ],
+          [
+            3,
+            "RSI",
+            "RSI4"
+          ]
+        ]
+      }
     },
     "matrix_router_gate": {
       "enabled": false,
