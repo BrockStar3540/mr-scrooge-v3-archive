@@ -119,6 +119,13 @@ class PositionPipeline:
                 _gx = None
             if _gx is not None:
                 _gpid = getattr(position, "trade_id", None) or getattr(position, "position_id", str(id(position)))
+                try:
+                    from scrooge_v3.management.green_exit import _xlog
+                    _xlog(kind=getattr(_gx, "kind", "?"), tranche=getattr(_gx, "tranche", None),
+                          trade_id=str(_gpid), symbol=getattr(position, "symbol", "?"),
+                          reason=str(getattr(_gx, "reason", ""))[:120])
+                except Exception:
+                    pass
                 return ManagementAction(position_id=_gpid, action="green_exit", details={"gx": _gx})
 
         pos_id = getattr(position, "position_id", None) or getattr(position, "trade_id", str(id(position)))
@@ -257,6 +264,11 @@ class PositionPipeline:
                 initial_risk_distance=risk_distance,
             )
             if be_plan:
+                try:
+                    from scrooge_v3.management.green_exit import _xlog
+                    _xlog(kind="be_move", trade_id=str(pos_id), symbol=getattr(position, 'symbol', '?'), new_stop=float(getattr(be_plan, 'new_stop', getattr(be_plan, 'stop_price', 0.0)) or 0.0))
+                except Exception:
+                    pass
                 self._emit(STOP_UPDATE_ATTEMPTED, position_id=pos_id, type="break_even")
                 return ManagementAction(
                     position_id=pos_id,

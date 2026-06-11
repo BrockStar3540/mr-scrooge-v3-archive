@@ -68,6 +68,18 @@ gate = "OPEN — sufficient labels, schedule retrain review" if len(joined) >= 2
 lines += ["", f"## retrain/promotion gate: {gate}",
           "", "_Models are corpus-trained (through 2026-05-24). Corpus refresh = Mini pipeline (scored_7yr rebuild). Live retrain only after gate opens; promotion only if new model beats serving on live labels. Never auto-applied._"]
 
+# exit autopsy on the trailing 7 days (sim-fair policy table)
+try:
+    import subprocess
+    from datetime import timedelta as _td
+    since = (datetime.now(timezone.utc) - _td(days=7)).strftime('%Y-%m-%d')
+    out = subprocess.run(["/home/ubuntu/mr_burns_env/bin/python3",
+        f"{BASE}/scripts/exit_autopsy.py", since],
+        capture_output=True, text=True, timeout=900).stdout
+    lines += ["", "## exit autopsy (trailing 7d)", "```", out.strip()[-1500:], "```"]
+except Exception as e:
+    lines += ["", f"_exit autopsy failed: {e}_"]
+
 report = "\n".join(lines)
 open("/data/obsidian-vault/wiki/systems/nightly-lab-report.md", "w").write(report + "\n")
 with open("/data/obsidian-vault/wiki/systems/agent-activity-log.md", "a") as f:

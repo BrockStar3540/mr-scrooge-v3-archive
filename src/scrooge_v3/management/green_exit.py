@@ -39,6 +39,19 @@ from scrooge_v3.core.types import TradeDirection
 log = logging.getLogger("scrooge_v3.management.green_exit")
 
 
+def _xlog(**kw):
+    """Exit-decision ledger (2026-06-11 exit audit): every management decision
+    is recorded for nightly grading, like the candidate ledger. Never raises."""
+    try:
+        import json as _j
+        from datetime import datetime as _dt, timezone as _tz
+        kw["ts"] = _dt.now(_tz.utc).isoformat(timespec="seconds")
+        with open("data/exit-decisions.jsonl", "a") as _f:
+            _f.write(_j.dumps(kw) + "\n")
+    except Exception:
+        pass
+
+
 @dataclass
 class GreenExitDecision:
     """One ladder action for position_coordinator to execute."""
@@ -197,6 +210,7 @@ class GreenExitManager:
             return float(self._xm_booster.predict(_xgb.DMatrix(df, enable_categorical=True))[0])
         except Exception as e:  # noqa: BLE001
             log.warning("[GREEN_EXIT] exit model predict failed (%s) — disabling", e)
+            _xlog(kind="exit_model_error", err=str(e)[:80])
             self._xm_failed = True
             return None
 
