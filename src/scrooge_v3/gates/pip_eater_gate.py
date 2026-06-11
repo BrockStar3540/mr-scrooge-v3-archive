@@ -403,9 +403,12 @@ class PipEaterGate(BaseGate):
             # Strategy fires ONLY inside corpus-validated (align, factor=bucket)
             # cells (train<=2024-06 AND OOS>=2025-07 both +EV with lift; see
             # data/lab_training/brock_cell_check_2026-06-11.csv). OR-of-cells.
+            # DEFAULT-DENY (2026-06-11): once any allow-lists are configured,
+            # a strategy WITHOUT a list may not trade (closes the DBB3/MTB/
+            # direct probe loophole — only sweep-validated cells trade).
             _allow = self.cell_allowlist.get(strategy)
-            if _allow:
-                _hit = any(
+            if self.cell_allowlist:
+                _hit = bool(_allow) and any(
                     int(_c[0]) == align_score and buckets.get(_c[1]) == _c[2]
                     for _c in _allow
                 )
