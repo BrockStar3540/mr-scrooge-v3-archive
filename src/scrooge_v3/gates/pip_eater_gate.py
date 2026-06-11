@@ -410,6 +410,7 @@ class PipEaterGate(BaseGate):
             if self.cell_allowlist:
                 _hit = bool(_allow) and any(
                     int(_c[0]) == align_score and buckets.get(_c[1]) == _c[2]
+                    and (len(_c) < 4 or _c[3] == direction)
                     for _c in _allow
                 )
                 if not _hit:

@@ -353,679 +353,986 @@
       "htf_misalign_block": true,
       "htf_misalign_floor": 1,
       "cell_allowlist": {
-        "alpha_extended_fade_v2": [
-          [
-            4,
-            "E50",
-            "E50d"
-          ],
-          [
-            4,
-            "ADR",
-            "ADR5"
-          ],
-          [
-            3,
-            "BB",
-            "BB1"
-          ],
-          [
-            3,
-            "H60",
-            "H60b"
-          ],
-          [
-            2,
-            "BB",
-            "BB1"
-          ],
-          [
-            2,
-            "ADR",
-            "ADR4"
-          ],
-          [
-            3,
-            "E20",
-            "E20d"
-          ],
-          [
-            3,
-            "BBP",
-            "BBP3"
-          ],
-          [
-            2,
-            "ZS",
-            "ZS3"
-          ],
-          [
-            3,
-            "E50",
-            "E50b"
-          ],
-          [
-            3,
-            "T4",
-            "T4c"
-          ],
-          [
-            3,
-            "ZS",
-            "ZS3"
-          ],
-          [
-            3,
-            "E20",
-            "E20b"
-          ],
-          [
-            3,
-            "E50",
-            "E50d"
-          ],
-          [
-            2,
-            "BBP",
-            "BBP3"
-          ],
-          [
-            4,
-            "RSI",
-            "RSI1"
-          ],
-          [
-            3,
-            "ADR",
-            "ADR4"
-          ],
-          [
-            3,
-            "A5",
-            "A5_0"
-          ],
-          [
-            3,
-            "ADR",
-            "ADR5"
-          ],
-          [
-            4,
-            "A1",
-            "A1_0"
-          ],
-          [
-            4,
-            "ADR",
-            "ADR4"
-          ],
-          [
-            3,
-            "A1",
-            "A1_0"
-          ],
-          [
-            4,
-            "BBP",
-            "BBP1"
-          ],
-          [
-            4,
-            "ZS",
-            "ZS1"
-          ],
-          [
-            2,
-            "RSI",
-            "RSI2"
-          ],
-          [
-            2,
-            "RSI",
-            "RSI5"
-          ],
-          [
-            3,
-            "H20",
-            "H20b"
-          ],
-          [
-            4,
-            "E50",
-            "E50b"
-          ],
-          [
-            3,
-            "RSI",
-            "RSI5"
-          ]
-        ],
-        "TF2_pullback_EMA20_short": [
-          [
-            1,
-            "E20",
-            "E20b"
-          ],
-          [
-            2,
-            "E20",
-            "E20b"
-          ],
-          [
-            2,
-            "RSI",
-            "RSI4"
-          ],
-          [
-            4,
-            "E20",
-            "E20b"
-          ],
-          [
-            1,
-            "RSI",
-            "RSI4"
-          ],
-          [
-            3,
-            "E20",
-            "E20b"
-          ],
-          [
-            3,
-            "RSI",
-            "RSI4"
-          ],
-          [
-            3,
-            "ADR",
-            "ADR1"
-          ],
-          [
-            3,
-            "T4",
-            "T4c"
-          ],
-          [
-            3,
-            "H60",
-            "H60b"
-          ],
-          [
-            4,
-            "RSI",
-            "RSI4"
-          ],
-          [
-            1,
-            "E50",
-            "E50e"
-          ]
-        ],
         "BR2_vcb_short": [
           [
             2,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             3,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ],
           [
             4,
             "RSI",
-            "RSI1"
+            "RSI1",
+            "short"
           ]
         ],
         "BR3_inside_bar_short": [
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ]
         ],
         "CP1_coil_breakout_short": [
           [
             3,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             2,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             3,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ],
           [
             4,
             "E20",
-            "E20c"
+            "E20c",
+            "short"
           ],
           [
             4,
             "E50",
-            "E50c"
+            "E50c",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ],
           [
             3,
             "RSI",
-            "RSI1"
+            "RSI1",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ]
         ],
         "CP2_squeeze_momentum_long": [
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
           ],
           [
             3,
             "H60",
-            "H60d"
+            "H60d",
+            "long"
           ],
           [
             3,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
           ]
         ],
         "CP3_vol_coil_fade_long": [
           [
             3,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ],
           [
             4,
             "E50",
-            "E50d"
+            "E50d",
+            "short"
           ],
           [
             3,
             "H60",
-            "H60e"
+            "H60e",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ],
           [
             3,
             "A1",
-            "A1_1"
+            "A1_1",
+            "short"
           ],
           [
             3,
             "RSI",
-            "RSI1"
+            "RSI1",
+            "short"
           ]
         ],
         "CP3_vol_coil_fade_short": [
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
           ]
         ],
         "MR2_bb_reversion_short": [
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
           ],
           [
             3,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
           ],
           [
             3,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
           ],
           [
             4,
             "RSI",
-            "RSI6"
+            "RSI6",
+            "long"
           ]
         ],
         "MR4_zscore_extreme_long": [
           [
             3,
             "RSI",
-            "RSI1"
+            "RSI1",
+            "short"
           ],
           [
             3,
             "A1",
-            "A1_1"
+            "A1_1",
+            "short"
           ],
           [
             4,
             "BB",
-            "BB3"
+            "BB3",
+            "short"
           ],
           [
             4,
             "A5",
-            "A5_1"
+            "A5_1",
+            "short"
           ]
         ],
         "MR4_zscore_extreme_short": [
           [
             4,
             "BBP",
-            "BBP4"
+            "BBP4",
+            "long"
           ],
           [
             4,
             "A5",
-            "A5_1"
+            "A5_1",
+            "long"
           ]
         ],
         "MR5_williams_extreme_short": [
           [
             4,
             "A5",
-            "A5_1"
+            "A5_1",
+            "long"
           ],
           [
             3,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
           ]
         ],
         "RG1_range_bound_scalp_long": [
           [
             3,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "short"
           ],
           [
             3,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "short"
           ],
           [
             4,
             "E20",
-            "E20d"
+            "E20d",
+            "short"
           ],
           [
             4,
             "E50",
-            "E50d"
+            "E50d",
+            "short"
           ],
           [
             3,
             "E20",
-            "E20d"
+            "E20d",
+            "short"
           ],
           [
             4,
             "A1",
-            "A1_0"
+            "A1_0",
+            "short"
           ],
           [
             4,
             "A5",
-            "A5_2"
+            "A5_2",
+            "short"
           ]
         ],
         "RG1_range_bound_scalp_short": [
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
           ],
           [
             3,
             "T4",
-            "T4c"
+            "T4c",
+            "long"
           ],
           [
             4,
             "A5",
-            "A5_2"
+            "A5_2",
+            "long"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
           ],
           [
             3,
             "A5",
-            "A5_0"
+            "A5_0",
+            "long"
           ],
           [
             3,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
           ],
           [
             4,
             "BB",
-            "BB3"
+            "BB3",
+            "long"
           ],
           [
             4,
             "E20",
-            "E20b"
+            "E20b",
+            "long"
           ],
           [
             3,
             "E20",
-            "E20b"
+            "E20b",
+            "long"
           ],
           [
             3,
             "BB",
-            "BB1"
+            "BB1",
+            "long"
+          ]
+        ],
+        "TF2_pullback_EMA20_short": [
+          [
+            1,
+            "E20",
+            "E20b",
+            "long"
+          ],
+          [
+            2,
+            "E20",
+            "E20b",
+            "long"
+          ],
+          [
+            2,
+            "RSI",
+            "RSI4",
+            "long"
+          ],
+          [
+            4,
+            "E20",
+            "E20b",
+            "long"
+          ],
+          [
+            1,
+            "RSI",
+            "RSI4",
+            "long"
+          ],
+          [
+            3,
+            "E20",
+            "E20b",
+            "long"
+          ],
+          [
+            3,
+            "RSI",
+            "RSI4",
+            "long"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR1",
+            "long"
+          ],
+          [
+            3,
+            "T4",
+            "T4c",
+            "long"
+          ],
+          [
+            3,
+            "H60",
+            "H60b",
+            "long"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI4",
+            "long"
+          ],
+          [
+            1,
+            "E50",
+            "E50e",
+            "long"
           ]
         ],
         "alpha_breakout_retest_v2": [
           [
             4,
             "E20",
-            "E20b"
+            "E20b",
+            "long"
+          ],
+          [
+            4,
+            "E20",
+            "E20b",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR4"
+            "ADR4",
+            "long"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4",
+            "short"
           ],
           [
             4,
             "BB",
-            "BB1"
+            "BB1",
+            "long"
+          ],
+          [
+            4,
+            "BB",
+            "BB1",
+            "short"
+          ]
+        ],
+        "alpha_extended_fade_v2": [
+          [
+            4,
+            "E50",
+            "E50d",
+            "short"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5",
+            "long"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5",
+            "short"
+          ],
+          [
+            3,
+            "BB",
+            "BB1",
+            "long"
+          ],
+          [
+            3,
+            "BB",
+            "BB1",
+            "short"
+          ],
+          [
+            3,
+            "H60",
+            "H60b",
+            "long"
+          ],
+          [
+            3,
+            "H60",
+            "H60b",
+            "short"
+          ],
+          [
+            2,
+            "BB",
+            "BB1",
+            "long"
+          ],
+          [
+            2,
+            "BB",
+            "BB1",
+            "short"
+          ],
+          [
+            2,
+            "ADR",
+            "ADR4",
+            "long"
+          ],
+          [
+            2,
+            "ADR",
+            "ADR4",
+            "short"
+          ],
+          [
+            3,
+            "E20",
+            "E20d",
+            "short"
+          ],
+          [
+            3,
+            "BBP",
+            "BBP3",
+            "long"
+          ],
+          [
+            3,
+            "BBP",
+            "BBP3",
+            "short"
+          ],
+          [
+            2,
+            "ZS",
+            "ZS3",
+            "long"
+          ],
+          [
+            2,
+            "ZS",
+            "ZS3",
+            "short"
+          ],
+          [
+            3,
+            "E50",
+            "E50b",
+            "long"
+          ],
+          [
+            3,
+            "T4",
+            "T4c",
+            "long"
+          ],
+          [
+            3,
+            "T4",
+            "T4c",
+            "short"
+          ],
+          [
+            3,
+            "ZS",
+            "ZS3",
+            "long"
+          ],
+          [
+            3,
+            "ZS",
+            "ZS3",
+            "short"
+          ],
+          [
+            3,
+            "E20",
+            "E20b",
+            "long"
+          ],
+          [
+            3,
+            "E50",
+            "E50d",
+            "short"
+          ],
+          [
+            2,
+            "BBP",
+            "BBP3",
+            "long"
+          ],
+          [
+            2,
+            "BBP",
+            "BBP3",
+            "short"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI1",
+            "short"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4",
+            "long"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4",
+            "short"
+          ],
+          [
+            3,
+            "A5",
+            "A5_0",
+            "long"
+          ],
+          [
+            3,
+            "A5",
+            "A5_0",
+            "short"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR5",
+            "long"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR5",
+            "short"
+          ],
+          [
+            4,
+            "A1",
+            "A1_0",
+            "long"
+          ],
+          [
+            4,
+            "A1",
+            "A1_0",
+            "short"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4",
+            "long"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4",
+            "short"
+          ],
+          [
+            3,
+            "A1",
+            "A1_0",
+            "long"
+          ],
+          [
+            3,
+            "A1",
+            "A1_0",
+            "short"
+          ],
+          [
+            4,
+            "BBP",
+            "BBP1",
+            "short"
+          ],
+          [
+            4,
+            "ZS",
+            "ZS1",
+            "short"
+          ],
+          [
+            2,
+            "RSI",
+            "RSI2",
+            "short"
+          ],
+          [
+            2,
+            "RSI",
+            "RSI5",
+            "long"
+          ],
+          [
+            3,
+            "H20",
+            "H20b",
+            "long"
+          ],
+          [
+            3,
+            "H20",
+            "H20b",
+            "short"
+          ],
+          [
+            4,
+            "E50",
+            "E50b",
+            "long"
+          ],
+          [
+            3,
+            "RSI",
+            "RSI5",
+            "long"
           ]
         ],
         "alpha_pullback_v2": [
           [
             4,
             "A1",
-            "A1_1"
+            "A1_1",
+            "long"
+          ],
+          [
+            4,
+            "A1",
+            "A1_1",
+            "short"
           ],
           [
             4,
             "E50",
-            "E50d"
+            "E50d",
+            "short"
           ],
           [
             4,
             "ADR",
-            "ADR3"
+            "ADR3",
+            "long"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR3",
+            "short"
           ]
         ],
         "bravo_expansion_continuation": [
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5",
+            "short"
           ],
           [
             3,
             "RSI",
-            "RSI1"
+            "RSI1",
+            "short"
           ],
           [
             4,
             "RSI",
-            "RSI1"
+            "RSI1",
+            "short"
           ],
           [
             3,
             "RSI",
-            "RSI6"
+            "RSI6",
+            "long"
           ],
           [
             4,
             "RSI",
-            "RSI2"
+            "RSI2",
+            "short"
           ],
           [
             4,
             "E20",
-            "E20e"
+            "E20e",
+            "short"
           ],
           [
             3,
             "H60",
-            "H60c"
+            "H60c",
+            "long"
+          ],
+          [
+            3,
+            "H60",
+            "H60c",
+            "short"
           ],
           [
             4,
             "A5",
-            "A5_2"
+            "A5_2",
+            "long"
+          ],
+          [
+            4,
+            "A5",
+            "A5_2",
+            "short"
           ]
         ],
         "bravo_failed_momentum": [
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5",
+            "short"
           ],
           [
             3,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR5",
+            "short"
           ],
           [
             4,
             "RSI",
-            "RSI5"
+            "RSI5",
+            "long"
           ],
           [
             4,
             "RSI",
-            "RSI1"
+            "RSI1",
+            "short"
           ]
         ],
         "delta_tag_and_go_v2": [
           [
             4,
             "A5",
-            "A5_0"
+            "A5_0",
+            "long"
+          ],
+          [
+            4,
+            "A5",
+            "A5_0",
+            "short"
           ],
           [
             4,
             "BBP",
-            "BBP6"
+            "BBP6",
+            "short"
           ],
           [
             4,
             "E20",
-            "E20e"
+            "E20e",
+            "short"
           ],
           [
             4,
             "E50",
-            "E50e"
+            "E50e",
+            "short"
           ],
           [
             4,
             "RSI",
-            "RSI2"
+            "RSI2",
+            "short"
           ],
           [
             4,
             "RSI",
-            "RSI5"
+            "RSI5",
+            "long"
           ],
           [
             4,
             "BBP",
-            "BBP4"
+            "BBP4",
+            "short"
           ]
         ],
         "echo_box_fade_v2": [
           [
             4,
             "ADR",
-            "ADR5"
+            "ADR5",
+            "long"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5",
+            "short"
           ],
           [
             4,
             "RSI",
-            "RSI2"
+            "RSI2",
+            "short"
           ],
           [
             4,
             "BBP",
-            "BBP5"
+            "BBP5",
+            "long"
+          ],
+          [
+            4,
+            "BBP",
+            "BBP5",
+            "short"
           ]
         ]
       }
