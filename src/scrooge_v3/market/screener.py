@@ -65,10 +65,12 @@ SESSION_WINDOWS = [
 ]
 
 CANDIDATE_PAIRS = [
-    # 2026-06-03 align_min=4 dial-in: kept the 4 strongest align=4 pairs
-    # (net/trade EUR_USD +1.42, GBP_USD +1.26, AUD_USD +0.97, USD_CAD +0.77).
-    # Chopped EUR_JPY (laggard +0.52p, sub-50% WR even fully aligned).
+    # Core 4 (2026-06-03 dial-in), validated pooled — legacy 4-tuple cells.
     "AUD_USD", "EUR_USD", "GBP_USD", "USD_CAD",
+    # 2026-06-11 re-add: 8yr per-pair direction-keyed cells, OOS bar + measured-
+    # spread haircut (pair-scoped 5-tuples; data/lab_training/
+    # cell_book_6pair_candidate_sides_2026-06-11.csv). NZD_USD/EUR_GBP benched.
+    "USD_JPY", "USD_CHF", "AUD_JPY", "EUR_JPY",
 ]
 
 

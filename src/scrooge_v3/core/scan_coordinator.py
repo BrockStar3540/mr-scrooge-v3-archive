@@ -129,8 +129,16 @@ class ScanCoordinator:
                          _c.symbol, _c.strategy, _pw)
                 _c.score = float(_pw)  # rank downstream by p_win
                 _scored.append(_c)
-            # Re-rank survivors by p_win descending
-            _scored.sort(key=lambda c: c.score, reverse=True)
+            # Re-rank survivors by (cell_hits, p_win) descending — a candidate
+            # with more validated cell-sides vouching for it outranks a
+            # single-hit one; p_win breaks ties (Brock 2026-06-11).
+            _scored.sort(
+                key=lambda c: (
+                    int((getattr(c, "metadata", None) or {}).get("cell_hits", 0) or 0),
+                    c.score,
+                ),
+                reverse=True,
+            )
             candidates = _scored
         except Exception:
             log.exception("[LIGHTGBM] live gate failed — falling back to score ranking")

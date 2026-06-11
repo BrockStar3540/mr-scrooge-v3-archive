@@ -152,6 +152,13 @@ class PipEaterGate(BaseGate):
         _bl = self.config.get("pair_blocklist", {}) or {}
         self.pair_blocklist = {str(k): set(v or []) for k, v in _bl.items()}
         self.cell_allowlist = dict(self.config.get("cell_allowlist") or {})
+        # Cells may carry a 5th element = pair (pair-scoped, 2026-06-11 6-pair
+        # expansion). Legacy 4-tuples were validated POOLED on these pairs only
+        # and must not leak onto newly enabled pairs.
+        self.allowlist_default_pairs = set(
+            self.config.get("cell_allowlist_default_pairs")
+            or ["AUD_USD", "EUR_USD", "GBP_USD", "USD_CAD"]
+        )
         # Brock 2026-06-07: per-pair align floor + ADR amplifier gate (8yr book).
         self.align_floor_by_pair = {
             str(k): int(v) for k, v in (self.config.get("align_floor_by_pair", {}) or {}).items()
@@ -408,12 +415,20 @@ class PipEaterGate(BaseGate):
             # direct probe loophole — only sweep-validated cells trade).
             _allow = self.cell_allowlist.get(strategy)
             if self.cell_allowlist:
-                _hit = bool(_allow) and any(
-                    int(_c[0]) == align_score and buckets.get(_c[1]) == _c[2]
+                # count of matching cell-sides: >=2 = multi-factor confirmation
+                # (OOS +4.01p vs +2.21p single-hit) -> slot-priority signal.
+                _hits = sum(
+                    1 for _c in (_allow or [])
+                    if int(_c[0]) == align_score and buckets.get(_c[1]) == _c[2]
                     and (len(_c) < 4 or _c[3] == direction)
-                    for _c in _allow
+                    and (_c[4] == pair if len(_c) > 4
+                         else pair in self.allowlist_default_pairs)
                 )
-                if not _hit:
+                try:
+                    candidate.metadata["cell_hits"] = _hits
+                except Exception:
+                    pass
+                if not _hits:
                     return GateResult(
                         gate_name=self.name, passed=False, mode=self.mode,
                         reason=(f"CELL-ALLOWLIST: {strategy} align={align_score} "

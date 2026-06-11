@@ -154,6 +154,7 @@ class GatePipeline:
                 "entry": getattr(candidate, "entry_price", None),
                 "stop": getattr(candidate, "stop_price", None),
                 "align": meta.get("align_score"),
+                "cell_hits": meta.get("cell_hits"),
                 "buckets": {k: sig.get(k) for k in ("BB","BBP","A5","A1","RSI","E20","E50","ZS","SPR","ADR","H20","H60","T1","T4")} if sig else None,
                 "session": sig.get("session") if sig else None,
                 "p_win": round(pw, 4) if isinstance(pw, float) else None,
