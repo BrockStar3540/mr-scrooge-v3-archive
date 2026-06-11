@@ -1,6 +1,0 @@
-# Generated full ledgers are too large for git; regenerate with scripts.
-daily_trade_ledger_with_regime53_bartrue.csv
-daily_trade_ledger_with_regime53_bartrue.parquet
-daily_textbook_trade_ledger_with_regime53_bartrue.csv
-daily_textbook_trade_ledger_with_regime53_bartrue.parquet
-__pycache__/

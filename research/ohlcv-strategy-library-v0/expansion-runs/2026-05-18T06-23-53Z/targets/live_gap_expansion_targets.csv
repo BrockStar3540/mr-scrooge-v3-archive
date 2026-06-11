@@ -1,5 +1,0 @@
-ts,symbol,regime53,session_bucket,direction,candidate_family,live_block_reason,shadow_reason
-2026-05-18T05:51:59.117592+00:00,AUD_NZD,C02,asia_late,short,dbb_trend,no_routing_match_for_strategy_tier_gated,no_routing_match_for_strategy_tier_gated
-2026-05-18T05:59:59.866765+00:00,CHF_JPY,C02,asia_late,short,direct,no_routing_match_for_strategy_tier_gated,no_routing_match_for_strategy_tier_gated
-2026-05-18T06:22:46.317784+00:00,GBP_JPY,C02,london_open,short,direct,no_routing_match_for_strategy_tier_gated,no_routing_match_for_strategy_tier_gated
-2026-05-18T06:22:46.376329+00:00,CHF_JPY,C02,london_open,short,direct,no_routing_match_for_strategy_tier_gated,no_routing_match_for_strategy_tier_gated

@@ -1,3 +1,0 @@
-regime53,pair,direction,session_bucket,hour_utc,family,live_count,top_block_reason
-C02,EUR_CAD,short,ny_close,17,direct,19,no_routing_match_for_strategy_tier_gated
-C02,USD_CHF,long,ny_close,17,direct,19,shave_rule_violated: ADX14 <= 23.7788 (got 25.96)

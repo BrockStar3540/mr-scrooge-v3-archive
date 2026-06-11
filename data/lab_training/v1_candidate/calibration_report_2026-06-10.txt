@@ -1,0 +1,77 @@
+rows=1612711  setups=839666  rows/setup mean=1.92 (2.0 = both directions simulated)
+overall ladder WR=47.4%  avg net_ladder=+0.17p
+
+train n=1307481 (2019-07-01..2024-06-30)
+calib n=173290  test n=131940 (2025-07-01..2026-05-24)
+
+retrained: AUC calib=0.6159  AUC test=0.6156
+
+--- calibration deciles: RETRAINED raw (OOS test) ---
+  pred~0.226  n=  13194  actualWR= 30.5%  avg= -3.50p
+  pred~0.385  n=  13194  actualWR= 38.8%  avg= -1.78p
+  pred~0.423  n=  13194  actualWR= 43.2%  avg= -0.91p
+  pred~0.452  n=  13195  actualWR= 46.9%  avg= -0.16p
+  pred~0.476  n=  13193  actualWR= 48.0%  avg= +0.01p
+  pred~0.499  n=  13195  actualWR= 51.2%  avg= +0.73p
+  pred~0.524  n=  13193  actualWR= 52.7%  avg= +1.06p
+  pred~0.552  n=  13194  actualWR= 56.0%  avg= +1.85p
+  pred~0.591  n=  13194  actualWR= 60.1%  avg= +2.88p
+  pred~0.742  n=  13194  actualWR= 67.6%  avg= +4.88p
+
+--- calibration deciles: RETRAINED + isotonic (OOS test) ---
+  pred~0.260  n=  15240  actualWR= 31.3%  avg= -3.34p
+  pred~0.392  n=  16714  actualWR= 40.1%  avg= -1.52p
+  pred~0.435  n=   9844  actualWR= 44.7%  avg= -0.62p
+  pred~0.459  n=  12064  actualWR= 47.2%  avg= -0.10p
+  pred~0.475  n=  14890  actualWR= 47.9%  avg= -0.01p
+  pred~0.500  n=  12150  actualWR= 51.9%  avg= +0.87p
+  pred~0.536  n=  16375  actualWR= 53.9%  avg= +1.35p
+  pred~0.572  n=   9156  actualWR= 56.1%  avg= +1.88p
+  pred~0.601  n=  15339  actualWR= 61.2%  avg= +3.14p
+  pred~0.809  n=  10168  actualWR= 68.5%  avg= +5.15p
+
+--- p_win floor sweep: RETRAINED raw (OOS test, 327d) ---
+  floor       n kept%   WR%   avg_p   tot_pips tr/day
+   0.00  131940 100.0  49.5   +0.51     +66663  403.5
+   0.40  108410  82.2  52.9   +1.22    +132383  331.5
+   0.45   86622  65.7  55.2   +1.73    +149937  264.9
+   0.50   58963  44.7  58.3   +2.47    +145650  180.3
+   0.55   33475  25.4  62.3   +3.48    +116508  102.4
+   0.60   16402  12.4  66.5   +4.57     +75033   50.2
+   0.65    6984   5.3  69.7   +5.52     +38552   21.4
+
+--- p_win floor sweep: RETRAINED + isotonic (OOS test, 327d) ---
+  floor       n kept%   WR%   avg_p   tot_pips tr/day
+   0.00  131940 100.0  49.5   +0.51     +66663  403.5
+   0.40  107587  81.5  53.0   +1.24    +133397  329.0
+   0.45   94191  71.4  54.5   +1.57    +147920  288.0
+   0.50   61072  46.3  58.1   +2.42    +148040  186.8
+   0.55   41684  31.6  60.9   +3.11    +129644  127.5
+   0.60   19774  15.0  65.7   +4.35     +86031   60.5
+   0.65    8564   6.5  69.0   +5.30     +45375   26.2
+
+LIVE v0 model: AUC test=0.6742 (meta holdout_auc=0.6654)
+
+--- calibration deciles: LIVE v0 (OOS test) ---
+  pred~0.246  n=  13196  actualWR= 22.8%  avg= -5.13p
+  pred~0.379  n=  13194  actualWR= 32.5%  avg= -3.16p
+  pred~0.420  n=  13195  actualWR= 39.3%  avg= -1.72p
+  pred~0.451  n=  13192  actualWR= 43.6%  avg= -0.81p
+  pred~0.477  n=  13196  actualWR= 47.8%  avg= -0.05p
+  pred~0.502  n=  13197  actualWR= 51.1%  avg= +0.66p
+  pred~0.528  n=  13188  actualWR= 55.5%  avg= +1.64p
+  pred~0.557  n=  13194  actualWR= 61.1%  avg= +2.92p
+  pred~0.597  n=  13197  actualWR= 65.5%  avg= +4.00p
+  pred~0.743  n=  13191  actualWR= 75.9%  avg= +6.70p
+
+--- p_win floor sweep: LIVE v0 (OOS test, 327d) ---
+  floor       n kept%   WR%   avg_p   tot_pips tr/day
+   0.00  131940 100.0  49.5   +0.51     +66663  403.5
+   0.40  106686  80.9  54.8   +1.63    +173835  326.3
+   0.45   86378  65.5  58.3   +2.38    +205943  264.2
+   0.50   60248  45.7  62.9   +3.44    +207510  184.2
+   0.55   35585  27.0  68.5   +4.80    +170713  108.8
+   0.60   18453  14.0  73.5   +6.06    +111839   56.4
+   0.65    8097   6.1  78.3   +7.38     +59782   24.8
+
+saved candidate -> data/lab_training/v1_candidate/ (NOT wired)

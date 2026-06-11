@@ -1,0 +1,255 @@
+strategy,align,factor,bucket,direction,n_te,ev_te,status
+BR2_vcb_short,2,ADR,ADR5,long,0,,DROP(unverified n<30)
+BR2_vcb_short,2,ADR,ADR5,short,158,4.74,KEEP
+BR2_vcb_short,4,ADR,ADR5,long,0,,DROP(unverified n<30)
+BR2_vcb_short,4,ADR,ADR5,short,227,3.33,KEEP
+BR2_vcb_short,3,ADR,ADR5,long,0,,DROP(unverified n<30)
+BR2_vcb_short,3,ADR,ADR5,short,188,2.3,KEEP
+BR2_vcb_short,4,ADR,ADR4,long,0,,DROP(unverified n<30)
+BR2_vcb_short,4,ADR,ADR4,short,428,3.05,KEEP
+BR2_vcb_short,4,RSI,RSI1,long,0,,DROP(unverified n<30)
+BR2_vcb_short,4,RSI,RSI1,short,353,2.83,KEEP
+BR3_inside_bar_short,4,ADR,ADR5,long,0,,DROP(unverified n<30)
+BR3_inside_bar_short,4,ADR,ADR5,short,129,5.3,KEEP
+BR3_inside_bar_short,4,ADR,ADR4,long,6,9.53,DROP(unverified n<30)
+BR3_inside_bar_short,4,ADR,ADR4,short,215,3.21,KEEP
+CP1_coil_breakout_short,3,ADR,ADR5,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,3,ADR,ADR5,short,249,3.49,KEEP
+CP1_coil_breakout_short,2,ADR,ADR5,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,2,ADR,ADR5,short,180,2.81,KEEP
+CP1_coil_breakout_short,3,ADR,ADR4,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,3,ADR,ADR4,short,590,2.99,KEEP
+CP1_coil_breakout_short,4,E20,E20c,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,4,E20,E20c,short,159,3.03,KEEP
+CP1_coil_breakout_short,4,E50,E50c,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,4,E50,E50c,short,138,2.99,KEEP
+CP1_coil_breakout_short,4,ADR,ADR4,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,4,ADR,ADR4,short,496,2.94,KEEP
+CP1_coil_breakout_short,3,RSI,RSI1,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,3,RSI,RSI1,short,419,1.67,KEEP
+CP1_coil_breakout_short,4,ADR,ADR5,long,0,,DROP(unverified n<30)
+CP1_coil_breakout_short,4,ADR,ADR5,short,292,2.38,KEEP
+CP2_squeeze_momentum_long,4,ADR,ADR5,long,134,5.32,KEEP
+CP2_squeeze_momentum_long,4,ADR,ADR5,short,0,,DROP(unverified n<30)
+CP2_squeeze_momentum_long,3,H60,H60d,long,134,2.23,KEEP
+CP2_squeeze_momentum_long,3,H60,H60d,short,0,,DROP(unverified n<30)
+CP2_squeeze_momentum_long,3,ADR,ADR4,long,404,2.0,KEEP
+CP2_squeeze_momentum_long,3,ADR,ADR4,short,0,,DROP(unverified n<30)
+CP2_squeeze_momentum_long,4,ADR,ADR4,long,372,2.67,KEEP
+CP2_squeeze_momentum_long,4,ADR,ADR4,short,0,,DROP(unverified n<30)
+CP3_vol_coil_fade_long,3,ADR,ADR4,long,9,2.67,DROP(unverified n<30)
+CP3_vol_coil_fade_long,3,ADR,ADR4,short,155,3.64,KEEP
+CP3_vol_coil_fade_long,4,E50,E50d,long,0,,DROP(unverified n<30)
+CP3_vol_coil_fade_long,4,E50,E50d,short,138,4.35,KEEP
+CP3_vol_coil_fade_long,3,H60,H60e,long,0,,DROP(unverified n<30)
+CP3_vol_coil_fade_long,3,H60,H60e,short,182,2.72,KEEP
+CP3_vol_coil_fade_long,4,ADR,ADR4,long,0,,DROP(unverified n<30)
+CP3_vol_coil_fade_long,4,ADR,ADR4,short,128,3.36,KEEP
+CP3_vol_coil_fade_long,3,A1,A1_1,long,19,-2.0,DROP(unverified n<30)
+CP3_vol_coil_fade_long,3,A1,A1_1,short,168,2.56,KEEP
+CP3_vol_coil_fade_long,3,RSI,RSI1,long,9,1.61,DROP(unverified n<30)
+CP3_vol_coil_fade_long,3,RSI,RSI1,short,192,1.85,KEEP
+CP3_vol_coil_fade_short,4,ADR,ADR4,long,165,4.6,KEEP
+CP3_vol_coil_fade_short,4,ADR,ADR4,short,0,,DROP(unverified n<30)
+MR2_bb_reversion_short,4,ADR,ADR5,long,122,5.46,KEEP
+MR2_bb_reversion_short,4,ADR,ADR5,short,0,,DROP(unverified n<30)
+MR2_bb_reversion_short,3,ADR,ADR5,long,139,3.49,KEEP
+MR2_bb_reversion_short,3,ADR,ADR5,short,0,,DROP(unverified n<30)
+MR2_bb_reversion_short,4,ADR,ADR4,long,312,3.54,KEEP
+MR2_bb_reversion_short,4,ADR,ADR4,short,0,,DROP(unverified n<30)
+MR2_bb_reversion_short,3,ADR,ADR4,long,313,1.74,KEEP
+MR2_bb_reversion_short,3,ADR,ADR4,short,0,,DROP(unverified n<30)
+MR2_bb_reversion_short,4,RSI,RSI6,long,355,2.84,KEEP
+MR2_bb_reversion_short,4,RSI,RSI6,short,0,,DROP(unverified n<30)
+MR4_zscore_extreme_long,3,RSI,RSI1,long,16,2.47,DROP(unverified n<30)
+MR4_zscore_extreme_long,3,RSI,RSI1,short,89,2.58,KEEP
+MR4_zscore_extreme_long,3,A1,A1_1,long,17,4.84,DROP(unverified n<30)
+MR4_zscore_extreme_long,3,A1,A1_1,short,88,2.04,KEEP
+MR4_zscore_extreme_long,4,BB,BB3,long,0,,DROP(unverified n<30)
+MR4_zscore_extreme_long,4,BB,BB3,short,118,3.61,KEEP
+MR4_zscore_extreme_long,4,A5,A5_1,long,0,,DROP(unverified n<30)
+MR4_zscore_extreme_long,4,A5,A5_1,short,121,3.45,KEEP
+MR4_zscore_extreme_short,4,BBP,BBP4,long,177,3.99,KEEP
+MR4_zscore_extreme_short,4,BBP,BBP4,short,0,,DROP(unverified n<30)
+MR4_zscore_extreme_short,4,A5,A5_1,long,190,3.66,KEEP
+MR4_zscore_extreme_short,4,A5,A5_1,short,0,,DROP(unverified n<30)
+MR5_williams_extreme_short,4,A5,A5_1,long,104,4.26,KEEP
+MR5_williams_extreme_short,4,A5,A5_1,short,0,,DROP(unverified n<30)
+MR5_williams_extreme_short,3,ADR,ADR5,long,100,6.18,KEEP
+MR5_williams_extreme_short,3,ADR,ADR5,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,3,ADR,ADR5,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,3,ADR,ADR5,short,108,4.21,KEEP
+RG1_range_bound_scalp_long,4,ADR,ADR5,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,4,ADR,ADR5,short,144,4.94,KEEP
+RG1_range_bound_scalp_long,3,ADR,ADR4,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,3,ADR,ADR4,short,279,3.38,KEEP
+RG1_range_bound_scalp_long,4,ADR,ADR4,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,4,ADR,ADR4,short,272,4.38,KEEP
+RG1_range_bound_scalp_long,4,E20,E20d,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,4,E20,E20d,short,143,4.18,KEEP
+RG1_range_bound_scalp_long,4,E50,E50d,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,4,E50,E50d,short,345,4.11,KEEP
+RG1_range_bound_scalp_long,3,E20,E20d,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,3,E20,E20d,short,235,2.45,KEEP
+RG1_range_bound_scalp_long,4,A1,A1_0,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,4,A1,A1_0,short,367,3.48,KEEP
+RG1_range_bound_scalp_long,4,A5,A5_2,long,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_long,4,A5,A5_2,short,181,3.39,KEEP
+RG1_range_bound_scalp_short,4,ADR,ADR5,long,106,6.33,KEEP
+RG1_range_bound_scalp_short,4,ADR,ADR5,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,3,T4,T4c,long,141,3.81,KEEP
+RG1_range_bound_scalp_short,3,T4,T4c,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,4,A5,A5_2,long,143,4.75,KEEP
+RG1_range_bound_scalp_short,4,A5,A5_2,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,4,ADR,ADR4,long,269,3.78,KEEP
+RG1_range_bound_scalp_short,4,ADR,ADR4,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,3,A5,A5_0,long,108,2.24,KEEP
+RG1_range_bound_scalp_short,3,A5,A5_0,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,3,ADR,ADR4,long,257,1.99,KEEP
+RG1_range_bound_scalp_short,3,ADR,ADR4,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,4,BB,BB3,long,544,3.37,KEEP
+RG1_range_bound_scalp_short,4,BB,BB3,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,4,E20,E20b,long,306,3.31,KEEP
+RG1_range_bound_scalp_short,4,E20,E20b,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,3,E20,E20b,long,296,1.72,KEEP
+RG1_range_bound_scalp_short,3,E20,E20b,short,0,,DROP(unverified n<30)
+RG1_range_bound_scalp_short,3,BB,BB1,long,245,1.71,KEEP
+RG1_range_bound_scalp_short,3,BB,BB1,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,1,E20,E20b,long,102,5.44,KEEP
+TF2_pullback_EMA20_short,1,E20,E20b,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,2,E20,E20b,long,217,5.44,KEEP
+TF2_pullback_EMA20_short,2,E20,E20b,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,2,RSI,RSI4,long,540,5.23,KEEP
+TF2_pullback_EMA20_short,2,RSI,RSI4,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,4,E20,E20b,long,101,5.91,KEEP
+TF2_pullback_EMA20_short,4,E20,E20b,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,1,RSI,RSI4,long,281,4.62,KEEP
+TF2_pullback_EMA20_short,1,RSI,RSI4,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,3,E20,E20b,long,186,3.79,KEEP
+TF2_pullback_EMA20_short,3,E20,E20b,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,3,RSI,RSI4,long,583,3.58,KEEP
+TF2_pullback_EMA20_short,3,RSI,RSI4,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,3,ADR,ADR1,long,165,2.91,KEEP
+TF2_pullback_EMA20_short,3,ADR,ADR1,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,3,T4,T4c,long,313,2.84,KEEP
+TF2_pullback_EMA20_short,3,T4,T4c,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,3,H60,H60b,long,221,2.82,KEEP
+TF2_pullback_EMA20_short,3,H60,H60b,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,4,RSI,RSI4,long,377,3.68,KEEP
+TF2_pullback_EMA20_short,4,RSI,RSI4,short,0,,DROP(unverified n<30)
+TF2_pullback_EMA20_short,1,E50,E50e,long,238,2.43,KEEP
+TF2_pullback_EMA20_short,1,E50,E50e,short,0,,DROP(unverified n<30)
+alpha_breakout_retest_v2,4,E20,E20b,long,72,6.88,KEEP
+alpha_breakout_retest_v2,4,E20,E20b,short,36,0.15,KEEP
+alpha_breakout_retest_v2,4,ADR,ADR4,long,52,7.09,KEEP
+alpha_breakout_retest_v2,4,ADR,ADR4,short,52,1.78,KEEP
+alpha_breakout_retest_v2,4,BB,BB1,long,101,4.19,KEEP
+alpha_breakout_retest_v2,4,BB,BB1,short,41,4.58,KEEP
+alpha_extended_fade_v2,4,E50,E50d,long,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,4,E50,E50d,short,275,6.55,KEEP
+alpha_extended_fade_v2,4,ADR,ADR5,long,173,6.01,KEEP
+alpha_extended_fade_v2,4,ADR,ADR5,short,214,5.98,KEEP
+alpha_extended_fade_v2,3,BB,BB1,long,193,4.87,KEEP
+alpha_extended_fade_v2,3,BB,BB1,short,182,4.76,KEEP
+alpha_extended_fade_v2,3,H60,H60b,long,84,4.29,KEEP
+alpha_extended_fade_v2,3,H60,H60b,short,38,4.88,KEEP
+alpha_extended_fade_v2,2,BB,BB1,long,86,5.07,KEEP
+alpha_extended_fade_v2,2,BB,BB1,short,167,4.26,KEEP
+alpha_extended_fade_v2,2,ADR,ADR4,long,177,4.7,KEEP
+alpha_extended_fade_v2,2,ADR,ADR4,short,239,4.2,KEEP
+alpha_extended_fade_v2,3,E20,E20d,long,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,3,E20,E20d,short,160,4.2,KEEP
+alpha_extended_fade_v2,3,BBP,BBP3,long,184,3.97,KEEP
+alpha_extended_fade_v2,3,BBP,BBP3,short,214,4.13,KEEP
+alpha_extended_fade_v2,2,ZS,ZS3,long,169,4.14,KEEP
+alpha_extended_fade_v2,2,ZS,ZS3,short,218,3.76,KEEP
+alpha_extended_fade_v2,3,E50,E50b,long,501,3.8,KEEP
+alpha_extended_fade_v2,3,E50,E50b,short,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,3,T4,T4c,long,100,4.18,KEEP
+alpha_extended_fade_v2,3,T4,T4c,short,47,3.0,KEEP
+alpha_extended_fade_v2,3,ZS,ZS3,long,279,3.54,KEEP
+alpha_extended_fade_v2,3,ZS,ZS3,short,310,3.91,KEEP
+alpha_extended_fade_v2,3,E20,E20b,long,174,3.69,KEEP
+alpha_extended_fade_v2,3,E20,E20b,short,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,3,E50,E50d,long,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,3,E50,E50d,short,470,3.69,KEEP
+alpha_extended_fade_v2,2,BBP,BBP3,long,106,4.86,KEEP
+alpha_extended_fade_v2,2,BBP,BBP3,short,158,2.66,KEEP
+alpha_extended_fade_v2,4,RSI,RSI1,long,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,4,RSI,RSI1,short,413,3.88,KEEP
+alpha_extended_fade_v2,3,ADR,ADR4,long,288,3.81,KEEP
+alpha_extended_fade_v2,3,ADR,ADR4,short,348,3.03,KEEP
+alpha_extended_fade_v2,3,A5,A5_0,long,77,2.92,KEEP
+alpha_extended_fade_v2,3,A5,A5_0,short,75,3.73,KEEP
+alpha_extended_fade_v2,3,ADR,ADR5,long,174,2.0,KEEP
+alpha_extended_fade_v2,3,ADR,ADR5,short,181,4.61,KEEP
+alpha_extended_fade_v2,4,A1,A1_0,long,774,2.95,KEEP
+alpha_extended_fade_v2,4,A1,A1_0,short,392,5.35,KEEP
+alpha_extended_fade_v2,4,ADR,ADR4,long,356,3.53,KEEP
+alpha_extended_fade_v2,4,ADR,ADR4,short,344,3.87,KEEP
+alpha_extended_fade_v2,3,A1,A1_0,long,561,3.23,KEEP
+alpha_extended_fade_v2,3,A1,A1_0,short,548,3.18,KEEP
+alpha_extended_fade_v2,4,BBP,BBP1,long,6,-1.73,DROP(unverified n<30)
+alpha_extended_fade_v2,4,BBP,BBP1,short,108,3.99,KEEP
+alpha_extended_fade_v2,4,ZS,ZS1,long,8,0.95,DROP(unverified n<30)
+alpha_extended_fade_v2,4,ZS,ZS1,short,133,3.8,KEEP
+alpha_extended_fade_v2,2,RSI,RSI2,long,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,2,RSI,RSI2,short,536,3.16,KEEP
+alpha_extended_fade_v2,2,RSI,RSI5,long,335,3.14,KEEP
+alpha_extended_fade_v2,2,RSI,RSI5,short,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,3,H20,H20b,long,89,1.8,KEEP
+alpha_extended_fade_v2,3,H20,H20b,short,205,3.55,KEEP
+alpha_extended_fade_v2,4,E50,E50b,long,583,3.5,KEEP
+alpha_extended_fade_v2,4,E50,E50b,short,0,,DROP(unverified n<30)
+alpha_extended_fade_v2,3,RSI,RSI5,long,486,3.0,KEEP
+alpha_extended_fade_v2,3,RSI,RSI5,short,0,,DROP(unverified n<30)
+alpha_pullback_v2,4,A1,A1_1,long,91,4.18,KEEP
+alpha_pullback_v2,4,A1,A1_1,short,90,5.3,KEEP
+alpha_pullback_v2,4,E50,E50d,long,9,0.94,DROP(unverified n<30)
+alpha_pullback_v2,4,E50,E50d,short,105,4.89,KEEP
+alpha_pullback_v2,4,ADR,ADR3,long,79,1.64,KEEP
+alpha_pullback_v2,4,ADR,ADR3,short,49,6.32,KEEP
+bravo_expansion_continuation,4,ADR,ADR5,long,57,5.27,KEEP
+bravo_expansion_continuation,4,ADR,ADR5,short,100,4.8,KEEP
+bravo_expansion_continuation,3,RSI,RSI1,long,8,-7.62,DROP(unverified n<30)
+bravo_expansion_continuation,3,RSI,RSI1,short,92,4.85,KEEP
+bravo_expansion_continuation,4,RSI,RSI1,long,0,,DROP(unverified n<30)
+bravo_expansion_continuation,4,RSI,RSI1,short,123,3.72,KEEP
+bravo_expansion_continuation,3,RSI,RSI6,long,101,3.55,KEEP
+bravo_expansion_continuation,3,RSI,RSI6,short,18,-5.25,DROP(unverified n<30)
+bravo_expansion_continuation,4,RSI,RSI2,long,1,-10.0,DROP(unverified n<30)
+bravo_expansion_continuation,4,RSI,RSI2,short,241,2.52,KEEP
+bravo_expansion_continuation,4,E20,E20e,long,2,9.0,DROP(unverified n<30)
+bravo_expansion_continuation,4,E20,E20e,short,384,2.29,KEEP
+bravo_expansion_continuation,3,H60,H60c,long,55,3.18,KEEP
+bravo_expansion_continuation,3,H60,H60c,short,88,1.17,KEEP
+bravo_expansion_continuation,4,A5,A5_2,long,120,0.78,KEEP
+bravo_expansion_continuation,4,A5,A5_2,short,190,2.7,KEEP
+bravo_failed_momentum,4,ADR,ADR5,long,31,7.18,KEEP
+bravo_failed_momentum,4,ADR,ADR5,short,71,1.87,KEEP
+bravo_failed_momentum,3,ADR,ADR5,long,87,0.17,KEEP
+bravo_failed_momentum,3,ADR,ADR5,short,103,3.07,KEEP
+bravo_failed_momentum,4,RSI,RSI5,long,252,2.52,KEEP
+bravo_failed_momentum,4,RSI,RSI5,short,0,,DROP(unverified n<30)
+bravo_failed_momentum,4,RSI,RSI1,long,0,,DROP(unverified n<30)
+bravo_failed_momentum,4,RSI,RSI1,short,108,2.3,KEEP
+delta_tag_and_go_v2,4,A5,A5_0,long,85,2.61,KEEP
+delta_tag_and_go_v2,4,A5,A5_0,short,38,3.77,KEEP
+delta_tag_and_go_v2,4,BBP,BBP6,long,0,,DROP(unverified n<30)
+delta_tag_and_go_v2,4,BBP,BBP6,short,109,2.52,KEEP
+delta_tag_and_go_v2,4,E20,E20e,long,0,,DROP(unverified n<30)
+delta_tag_and_go_v2,4,E20,E20e,short,174,2.26,KEEP
+delta_tag_and_go_v2,4,E50,E50e,long,0,,DROP(unverified n<30)
+delta_tag_and_go_v2,4,E50,E50e,short,153,2.19,KEEP
+delta_tag_and_go_v2,4,RSI,RSI2,long,0,,DROP(unverified n<30)
+delta_tag_and_go_v2,4,RSI,RSI2,short,120,2.12,KEEP
+delta_tag_and_go_v2,4,RSI,RSI5,long,202,1.98,KEEP
+delta_tag_and_go_v2,4,RSI,RSI5,short,0,,DROP(unverified n<30)
+delta_tag_and_go_v2,4,BBP,BBP4,long,0,,DROP(unverified n<30)
+delta_tag_and_go_v2,4,BBP,BBP4,short,194,1.97,KEEP
+echo_box_fade_v2,4,ADR,ADR5,long,38,3.54,KEEP
+echo_box_fade_v2,4,ADR,ADR5,short,71,3.84,KEEP
+echo_box_fade_v2,4,RSI,RSI2,long,0,,DROP(unverified n<30)
+echo_box_fade_v2,4,RSI,RSI2,short,168,3.41,KEEP
+echo_box_fade_v2,4,BBP,BBP5,long,77,2.13,KEEP
+echo_box_fade_v2,4,BBP,BBP5,short,75,3.77,KEEP

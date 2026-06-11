@@ -1,3 +1,0 @@
-technical_regime_53,seed_count,winner_seed_count,near_pure_count,false_friend_count,reject_count,distinct_pairs,distinct_strategies,distinct_root_strategies,long_count,short_count,mean_wr,mean_lift_vs_seed
-C02,3908.0,541.0,704.0,1180.0,1483.0,23.0,7.0,7.0,2303.0,1605.0,0.565,-0.2535
-C01,1145.0,138.0,110.0,413.0,484.0,11.0,4.0,4.0,832.0,313.0,0.5203,-0.3152

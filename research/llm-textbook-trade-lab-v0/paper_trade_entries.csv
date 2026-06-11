@@ -1,2 +1,0 @@
-trade_id,pair,decision_time,entry_time,direction,entry_price,stop_price,target_price,risk_pips,target_R,exit_time,exit_price,realized_R,technique,status
-TT-001,EUR_USD,2022-07-18T06:15:00Z,2022-07-18T06:20:00Z,long,1.00840,1.00788,1.00944,5.2,2.0,2022-07-18T06:40:00Z,1.00944,2.0,london_q1_asia_low_reclaim_long,won_2R

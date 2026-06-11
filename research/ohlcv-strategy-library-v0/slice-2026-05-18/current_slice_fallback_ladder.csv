@@ -1,5 +1,0 @@
-pair,direction,tier,candidate,source,session,n,wr,shadow_pass,reason
-USD_CHF,long,alt_family,alpha_pullback_v2,v9_observe_seed,ny_close,10,1.0,0,v9_observe Seed in regime+pair
-USD_CHF,short,alt_family,alpha_extended_fade_v2,v9_observe_seed,ny_close,16,0.875,0,v9_observe Seed in regime+pair
-EUR_CAD,long,alt_family,charlie_compression_breakout,v9_observe_seed,ny_close,13,0.923,0,v9_observe Seed in regime+pair
-EUR_CAD,short,alt_family,TF6_ma_ribbon_short,v9_observe_seed,ny_close,21,0.857,0,v9_observe Seed in regime+pair

@@ -1,5 +1,0 @@
-strategy_id,pair,direction,technical_regime_53,technical_regime_desc,n,wins,mean_R,losses,win_rate,cell_n,cell_wins,cell_win_rate,wr_lift,regime_share
-TF3_supertrend_long,AUD_JPY,long,B04,breakout_up_weak,38,21,0.2602,17,0.5526,6539,1568,0.2398,2.3044,0.0058
-TF6_ma_ribbon_long,GBP_CHF,long,C01,tight_coil_low_adx,45,23,0.3698,22,0.5111,867,222,0.2561,1.9957,0.0519
-TF2_pullback_EMA20_long,USD_JPY,long,B04,breakout_up_weak,30,15,0.2233,15,0.5,40906,4280,0.1046,4.7801,0.0007
-TF3_supertrend_short,USD_MXN,short,B08,breakout_dn_weak,34,17,0.266,17,0.5,7706,1492,0.1936,2.5826,0.0044

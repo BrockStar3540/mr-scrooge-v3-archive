@@ -1,0 +1,98 @@
+strategy,align,factor,bucket,n_tr,n_te,ev_te,base_te,lift_te,verdict
+alpha_extended_fade_v2,4,SPR,SPR1,14941,2129,2.97,2.97,0.0,REDUNDANT
+alpha_extended_fade_v2,4,T1,T1a,14941,2129,2.97,2.97,0.0,REDUNDANT
+alpha_extended_fade_v2,4,T4,T4a,14941,2129,2.97,2.97,0.0,REDUNDANT
+alpha_extended_fade_v2,4,H20,H20a,13986,1919,3.16,2.97,0.18,REDUNDANT
+alpha_extended_fade_v2,4,H60,H60a,14026,1841,2.83,2.97,-0.14,REDUNDANT
+alpha_extended_fade_v2,3,T1,T1a,11472,1962,2.5,2.49,0.01,REDUNDANT
+alpha_extended_fade_v2,3,SPR,SPR1,11815,1964,2.49,2.49,0.0,REDUNDANT
+alpha_extended_fade_v2,4,BB,BB3,11449,1461,2.98,2.97,0.01,OK(no lift)
+alpha_extended_fade_v2,3,T4,T4a,10229,1817,2.38,2.49,-0.11,REDUNDANT
+alpha_extended_fade_v2,4,A1,A1_1,8552,948,2.15,2.97,-0.82,OK(no lift)
+alpha_extended_fade_v2,4,A5,A5_1,6462,1290,3.39,2.97,0.41,VALIDATED+
+alpha_extended_fade_v2,2,T1,T1a,9390,1264,2.52,2.55,-0.02,REDUNDANT
+alpha_extended_fade_v2,3,BB,BB3,9036,1344,1.78,2.49,-0.71,OK(no lift)
+alpha_breakout_retest_v2,4,SPR,SPR1,17039,552,3.74,3.74,0.0,REDUNDANT
+alpha_breakout_retest_v2,4,T1,T1a,17039,552,3.74,3.74,0.0,REDUNDANT
+alpha_breakout_retest_v2,4,T4,T4a,17039,552,3.74,3.74,0.0,REDUNDANT
+alpha_pullback_v2,3,T1,T1a,16259,808,3.68,1.27,2.41,WEAK
+alpha_extended_fade_v2,4,ZS,ZS3,4951,553,3.43,2.97,0.46,VALIDATED+
+alpha_extended_fade_v2,4,ADR,ADR4,5061,700,3.7,2.97,0.73,VALIDATED+
+bravo_expansion_continuation,4,SPR,SPR1,19182,1247,1.37,1.37,0.0,REDUNDANT
+bravo_expansion_continuation,4,T1,T1a,19182,1247,1.37,1.37,0.0,REDUNDANT
+bravo_expansion_continuation,4,T4,T4a,19182,1247,1.37,1.37,0.0,REDUNDANT
+alpha_extended_fade_v2,4,E20,E20a,6647,975,2.27,2.97,-0.7,OK(no lift)
+alpha_extended_fade_v2,4,E20,E20e,7230,839,3.28,2.97,0.31,VALIDATED+
+alpha_breakout_retest_v2,4,H60,H60a,16004,482,4.09,3.74,0.35,REDUNDANT
+alpha_extended_fade_v2,2,SPR,SPR1,10822,1271,2.55,2.55,0.0,REDUNDANT
+alpha_pullback_v2,4,SPR,SPR1,14787,406,2.85,2.85,0.0,REDUNDANT
+alpha_pullback_v2,4,T1,T1a,14787,406,2.85,2.85,0.0,REDUNDANT
+alpha_pullback_v2,4,T4,T4a,14787,406,2.85,2.85,0.0,REDUNDANT
+alpha_breakout_retest_v2,4,H20,H20a,15927,483,3.87,3.74,0.14,REDUNDANT
+bravo_expansion_continuation,4,H60,H60a,18064,1054,1.46,1.37,0.09,REDUNDANT
+bravo_expansion_continuation,4,H20,H20a,17901,1098,1.43,1.37,0.06,REDUNDANT
+alpha_pullback_v2,4,H20,H20a,13872,344,3.12,2.85,0.27,REDUNDANT
+alpha_pullback_v2,4,H60,H60a,13891,338,3.21,2.85,0.36,REDUNDANT
+alpha_extended_fade_v2,4,A1,A1_0,4622,1166,3.76,2.97,0.79,VALIDATED+
+alpha_extended_fade_v2,3,H20,H20a,6714,1010,2.71,2.49,0.23,OK(no lift)
+alpha_extended_fade_v2,2,H60,H60e,7388,926,2.86,2.55,0.32,VALIDATED+
+alpha_breakout_retest_v2,3,SPR,SPR1,30420,2359,1.26,1.26,0.0,REDUNDANT
+alpha_pullback_v2,2,T1,T1a,16300,888,2.08,0.26,1.83,WEAK
+TF2_pullback_EMA20_short,3,RSI,RSI4,3968,583,3.58,1.06,2.53,VALIDATED+
+delta_tag_and_go_v2,4,SPR,SPR1,14742,992,1.36,1.36,0.0,REDUNDANT
+delta_tag_and_go_v2,4,T1,T1a,14742,992,1.36,1.36,0.0,REDUNDANT
+delta_tag_and_go_v2,4,T4,T4a,14742,992,1.36,1.36,0.0,REDUNDANT
+alpha_extended_fade_v2,3,A5,A5_1,5168,1084,2.75,2.49,0.26,OK(no lift)
+alpha_pullback_v2,3,SPR,SPR1,28624,1808,1.27,1.27,0.0,REDUNDANT
+alpha_breakout_retest_v2,3,T1,T1a,17437,936,3.04,1.26,1.78,WEAK
+alpha_extended_fade_v2,2,T4,T4a,7810,1005,2.7,2.55,0.16,OK(no lift)
+bravo_expansion_continuation,3,T1,T1a,18397,1781,1.79,1.07,0.72,WEAK
+echo_box_fade_v2,4,SPR,SPR1,13705,1135,2.13,2.13,0.0,REDUNDANT
+echo_box_fade_v2,4,T1,T1a,13705,1135,2.13,2.13,0.0,REDUNDANT
+echo_box_fade_v2,4,T4,T4a,13705,1135,2.13,2.13,0.0,REDUNDANT
+alpha_extended_fade_v2,3,A1,A1_0,4136,1109,3.2,2.49,0.72,VALIDATED+
+alpha_extended_fade_v2,3,A1,A1_1,6590,821,1.73,2.49,-0.75,OK(no lift)
+delta_tag_and_go_v2,4,H60,H60a,13720,843,1.26,1.36,-0.1,REDUNDANT
+delta_tag_and_go_v2,4,H20,H20a,13678,877,1.22,1.36,-0.14,REDUNDANT
+bravo_expansion_continuation,3,SPR,SPR1,28256,2577,1.07,1.07,0.0,REDUNDANT
+alpha_extended_fade_v2,4,BBP,BBP4,4746,779,2.95,2.97,-0.02,OK(no lift)
+echo_box_fade_v2,4,H20,H20a,12744,997,2.23,2.13,0.1,REDUNDANT
+bravo_failed_momentum,4,SPR,SPR1,17819,1157,1.49,1.49,0.0,REDUNDANT
+bravo_failed_momentum,4,T1,T1a,17819,1157,1.49,1.49,0.0,REDUNDANT
+bravo_failed_momentum,4,T4,T4a,17819,1157,1.49,1.49,0.0,REDUNDANT
+TF2_pullback_EMA20_short,2,RSI,RSI4,4303,540,5.23,0.94,4.29,VALIDATED+
+echo_box_fade_v2,4,H60,H60a,12795,952,2.08,2.13,-0.05,REDUNDANT
+alpha_extended_fade_v2,3,E20,E20e,5229,869,2.3,2.49,-0.18,OK(no lift)
+alpha_extended_fade_v2,4,ADR,ADR5,3338,387,6.0,2.97,3.02,VALIDATED+
+alpha_pullback_v2,4,BB,BB3,10300,257,3.03,2.85,0.18,OK(no lift)
+bravo_expansion_continuation,4,BB,BB3,13270,778,1.51,1.37,0.14,WEAK
+bravo_failed_momentum,4,H20,H20a,16603,1009,1.58,1.49,0.09,REDUNDANT
+alpha_extended_fade_v2,3,H60,H60a,5346,687,1.82,2.49,-0.67,OK(no lift)
+alpha_extended_fade_v2,3,E20,E20a,5569,761,2.06,2.49,-0.43,OK(no lift)
+alpha_extended_fade_v2,3,ADR,ADR4,4087,636,3.39,2.49,0.9,VALIDATED+
+alpha_extended_fade_v2,4,E50,E50a,5405,608,1.41,2.97,-1.56,OK(no lift)
+alpha_extended_fade_v2,2,H20,H20e,6388,759,2.31,2.55,-0.24,OK(no lift)
+alpha_extended_fade_v2,3,ZS,ZS3,3851,589,3.74,2.49,1.25,VALIDATED+
+alpha_extended_fade_v2,4,A5,A5_2,4213,543,2.58,2.97,-0.39,OK(no lift)
+alpha_extended_fade_v2,4,BBP,BBP3,3053,315,3.13,2.97,0.15,OK(no lift)
+alpha_breakout_retest_v2,4,BB,BB3,11621,296,3.94,3.74,0.2,WEAK
+bravo_failed_momentum,4,H60,H60a,16631,983,1.61,1.49,0.12,REDUNDANT
+alpha_breakout_retest_v2,2,T1,T1a,17123,1104,2.41,0.85,1.56,WEAK
+bravo_expansion_continuation,4,A1,A1_1,10536,626,1.55,1.37,0.18,OK(no lift)
+alpha_extended_fade_v2,4,E50,E50e,5689,652,2.39,2.97,-0.58,OK(no lift)
+alpha_extended_fade_v2,2,BB,BB3,8396,867,2.14,2.55,-0.41,OK(no lift)
+TF2_pullback_EMA20_short,3,SPR,SPR1,15619,1749,1.06,1.06,0.0,REDUNDANT
+alpha_extended_fade_v2,3,H60,H60e,4657,614,2.58,2.49,0.1,OK(no lift)
+TF2_pullback_EMA20_short,1,SPR,SPR1,19438,2337,0.9,0.9,0.0,REDUNDANT
+alpha_extended_fade_v2,4,BBP,BBP2,4897,667,2.8,2.97,-0.18,OK(no lift)
+TF2_pullback_EMA20_short,1,T4,T4c,13813,1747,1.17,0.9,0.27,WEAK
+TF2_pullback_EMA20_short,2,SPR,SPR1,20680,2527,0.94,0.94,0.0,REDUNDANT
+alpha_extended_fade_v2,4,RSI,RSI5,3484,614,2.22,2.97,-0.76,OK(no lift)
+alpha_breakout_retest_v2,3,H20,H20a,22468,1847,1.24,1.26,-0.02,WEAK
+RG1_range_bound_scalp_short,4,SPR,SPR1,5360,966,2.66,2.66,0.0,REDUNDANT
+RG1_range_bound_scalp_short,4,T1,T1a,5360,966,2.66,2.66,0.0,REDUNDANT
+RG1_range_bound_scalp_short,4,T4,T4a,5360,966,2.66,2.66,0.0,REDUNDANT
+alpha_pullback_v2,4,A1,A1_1,7565,181,4.74,2.85,1.89,VALIDATED+
+alpha_breakout_retest_v2,3,A1,A1_0,10817,1176,1.52,1.26,0.26,WEAK
+delta_tag_and_go_v2,3,SPR,SPR1,22552,1983,1.34,1.34,0.0,REDUNDANT
+RG1_range_bound_scalp_short,4,H20,H20a,5049,875,2.85,2.66,0.19,REDUNDANT

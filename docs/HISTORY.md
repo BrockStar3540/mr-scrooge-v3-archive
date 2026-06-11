@@ -1,0 +1,44 @@
+# THE STORY OF MR. SCROOGE — V3
+*The bot's history from day 1. Maintained as source material for the eventual video series.*
+*(Updated 2026-06-11, commit ~23d066c era. Earlier acts reconstructed from git log, dev logs, the vault activity log, and the strategy book.)*
+
+---
+
+## Prehistory
+Before Scrooge there were other machines in Brock's shop — browser bots, agents, scrapers. Scrooge was different from the first commit: a real trading platform with a written theory, built to learn. The name was a promise: a machine that counts every pip.
+
+## Act I — Genesis (April 14–22, 2026)
+On April 14 the repo opens with *"Initial scaffold — V3 plug-in trading platform"* and, the same day, **MASTER_THEORY.md** — boxes, zones, lifecycle, the source truth the code had to honor. The architecture was plug-in from birth: strategies, gates, management as swappable modules; a two-tier developer log; OANDA practice account as the proving ground. Forty-six commits on April 15 alone. The bot traded zones and double-bollinger-bands, and it bled politely while its creators learned what the market thought of theory.
+
+## Act II — The Gauntlet Grows (late April – May 12)
+Losses became gates: cooldowns, debounce, zone caps, spread checks, risk/reward floors — each one a scar with a name. The lesson of this act: a strategy is cheap; the *refusal machinery* around it is the product. By early May the bot had a personality: cautious, over-ruled, and still net red — because the rules were guesses, not yet evidence.
+
+## Act III — The Factory Era (May 13–31)
+The most manic stretch in the log — 41 commits on May 13 alone. Instead of hand-tuning strategies, Brock built **factories that manufactured them**: routing tables v1→v10 (fifteen variants), the moving-regime seed factory, raw-M5 winner factories, microstrategy factories, microbot fingerprints, regime-53 atlases, the daily textbook trade encyclopedia. Thousands of candidate edges were mined, scored, and — mostly — killed. The microbots died with an honest autopsy: *"the winner-factory's bins describe corpus probe-fired moments, not raw-chart conditions."* The era's live decision system — the **pip_meal / matrix_meal cells**, keyed on regime-id and session — traded real (practice) money. Much of this era was later found to carry survivorship bias, and on May 28 the first great archive sweep buried most of it. But the era's *method* — generate, score, cull — became the bot's DNA. So did **Brock's Bot Strategy Book**, the human source of truth the machine would keep being measured against.
+
+## Act IV — The Canonical Turn (June 1–8)
+The reckoning with rigor. Per-pair modules replaced one-size-fits-all. The replay lab on the Mini rebuilt everything on an **8-year, 1.6-million-trade canonical corpus** (`scored_7yr.parquet`) scored under the live exit ladder. On June 7 the first **playbook** shipped; on June 8 the canonical migration retired the meal-cell era and produced the famous **Session Findings**: the edge is EV not win-rate; *the strategy name doesn't matter — state does* (SHAP gave `strategy_id` zero weight); alignment drives win rate, volatility drives magnitude; the gate had been **double-charging spread** and hiding half the edge. Two independent models (XGBoost, LightGBM) agreed r=0.96. The formula was written: **E[net] = WR(align) × M(vol) − spread, take when ≥ +1.25**.
+
+## Act V — The Great Forensics (June 9–10)
+Brock asked a simple question — *"are the entries inverted?"* — and the answer rewrote the bot. The investigation found that **the live H20/H60 factors had been frozen/mis-scaled for months**: the model was pricing every trade off broken alignment inputs while the offline corpus was always correct. The same week's digging found the **direction-pooling bug** — raw amplifier factors (RSI inverts meaning by direction) had been averaged across long/short, cancelling ±3–7 pips of signal. Both fixed June 9; the playbook regenerated **direction-keyed**; SL widened −10→−12 on a 150k-trade sweep; the exit brain's feature skew repaired.
+
+Then came **June 10: CPI day**. The old config's sins came due all at once: −10.8% in a session, four stop-outs in one second at 12:30 UTC, twin positions doubling losses, a circuit breaker that tripped and was ignored because its gate was disabled. The audit that night was the franchise moment — every loser traced to a named cause, and every cause got a wall: the **news blackout calendar** (CPI/NFP/FOMC/PPI), the **dup guard**, the **p_win floor** (0.45, corpus-calibrated the same night: honest walk-forward AUC 0.616, perfectly monotonic), and the family-strategy cut. The blackout gate passed its first live test the very next day — 592 blocks, exactly 12:00–12:44 around PPI.
+
+## Act VI — The Receipts Machine (night of June 10–11)
+In one overnight push the bot gained a memory of its own roads-not-taken: the **candidate ledger** (every evaluated candidate, taken or refused, with full factor vectors — ~10,000 records in the first day), the **forward labeler** (every refusal graded against reality within 24h), and the **nightly lab** (drift reports, calibration checks, a retrain gate that opens itself at 2,000 live labels). The lab ran its first challengers the same night: the quantile prospector *lost* to the gate stack (+18.9k OOS pips would have been forfeited — the gates were vindicated), the **P(stop) severity head** won its audition (+896p OOS), and **miner v3** bred the first generation of winner/loser cells with lineage. A University of Warsaw paper was read and folded in — its conclusions independently matched the architecture; its only-sell asymmetry rhymed with the bot's own direction findings.
+
+## Act VII — The Cell Book (June 11)
+The day the strategy roster stopped being a roster. First the **AEF-only experiment** — alpha_extended_fade_v2, the only flat-profile, leakage-free performer (+2.46…+2.99p *every year* for 8 years), traded the book solo while twenty benched strategies fed the ledger as a zero-risk shadow book. Its CPI-day record was the poster: 64 candidates fired, 63 blocked by the misalign gate, zero trades, zero losses — a 47-year-old textbook entry (Wilder RSI + pin bar, the Connors fade lineage) wearing a 2026 brain.
+
+Then the full sweep: **~9,000 strategy×align×factor×bucket combinations** tested train→OOS with t-stats and direction-robustness. **127 cells survived; direction-keying refined them to 157 verified cell-sides.** ADR5 × align≥2 emerged as the *golden regime* across seven strategies. The alphas — the corpus' shiniest pooled performers — were demoted to three thin cells each (their staircase profiles exposed as selection leakage), while the fade/range family revealed dozens of sharp habitats. By afternoon the bot traded the **Cell Book**: 20 strategies, each allowed to fire only inside its proven cells, default-deny for everything else, one position per pair-direction, every trade carrying complete provenance.
+
+The same day, exit intelligence got the identical treatment: **BE@6** armed (27% of losers had reached +6 before dying), depth-based loss aborts *refuted* on 7,240 paths (45% of winners dip −6 first — cutting early burns winners), the ADR-scaled runner targets (+55/+75) discovered to be already live and path-validated (TP3 75 best on 12,849 OOS paths), the 2-hour checkpoint and phase-2 salvage *vindicated* by slot economics, and **rotation-on-blocked-signal** wired — patience by default, ruthlessness only when a better trade is actually knocking. Every exit decision now logs to its own ledger and is graded nightly.
+
+## Where it stands (close of June 11, 2026)
+Equity ~$28.5k on the practice account, down ~20% from the highs — almost all of it paid as tuition by configurations whose bugs are now named, fixed, and indexed. What the money bought: a 1.6M-trade canonical corpus, a direction-keyed cell book with out-of-sample receipts on every cell, an eight-layer audited exit stack, a counterfactual ledger most retail operations will never have, and a nightly self-grading loop. The honest position, stated the night the cell book shipped: *a well-built machine wrapped around an unproven edge — and this week we finally made it possible to find out which one it really is.* The measurement era began June 11, 14:00 UTC.
+
+## Horizon — V4
+V3's lesson is architectural: the edge isn't a strategy, it's the **refinery** — corpus → cells → gates → ledger → labels → retrain, with receipts at every joint. V4 begins as a clean, fully modular implementation of that refinery: new repo, sealed module boundaries, the learning loop as a first-class citizen rather than a retrofit. The story continues there.
+
+---
+*Appendix: era artifacts are indexed in Dropbox `SCROOGE V3/archives/INDEX.md`; the runnable snapshot of the V3 endgame is `SCROOGE V3/Full Backup 1.0/`. Key vault pages: cockpit, exit-intelligence-2026-06-11, aef-only-era-2026-06-11, session-handoff-2026-06-10, nightly-lab-report.*
