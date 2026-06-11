@@ -21,7 +21,8 @@
     "max_risk_per_trade_pct": 0.01,
     "_note_5pct": "2026-06-03 Brock: 5% target risk (paper); margin may cap effective risk",
     "max_per_pair": 2,
-    "dedup_same_signal": true
+    "dedup_same_signal": true,
+    "dedup_same_state": true
   },
   "features": {
     "atr": {
@@ -296,12 +297,6 @@
         "TF2_pullback_EMA20_short"
       ],
       "pair_blocklist": {
-        "alpha_breakout_retest_v2": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
         "box_master_theory": [
           "AUD_USD",
           "EUR_USD",
@@ -344,109 +339,7 @@
           "GBP_USD",
           "USD_CAD"
         ],
-        "alpha_pullback_v2": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "echo_box_fade_v2": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
         "charlie_compression_breakout": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "bravo_failed_momentum": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "bravo_expansion_continuation": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "delta_tag_and_go_v2": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "BR2_vcb_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "CP3_vol_coil_fade_long": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "CP3_vol_coil_fade_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "MR5_williams_extreme_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "MR4_zscore_extreme_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "MR4_zscore_extreme_long": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "MR2_bb_reversion_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "RG1_range_bound_scalp_long": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "RG1_range_bound_scalp_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "BR3_inside_bar_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "CP1_coil_breakout_short": [
-          "AUD_USD",
-          "EUR_USD",
-          "GBP_USD",
-          "USD_CAD"
-        ],
-        "CP2_squeeze_momentum_long": [
           "AUD_USD",
           "EUR_USD",
           "GBP_USD",
@@ -462,9 +355,59 @@
       "cell_allowlist": {
         "alpha_extended_fade_v2": [
           [
-            2,
+            4,
+            "E50",
+            "E50d"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "BB",
+            "BB1"
+          ],
+          [
+            3,
             "H60",
-            "H60e"
+            "H60b"
+          ],
+          [
+            2,
+            "BB",
+            "BB1"
+          ],
+          [
+            2,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            3,
+            "E20",
+            "E20d"
+          ],
+          [
+            3,
+            "BBP",
+            "BBP3"
+          ],
+          [
+            2,
+            "ZS",
+            "ZS3"
+          ],
+          [
+            3,
+            "E50",
+            "E50b"
+          ],
+          [
+            3,
+            "T4",
+            "T4c"
           ],
           [
             3,
@@ -473,31 +416,36 @@
           ],
           [
             3,
+            "E20",
+            "E20b"
+          ],
+          [
+            3,
+            "E50",
+            "E50d"
+          ],
+          [
+            2,
+            "BBP",
+            "BBP3"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI1"
+          ],
+          [
+            3,
             "ADR",
             "ADR4"
-          ],
-          [
-            3,
-            "A1",
-            "A1_0"
-          ],
-          [
-            3,
-            "A1",
-            "A1_1"
           ],
           [
             3,
             "A5",
-            "A5_1"
+            "A5_0"
           ],
           [
-            4,
-            "ADR",
-            "ADR4"
-          ],
-          [
-            4,
+            3,
             "ADR",
             "ADR5"
           ],
@@ -508,35 +456,576 @@
           ],
           [
             4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            3,
             "A1",
-            "A1_1"
+            "A1_0"
+          ],
+          [
+            4,
+            "BBP",
+            "BBP1"
           ],
           [
             4,
             "ZS",
-            "ZS3"
+            "ZS1"
+          ],
+          [
+            2,
+            "RSI",
+            "RSI2"
+          ],
+          [
+            2,
+            "RSI",
+            "RSI5"
+          ],
+          [
+            3,
+            "H20",
+            "H20b"
           ],
           [
             4,
-            "A5",
-            "A5_1"
+            "E50",
+            "E50b"
           ],
           [
-            4,
-            "E20",
-            "E20e"
+            3,
+            "RSI",
+            "RSI5"
           ]
         ],
         "TF2_pullback_EMA20_short": [
+          [
+            1,
+            "E20",
+            "E20b"
+          ],
+          [
+            2,
+            "E20",
+            "E20b"
+          ],
           [
             2,
             "RSI",
             "RSI4"
           ],
           [
+            4,
+            "E20",
+            "E20b"
+          ],
+          [
+            1,
+            "RSI",
+            "RSI4"
+          ],
+          [
+            3,
+            "E20",
+            "E20b"
+          ],
+          [
             3,
             "RSI",
             "RSI4"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR1"
+          ],
+          [
+            3,
+            "T4",
+            "T4c"
+          ],
+          [
+            3,
+            "H60",
+            "H60b"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI4"
+          ],
+          [
+            1,
+            "E50",
+            "E50e"
+          ]
+        ],
+        "BR2_vcb_short": [
+          [
+            2,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI1"
+          ]
+        ],
+        "BR3_inside_bar_short": [
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ]
+        ],
+        "CP1_coil_breakout_short": [
+          [
+            3,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            2,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "E20",
+            "E20c"
+          ],
+          [
+            4,
+            "E50",
+            "E50c"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            3,
+            "RSI",
+            "RSI1"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ]
+        ],
+        "CP2_squeeze_momentum_long": [
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "H60",
+            "H60d"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ]
+        ],
+        "CP3_vol_coil_fade_long": [
+          [
+            3,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "E50",
+            "E50d"
+          ],
+          [
+            3,
+            "H60",
+            "H60e"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            3,
+            "A1",
+            "A1_1"
+          ],
+          [
+            3,
+            "RSI",
+            "RSI1"
+          ]
+        ],
+        "CP3_vol_coil_fade_short": [
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ]
+        ],
+        "MR2_bb_reversion_short": [
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI6"
+          ]
+        ],
+        "MR4_zscore_extreme_long": [
+          [
+            3,
+            "RSI",
+            "RSI1"
+          ],
+          [
+            3,
+            "A1",
+            "A1_1"
+          ],
+          [
+            4,
+            "BB",
+            "BB3"
+          ],
+          [
+            4,
+            "A5",
+            "A5_1"
+          ]
+        ],
+        "MR4_zscore_extreme_short": [
+          [
+            4,
+            "BBP",
+            "BBP4"
+          ],
+          [
+            4,
+            "A5",
+            "A5_1"
+          ]
+        ],
+        "MR5_williams_extreme_short": [
+          [
+            4,
+            "A5",
+            "A5_1"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR5"
+          ]
+        ],
+        "RG1_range_bound_scalp_long": [
+          [
+            3,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "E20",
+            "E20d"
+          ],
+          [
+            4,
+            "E50",
+            "E50d"
+          ],
+          [
+            3,
+            "E20",
+            "E20d"
+          ],
+          [
+            4,
+            "A1",
+            "A1_0"
+          ],
+          [
+            4,
+            "A5",
+            "A5_2"
+          ]
+        ],
+        "RG1_range_bound_scalp_short": [
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "T4",
+            "T4c"
+          ],
+          [
+            4,
+            "A5",
+            "A5_2"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            3,
+            "A5",
+            "A5_0"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "BB",
+            "BB3"
+          ],
+          [
+            4,
+            "E20",
+            "E20b"
+          ],
+          [
+            3,
+            "E20",
+            "E20b"
+          ],
+          [
+            3,
+            "BB",
+            "BB1"
+          ]
+        ],
+        "alpha_breakout_retest_v2": [
+          [
+            4,
+            "E20",
+            "E20b"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR4"
+          ],
+          [
+            4,
+            "BB",
+            "BB1"
+          ]
+        ],
+        "alpha_pullback_v2": [
+          [
+            4,
+            "A1",
+            "A1_1"
+          ],
+          [
+            4,
+            "E50",
+            "E50d"
+          ],
+          [
+            4,
+            "ADR",
+            "ADR3"
+          ]
+        ],
+        "bravo_expansion_continuation": [
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "RSI",
+            "RSI1"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI1"
+          ],
+          [
+            3,
+            "RSI",
+            "RSI6"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI2"
+          ],
+          [
+            4,
+            "E20",
+            "E20e"
+          ],
+          [
+            3,
+            "H60",
+            "H60c"
+          ],
+          [
+            4,
+            "A5",
+            "A5_2"
+          ]
+        ],
+        "bravo_failed_momentum": [
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            3,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI5"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI1"
+          ]
+        ],
+        "delta_tag_and_go_v2": [
+          [
+            4,
+            "A5",
+            "A5_0"
+          ],
+          [
+            4,
+            "BBP",
+            "BBP6"
+          ],
+          [
+            4,
+            "E20",
+            "E20e"
+          ],
+          [
+            4,
+            "E50",
+            "E50e"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI2"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI5"
+          ],
+          [
+            4,
+            "BBP",
+            "BBP4"
+          ]
+        ],
+        "echo_box_fade_v2": [
+          [
+            4,
+            "ADR",
+            "ADR5"
+          ],
+          [
+            4,
+            "RSI",
+            "RSI2"
+          ],
+          [
+            4,
+            "BBP",
+            "BBP5"
           ]
         ]
       }
