@@ -76,6 +76,12 @@ class OANDAAdapter:
             return None
 
     def _put(self, path: str, body: dict, timeout: int = _DEFAULT_TIMEOUT) -> dict | None:
+        # SHADOW MODE (2026-06-11): V4 is live; V3 scans/scores/ledgers but
+        # every account mutation is suppressed here — the single choke point.
+        import os as _os
+        if _os.environ.get("SCROOGE_SHADOW_MODE") == "1":
+            log.info("[SHADOW-MODE] PUT suppressed (V4 live): %s", path)
+            return None
         if self._in_recovery():
             return None
         url = f"{self.api_url}{path}"
@@ -89,6 +95,12 @@ class OANDAAdapter:
             return None
 
     def _post(self, path: str, body: dict, timeout: int = _DEFAULT_TIMEOUT) -> dict | None:
+        # SHADOW MODE (2026-06-11): V4 is live; V3 scans/scores/ledgers but
+        # every account mutation is suppressed here — the single choke point.
+        import os as _os
+        if _os.environ.get("SCROOGE_SHADOW_MODE") == "1":
+            log.info("[SHADOW-MODE] POST suppressed (V4 live): %s", path)
+            return None
         if self._in_recovery():
             return None
         url = f"{self.api_url}{path}"
