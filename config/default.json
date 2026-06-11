@@ -22,7 +22,13 @@
     "_note_5pct": "2026-06-03 Brock: 5% target risk (paper); margin may cap effective risk",
     "max_per_pair": 2,
     "dedup_same_signal": true,
-    "dedup_same_state": true
+    "dedup_same_state": true,
+    "rotation": {
+      "enabled": true,
+      "min_age_minutes": 60,
+      "max_profit_pips": 0.0,
+      "_note": "2026-06-11 rotation-on-blocked-signal: close pre-TP1 RED positions >1h old when a fresh validated signal is dedup-blocked on the slot. Hold-value table: slot_econ.py (7,240 OOS paths)."
+    }
   },
   "features": {
     "atr": {

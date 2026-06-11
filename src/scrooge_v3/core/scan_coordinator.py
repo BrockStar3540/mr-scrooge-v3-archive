@@ -217,6 +217,64 @@ class ScanCoordinator:
         for c in candidates:
             _dirv = getattr(c.direction, "value", str(c.direction))
             if (c.symbol, _dirv) in open_state_keys:
+                # ROTATION-ON-BLOCKED-SIGNAL (Brock 2026-06-11): a fresh
+                # validated signal is knocking on an occupied slot. If the
+                # sitting position is pre-TP1, >min_age old, and RED (corpus
+                # conditional hold-value below a fresh cell's EV minus swap
+                # cost -- 7,240-path OOS table, slot_econ.py), close it NOW;
+                # the slot frees and the signal re-enters next scan if still
+                # valid. Green/young/runner positions are never rotated
+                # (hold-value beats rotation in every green bucket).
+                try:
+                    _rot = (ctx.config.section("risk") or {}).get("rotation", {})
+                except Exception:
+                    _rot = {}
+                if _rot.get("enabled", True):
+                    try:
+                        from datetime import datetime as _dt, timezone as _tz
+                        _min_age = float(_rot.get("min_age_minutes", 60))
+                        _max_profit = float(_rot.get("max_profit_pips", 0.0))
+                        for pos in ctx.tracker.all_positions():
+                            if pos.symbol != c.symbol or pos.direction != _dirv:
+                                continue
+                            if getattr(pos, "tp1_taken", False):
+                                break
+                            try:
+                                _age = (_dt.now(_tz.utc) - _dt.fromisoformat(
+                                    str(pos.opened_at).replace("Z", "+00:00"))
+                                    ).total_seconds() / 60.0
+                            except Exception:
+                                break
+                            if _age < _min_age:
+                                break
+                            _snap = snapshots.get(c.symbol)
+                            if _snap is None:
+                                break
+                            _pipsz = 0.01 if "JPY" in c.symbol else 0.0001
+                            _sgn = 1 if pos.direction == "long" else -1
+                            _profit = (_snap.mid - pos.entry_price) * _sgn / _pipsz
+                            if _profit >= _max_profit:
+                                break
+                            log.warning("[SCAN] ROTATION: closing %s %s %s "
+                                        "(age %.0fm, %+.1fp, pre-TP1) — fresh "
+                                        "%s signal blocked on the slot",
+                                        pos.trade_id, pos.symbol, pos.direction,
+                                        _age, _profit, c.strategy)
+                            try:
+                                from scrooge_v3.management.green_exit import _xlog
+                                _xlog(kind="rotation_close", trade_id=str(pos.trade_id),
+                                      symbol=pos.symbol, age_min=round(_age),
+                                      profit_pips=round(_profit, 1),
+                                      blocked_strategy=c.strategy)
+                            except Exception:
+                                pass
+                            try:
+                                ctx.broker.close_trade(pos.trade_id)
+                            except Exception:
+                                log.exception("[SCAN] rotation close failed")
+                            break
+                    except Exception:
+                        log.debug("[SCAN] rotation eval failed", exc_info=True)
                 log.info("[SCAN] State dedup: %s %s blocked — position already "
                          "open on this pair+direction (any strategy)",
                          c.symbol, _dirv)
