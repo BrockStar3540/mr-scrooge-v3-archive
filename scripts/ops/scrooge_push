@@ -1,0 +1,26 @@
+#!/bin/bash
+# scrooge_push — THE deploy push for both Scrooge repos (2026-06-12).
+# EC2 is the truth. Pushes main to GitHub (token from secrets), then mirrors
+# ALL refs to the Alien Drive bare repo on the Mini (best-effort: a sleeping
+# Mini never blocks a GitHub push; the 02:45Z catch-up cron self-heals).
+# Usage: scrooge_push [repo-dir]   (default: current directory)
+set -u
+REPO="${1:-$(pwd)}"
+cd "$REPO" || { echo "scrooge_push: no such repo dir $REPO"; exit 1; }
+NAME=$(basename "$(git rev-parse --show-toplevel)")
+case "$NAME" in
+  mr-scrooge-v3|mr-scrooge-v4) ;;
+  *) echo "scrooge_push: $NAME is not a scrooge repo"; exit 1 ;;
+esac
+
+set -a; . ~/.openclaw/secrets.env; set +a
+echo "[scrooge_push] $NAME -> GitHub main"
+git push "https://x-access-token:${GITHUB_TOKEN_MASTER}@github.com/BrockStar3540/${NAME}.git" main \
+  || { echo "[scrooge_push] GITHUB PUSH FAILED — fix before anything else"; exit 1; }
+
+echo "[scrooge_push] $NAME -> Alien Drive mirror (best-effort)"
+if git push alien --mirror 2>/dev/null; then
+  echo "[scrooge_push] alien mirror OK"
+else
+  echo "[scrooge_push] WARNING: alien mirror unreachable (Mini asleep?) — 02:45Z catch-up cron will heal it"
+fi
