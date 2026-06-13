@@ -142,3 +142,8 @@ data/playbook_*_backup.csv
 data/lab_training/v0/model.txt.bak_pre8yr
 *.bak_20260609_*
 data/playbook_ev_pairaware.csv.bak*
+
+# --- auto-churn from live bot (state, not source) ---
+data/candidate-ledger.jsonl
+data/candidate-ledger-labels.jsonl
+data/lab_training/exit_autopsy_latest.json
