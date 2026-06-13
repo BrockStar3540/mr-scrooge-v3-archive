@@ -1,21 +1,27 @@
 #!/bin/bash
-# scrooge_push — THE deploy push for both Scrooge repos (2026-06-12).
-# EC2 is the truth. Pushes main to GitHub (token from secrets), then mirrors
-# ALL refs to the Alien Drive bare repo on the Mini (best-effort: a sleeping
-# Mini never blocks a GitHub push; the 02:45Z catch-up cron self-heals).
+# scrooge_push — THE deploy push for both Scrooge repos (updated 2026-06-13).
+# EC2 is the truth. Pushes main to GitHub using the fine-grained PER-REPO PAT
+# (GITHUB_TOKEN_SCROOGE_V3 / GITHUB_TOKEN_SCROOGE_V4), then mirrors ALL refs
+# to the Alien Drive bare repo on the Mini (best-effort: a sleeping Mini
+# never blocks a GitHub push; the 02:45Z catch-up cron self-heals).
+# Falls back to GITHUB_TOKEN_MASTER if the per-repo PAT isn't set.
 # Usage: scrooge_push [repo-dir]   (default: current directory)
 set -u
 REPO="${1:-$(pwd)}"
 cd "$REPO" || { echo "scrooge_push: no such repo dir $REPO"; exit 1; }
 NAME=$(basename "$(git rev-parse --show-toplevel)")
-case "$NAME" in
-  mr-scrooge-v3|mr-scrooge-v4) ;;
-  *) echo "scrooge_push: $NAME is not a scrooge repo"; exit 1 ;;
-esac
 
 set -a; . ~/.openclaw/secrets.env; set +a
-echo "[scrooge_push] $NAME -> GitHub main"
-git push "https://x-access-token:${GITHUB_TOKEN_MASTER}@github.com/BrockStar3540/${NAME}.git" main \
+
+case "$NAME" in
+  mr-scrooge-v3) TOKEN="${GITHUB_TOKEN_SCROOGE_V3:-$GITHUB_TOKEN_MASTER}" ; TOK_NAME="${GITHUB_TOKEN_SCROOGE_V3:+SCROOGE_V3}" ;;
+  mr-scrooge-v4) TOKEN="${GITHUB_TOKEN_SCROOGE_V4:-$GITHUB_TOKEN_MASTER}" ; TOK_NAME="${GITHUB_TOKEN_SCROOGE_V4:+SCROOGE_V4}" ;;
+  *) echo "scrooge_push: $NAME is not a scrooge repo"; exit 1 ;;
+esac
+TOK_NAME="${TOK_NAME:-MASTER (fallback)}"
+
+echo "[scrooge_push] $NAME -> GitHub main (token: $TOK_NAME)"
+git push "https://x-access-token:${TOKEN}@github.com/BrockStar3540/${NAME}.git" main \
   || { echo "[scrooge_push] GITHUB PUSH FAILED — fix before anything else"; exit 1; }
 
 echo "[scrooge_push] $NAME -> Alien Drive mirror (best-effort)"
